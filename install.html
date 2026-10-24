@@ -63,9 +63,14 @@
   <div class="card" id="ios">
     <h2>아이폰 <span class="tag" id="tagI" hidden>내 휴대폰</span></h2>
     <div class="sub">아이폰은 설치형 앱 대신 웹앱으로 써요. 기능은 같아요(측정 중엔 화면을 끄지 말고 주머니에 넣어요).</div>
+    <div class="card me" id="kakao" hidden style="margin:12px 0 0">
+      <b>지금 카톡 안에서 열려 있어요.</b>
+      <div class="sub">카톡 안의 화면에서는 "홈 화면에 추가"가 안 돼요. 아래 버튼을 누르거나, 화면 구석의 메뉴(⋯ 또는 공유 아이콘)에서 <b>"Safari로 열기"</b>를 눌러 주세요.</div>
+      <a class="btn" id="openSafari" href="#">Safari로 열기</a>
+    </div>
     <a class="btn ghost" href="./">웹앱 열기</a>
     <ol class="sub">
-      <li><b>사파리</b>로 위 버튼을 눌러 열어요.</li>
+      <li><b>사파리</b>로 위 버튼을 눌러 열어요. 카톡에서 링크를 눌렀다면 먼저 메뉴(⋯)에서 <b>"Safari로 열기"</b>를 눌러요.</li>
       <li>아래쪽 <b>공유 버튼(네모에 위 화살표)</b> → <b>홈 화면에 추가</b>를 누르면 앱처럼 아이콘이 생겨요.</li>
       <li>처음 측정할 때 "동작 및 방향 접근"을 <b>허용</b>해야 해요.</li>
     </ol>
@@ -77,6 +82,11 @@
   // 접속한 휴대폰 종류에 맞는 칸을 먼저 보여 줌
   const ua = navigator.userAgent, ios = /iPhone|iPad|iPod/.test(ua), android = /Android/.test(ua);
   if (ios) { document.getElementById('tagI').hidden = false; document.getElementById('ios').classList.add('me'); document.querySelector('main').insertBefore(document.getElementById('ios'), document.getElementById('android')); }
+  // 카톡 안 브라우저에서는 홈 화면 추가가 안 되니 사파리로 넘기는 버튼을 보여 줌 (카톡 공식 외부 브라우저 열기 주소)
+  if (ios && /KAKAOTALK/i.test(ua)) {
+    document.getElementById('kakao').hidden = false;
+    document.getElementById('openSafari').href = 'kakaotalk://web/openExternal?url=' + encodeURIComponent(location.href);
+  }
   if (android) { document.getElementById('tagA').hidden = false; document.getElementById('android').classList.add('me'); }
 </script>
 </body>
