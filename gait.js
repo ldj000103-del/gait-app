@@ -133,7 +133,42 @@ export function analyzeWalk(samples, { position = 'pocket' } = {}) {
   if (cadence < 80) warnings.push('slow');                         // 느린 걸음은 기기 오차↑ (Mora-Gonzalez 2022, Simonsen 2020)
   if (position === 'hand') warnings.push('hand');
 
-  return { cadence, steps, strideS: stride, activeS, totalS, regularity, warnings };
+  // 꾸준히 걸은 구간의 시각 (samples의 t 기준, ms) → GPS 거리 계산에 씀
+  const steadyFrom = samples[0].t + (s * 1000) / HZ, steadyTo = samples[0].t + (e * 1000) / HZ;
+  return { cadence, steps, strideS: stride, activeS, totalS, regularity, warnings, steadyFrom, steadyTo };
+}
+
+const GPS_MIN_S = 60, GPS_MIN_M = 50, GPS_MAX_ACC = 20;
+function haversine(a, b) {
+  const R = 6371000, r = Math.PI / 180;
+  const dLat = (b.lat - a.lat) * r, dLon = (b.lon - a.lon) * r;
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * r) * Math.cos(b.lat * r) * Math.sin(dLon / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(h));
+}
+
+// points: [{t: ms(samples와 같은 시계), lat, lon, acc(m)}] → 꾸준히 걸은 구간의 GPS 속도
+// 위치 떨림이 거리로 쌓이지 않게 10초씩 묶어 평균 낸 점들을 이음
+// ponytail: 10초보다 짧게 꺾이는 길은 모서리가 잘려 조금 짧게 나옴 → 필요하면 칼만 필터·도플러 속도로 교체
+const GPS_BLOCK_MS = 10000;
+export function gpsSpeed(result, points) {
+  if (result.error) return { gpsError: 'noWalk' };
+  const pts = points.filter(p => p.acc <= GPS_MAX_ACC && p.t >= result.steadyFrom && p.t <= result.steadyTo);
+  if (pts.length < 2) return { gpsError: 'noFix' };
+  const blocks = [];
+  for (const p of pts) {
+    const b = (blocks[Math.floor((p.t - pts[0].t) / GPS_BLOCK_MS)] ??= { t: 0, lat: 0, lon: 0, n: 0 });
+    b.t += p.t; b.lat += p.lat; b.lon += p.lon; b.n++;
+  }
+  const c = blocks.filter(Boolean).map(b => ({ t: b.t / b.n, lat: b.lat / b.n, lon: b.lon / b.n }));
+  let dist = 0;
+  for (let i = 1; i < c.length; i++) dist += haversine(c[i - 1], c[i]);
+  const durS = c.length > 1 ? (c[c.length - 1].t - c[0].t) / 1000 : 0;
+  const accs = pts.map(p => p.acc).sort((a, b) => a - b);
+  const medAcc = accs[accs.length >> 1];
+  if (durS < GPS_MIN_S || dist < GPS_MIN_M) return { gpsError: 'tooShort', gpsDurS: durS, gpsDist: dist, medAcc };
+  const speed = dist / durS;
+  // 거리는 걸은 구간 전체로 환산 (출발·멈춤 포함 시간 × 꾸준한 속도라 약간 길게 나올 수 있음)
+  return { speed, stepLength: speed * 60 / result.cadence, distance: speed * result.activeS, gpsDurS: durS, medAcc };
 }
 
 // 걸은 거리를 알 때: 걷는 속도·걸음 길이 (센서가 잰 '걷는 시간' 기준이라 참고값)

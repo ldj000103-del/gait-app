@@ -1,7 +1,7 @@
 // 걸음 분석 자체 점검: node test_gait.mjs
 // 가짜 걷기 신호(앞뒤 3초 서 있기 포함)를 만들어 케이던스를 2% 안으로 맞히는지 확인
 import assert from 'node:assert/strict';
-import { analyzeWalk, withDistance } from './gait.js';
+import { analyzeWalk, withDistance, gpsSpeed } from './gait.js';
 
 function fakeWalk({ cadence, walkS = 20, position, hz = 60, seed = 1 }) {
   let r = seed;
@@ -42,4 +42,23 @@ assert.equal(short.error, 'noWalk');
 const r = analyzeWalk(fakeWalk({ cadence: 113, position: 'pocket' }));
 const d = withDistance(r, 28);
 assert.ok(Math.abs(d.speed - 1.4) < 0.1, `속도 ${d.speed}`);
+// GPS: 1초마다 위치, 오차 약 5m(무작위), 앞뒤 3초 서 있기 포함
+function fakeGps({ walkS, speed = 1.3, acc = 5, seed = 7 }) {
+  let r = seed;
+  const rand = () => ((r = (r * 16807) % 2147483647) / 2147483647 - 0.5);
+  const pts = [], mPerDeg = 111320, pad = 3;
+  for (let t = 0; t <= walkS + 2 * pad; t++) {
+    const north = Math.min(Math.max(t - pad, 0), walkS) * speed;
+    const nx = (rand() + rand()) * acc, ny = (rand() + rand()) * acc;  // 위치 떨림
+    pts.push({ t: t * 1000, lat: 37.5 + (north + ny) / mPerDeg, lon: 127 + nx / (mPerDeg * Math.cos(37.5 * Math.PI / 180)), acc });
+  }
+  return pts;
+}
+const long = analyzeWalk(fakeWalk({ cadence: 110, walkS: 90, position: 'pocket' }));
+const g = gpsSpeed(long, fakeGps({ walkS: 90 }));
+assert.ok(!g.gpsError, `GPS ${g.gpsError}`);
+console.log(`GPS 90초: 정답 1.30 → ${g.speed.toFixed(2)} m/s, 걸음 길이 ${(g.stepLength * 100).toFixed(0)}cm, 거리 ${g.distance.toFixed(0)}m`);
+assert.ok(Math.abs(g.speed - 1.3) / 1.3 < 0.1, `GPS 속도 ${g.speed}`);
+assert.equal(gpsSpeed(r, fakeGps({ walkS: 20 })).gpsError, 'tooShort');      // 20초는 속도 안 냄
+assert.equal(gpsSpeed(long, fakeGps({ walkS: 90, acc: 30 })).gpsError, 'noFix'); // 실내처럼 오차 큼
 console.log('모든 점검 통과');

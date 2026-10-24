@@ -1,4 +1,4 @@
-import { analyzeWalk, withDistance } from './gait.js';
+import { analyzeWalk, withDistance, gpsSpeed } from './gait.js';
 
 const $ = id => document.getElementById(id);
 
@@ -38,8 +38,24 @@ for (const id of ['sex', 'age']) $(id).addEventListener('change', () => {
   store.set('profile', { sex: $('sex').value, age: $('age').value });
 });
 
+// ── 거리 재는 방법 (선택은 이 휴대폰에 기억) ──
+$('dmode').value = store.get('dmode', 'gps');
+function showDmode() { $('distBox').classList.toggle('hidden', $('dmode').value !== 'manual'); $('gpsNote').classList.toggle('hidden', $('dmode').value !== 'gps'); }
+$('dmode').addEventListener('change', () => { store.set('dmode', $('dmode').value); showDmode(); });
+showDmode();
+
 // ── 측정 ──
-let samples = [], t0 = 0, timer = null;
+let samples = [], t0 = 0, timer = null, gpsPts = [], gpsWatch = null, gpsDenied = false;
+// 위치 좌표는 이 휴대폰 안에서 거리 계산에만 쓰고 저장·전송하지 않음
+function startGps() {
+  gpsPts = []; gpsDenied = false;
+  if ($('dmode').value !== 'gps' || !navigator.geolocation) return;
+  gpsWatch = navigator.geolocation.watchPosition(
+    p => gpsPts.push({ t: performance.now(), lat: p.coords.latitude, lon: p.coords.longitude, acc: p.coords.accuracy }),
+    e => { if (e.code === 1) gpsDenied = true; },
+    { enableHighAccuracy: true, maximumAge: 0 });
+}
+function stopGps() { if (gpsWatch != null) navigator.geolocation.clearWatch(gpsWatch); gpsWatch = null; }
 function onMotion(e) {
   const a = e.accelerationIncludingGravity;
   if (a && a.x != null) samples.push({ t: e.timeStamp, x: a.x, y: a.y, z: a.z });
@@ -50,6 +66,7 @@ $('start').addEventListener('click', async () => {
     try { if (await DeviceMotionEvent.requestPermission() !== 'granted') return alert('움직임 센서 사용을 허락해야 측정할 수 있어요.'); }
     catch { return alert('움직임 센서 권한을 받지 못했어요.'); }
   }
+  startGps();                                                              // 위치 권한 창은 여기서 뜸 (카운트다운 동안 GPS가 잡힘)
   samples = []; $('setup').classList.add('hidden'); $('result').classList.add('hidden'); $('rec').classList.remove('hidden');
   let left = 3;
   $('recTitle').textContent = '3초 안에 주머니에 넣으세요';
@@ -61,21 +78,27 @@ $('start').addEventListener('click', async () => {
     $('recTitle').textContent = '걷는 중… 평소처럼 직선으로';
     window.addEventListener('devicemotion', onMotion);
     t0 = performance.now();
-    timer = setInterval(() => { $('recTime').textContent = Math.round((performance.now() - t0) / 1000) + '초'; }, 500);
+    timer = setInterval(() => {
+      $('recTime').textContent = Math.round((performance.now() - t0) / 1000) + '초';
+      const last = gpsPts[gpsPts.length - 1];
+      if ($('dmode').value === 'gps') $('recHint').textContent = gpsDenied ? '위치 권한이 없어 속도는 재지 않아요 (케이던스는 정상 측정)'
+        : last ? `GPS 오차 약 ${Math.round(last.acc)}m · 속도를 재려면 야외에서 1분 이상 걸어 주세요` : 'GPS 신호 찾는 중… (실내에서는 잘 안 잡혀요)';
+    }, 500);
   }, 1000);
 });
 $('stop').addEventListener('click', () => {
   clearInterval(timer);
   window.removeEventListener('devicemotion', onMotion);
+  stopGps();
   $('rec').classList.add('hidden'); $('setup').classList.remove('hidden');
   if (samples.length < 20) return alert('센서 값이 거의 들어오지 않았어요. 다시 시도해 주세요.');
-  finish(samples);
+  finish(samples, false, gpsPts);
 });
 
-function finish(data, demo = false) {
+function finish(data, demo = false, gps = []) {
   const position = $('pos').value;
   const res = analyzeWalk(data, { position });
-  const dist = parseFloat($('dist').value);
+  const mode = $('dmode').value;
   if (res.error) {
     const msg = { tooShort: '측정 시간이 너무 짧아요(8초 이상).', noWalk: '걷는 움직임을 찾지 못했어요. 휴대폰을 주머니에 넣고 6초 이상 걸어 주세요.', irregular: '반복되는 걸음 신호를 찾지 못했어요.' }[res.error];
     showHtml(`<h2>다시 측정해 주세요</h2><div class="warn">${msg}</div>`);
@@ -84,7 +107,9 @@ function finish(data, demo = false) {
   const today = new Date().toLocaleDateString('sv-SE');                  // 휴대폰 시간대 기준 YYYY-MM-DD
   const hist = store.get('history', []);
   const practice = !hist.some(h => new Date(h.date).toLocaleDateString('sv-SE') === today);             // 그날 첫 측정 = 연습 (Perry 20장)
-  const rec = { date: new Date().toISOString(), position, practice, ...res, ...withDistance(res, dist), distance: dist || null };
+  const dist = mode === 'manual' ? parseFloat($('dist').value) || null : null;
+  const d = mode === 'gps' ? (gpsDenied && !demo ? { gpsError: 'denied' } : gpsSpeed(res, gps)) : withDistance(res, dist);
+  const rec = { date: new Date().toISOString(), position, practice, ...res, distance: dist, ...d, distSource: d.speed ? mode : null };
   if (!demo && consent?.share && ENDPOINT) rec.receipt = send(rec);
   hist.unshift(rec); store.set('history', hist.slice(0, 200));
   render(rec, hist.find(h => !h.practice && h !== rec));
@@ -101,8 +126,9 @@ function send(r) {
   const body = {
     receipt, date: new Date(r.date).toLocaleDateString('sv-SE'), appVersion: APP_VERSION,           // 시각은 빼고 날짜만 (식별 가능성 낮춤)
     cadence: +r.cadence.toFixed(1), steps: r.steps, activeS: +r.activeS.toFixed(1), regularity: +r.regularity.toFixed(2),
-    speed: r.speed ? +r.speed.toFixed(2) : '', stepLength: r.stepLength ? +r.stepLength.toFixed(2) : '', distance: r.distance ?? '',
-    position: r.position, practice: r.practice, warnings: r.warnings.join(' '),
+    speed: r.speed ? +r.speed.toFixed(2) : '', stepLength: r.stepLength ? +r.stepLength.toFixed(2) : '', distance: r.distance ? +r.distance.toFixed(1) : '',
+    // ponytail: 시트 칸을 늘리려면 Apps Script 재배포가 필요해서 거리 출처(gps)는 warnings 칸에 붙여 보냄
+    position: r.position, practice: r.practice, warnings: [...r.warnings, r.distSource === 'gps' && 'gps'].filter(Boolean).join(' '),
     ageGroup: +age ? Math.floor(+age / 10) * 10 : '', sex: sex || '',
     os: /iPhone|iPad/.test(ua) ? 'iOS' : /Android/.test(ua) ? 'Android' : '기타',
   };
@@ -112,7 +138,7 @@ function send(r) {
 }
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v5';
+const APP_VERSION = 'v6';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -186,22 +212,30 @@ function render(r, prev) {
   if (r.speed) {
     // 낙상 기준(JAMA 2024)과 사망 위험(JAMA 2011)은 65세 이상 연구라 그 나이에만 경고
     const slow = r.speed < 1.0 && +age >= 65;
-    const short = r.distance < 20;                                         // 짧으면 출발·정지 구간 비중이 커져 느리게 나옴
-    const dGrade = short ? 'o' : 'y';
-    const shortNote = short ? '<br>20m보다 짧게 걸으면 출발·멈춤 구간이 섞여 실제보다 느리게 나와요. 20m 이상을 권장해요.' : '';
+    const gps = r.distSource === 'gps';
+    const short = !gps && r.distance < 20;                                 // 짧으면 출발·정지 구간 비중이 커져 느리게 나옴
+    const dGrade = short || (gps && r.medAcc > 10) ? 'o' : 'y';
+    const shortNote = short ? '<br>20m보다 짧게 걸으면 출발·멈춤 구간이 섞여 실제보다 느리게 나와요. 20m 이상을 권장해요.'
+      : gps ? `<br>GPS로 잰 거리 약 ${r.distance.toFixed(0)}m · 위치 오차 약 ${Math.round(r.medAcc)}m${r.medAcc > 10 ? ' (오차가 커서 등급을 낮췄어요)' : ''}` : '';
+    const how = gps ? `GPS: 출발·멈춤 2초를 뺀 꾸준히 걸은 ${Math.round(r.gpsDurS)}초 동안 이동한 거리 ÷ 시간. 위치 떨림을 줄이려 10초씩 평균 낸 위치를 이어요. 휴대폰 GPS 오차(보통 수 m) 때문에 "참고"`
+      : '입력한 거리 ÷ 센서가 찾은 걷는 시간. 출발·정지 구간이 포함돼 실제보다 약간 느리게 나올 수 있어요 → "참고"';
     html += metric({
       title: '걷는 속도', value: r.speed.toFixed(2), unit: `m/s (${(r.speed * 60).toFixed(0)} m/분)`, grade: dGrade,
       body: `<div class="sub">정상 성인 평균 1.37 m/s(82 m/분)${shortNote}${slow ? `<br><b>1.0 m/s 미만:</b> 낙상 예방이 필요한지 전문가와 상담해 보세요.` : ''}</div>`,
-      why: ['입력한 거리 ÷ 센서가 찾은 걷는 시간. 출발·정지 구간이 포함돼 실제보다 약간 느리게 나올 수 있어요 → "참고"', '정상 82 m/분 (Perry 20장)', '65세 이상 지침: 걷는 속도가 0.8~1.0 m/s 미만이면 낙상 예방 대상 (나이를 65 이상으로 입력하면 경고가 켜져요)', '65세 이상에서 걷는 속도 0.1 m/s 빠를 때마다 사망 위험 12% 낮음 (관찰 연구, 연관성)'],
+      why: [how, '정상 82 m/분 (Perry 20장)', '65세 이상 지침: 걷는 속도가 0.8~1.0 m/s 미만이면 낙상 예방 대상 (나이를 65 이상으로 입력하면 경고가 켜져요)', '65세 이상에서 걷는 속도 0.1 m/s 빠를 때마다 사망 위험 12% 낮음 (관찰 연구, 연관성)'],
       refs: ['perry20', 'jama2024', 'studenski'],
     });
     const ideal = sex === 'f' ? 0.0064 : sex === 'm' ? 0.0072 : null;
     html += metric({
       title: '걸음 길이', value: (r.stepLength * 100).toFixed(0), unit: 'cm', grade: dGrade,
       body: ideal ? `<div class="sub">이 케이던스에서 에너지 효율이 가장 좋은 걸음 길이 약 ${(ideal * c * 100).toFixed(0)}cm</div>` : '',
-      why: ['입력한 거리 ÷ 걸음 수', '걸음 길이 ÷ 케이던스가 남성 0.0072, 여성 0.0064일 때 걷기 효율이 가장 높음 (Neumann 15장)', '거리를 대충 입력하면 그만큼 오차가 생겨요.'],
+      why: [gps ? 'GPS 속도 ÷ 초당 걸음 수' : '입력한 거리 ÷ 걸음 수', '걸음 길이 ÷ 케이던스가 남성 0.0072, 여성 0.0064일 때 걷기 효율이 가장 높음 (Neumann 15장)', gps ? '속도 오차가 그대로 걸음 길이 오차가 돼요.' : '거리를 대충 입력하면 그만큼 오차가 생겨요.'],
       refs: ['neumann15', 'perry20'],
     });
+  } else if (r.gpsError) {
+    const msg = { tooShort: `짧은 거리는 GPS 오차(보통 수 m)가 거리의 큰 부분을 차지해 속도가 크게 틀릴 수 있어요. 그래서 꾸준히 걸은 시간이 1분 이상이고 50m 이상 이동해야 계산해요 (이번 약 ${Math.round(r.gpsDurS ?? 0)}초). 야외에서 더 오래 걸어 주세요.`,
+      noFix: 'GPS 신호가 약해서 속도는 계산하지 않았어요. 실내였다면 야외에서 다시 재 보세요.', denied: '위치 권한을 허용하지 않아 속도는 계산하지 않았어요.', noWalk: '' }[r.gpsError];
+    if (msg) html += `<div class="sub" style="margin-top:12px">${msg} 케이던스와 걸음 수는 GPS 없이도 정확해요.</div>`;
   }
   if (r.receipt) html += `<div class="sub" style="margin-top:12px">익명 결과를 보냈어요. 접수번호 <b>${r.receipt}</b> (삭제 요청할 때 필요해요, 지난 기록에도 남아요)</div>`;
   html += `<div class="sub" style="margin-top:12px">이 결과는 의료 진단이 아니에요. 걸음이 걱정되면 전문가와 상담하세요.</div>`;
@@ -223,14 +257,18 @@ renderHistory();
 if (new URLSearchParams(location.search).has('demo')) {
   $('demo').classList.remove('hidden');
   $('demo').addEventListener('click', () => {
-    const cad = 108, step = 60 / cad, s = [];
-    for (let i = 0; i < 26 * 60; i++) {
-      const t = i / 60, k = (t - 3) / step, walking = t > 3 && t < 23;
+    const cad = 108, step = 60 / cad, s = [], walkS = 75, g = [];
+    for (let i = 0; i < (walkS + 6) * 60; i++) {
+      const t = i / 60, k = (t - 3) / step, walking = t > 3 && t < 3 + walkS;
       const ph = k - Math.floor(k);
       const a = 9.81 + (walking ? (Math.floor(k) % 2 ? 0.4 : 3.2) * Math.exp(-(((ph - .15) / .07) ** 2)) + 2 * Math.sin(Math.PI * k) : 0) + (Math.random() - .5) * .3;
       s.push({ t: t * 1000, x: 0, y: a, z: 0 });
     }
-    finish(s, true);
+    for (let t = 0; t <= walkS + 6; t++) {                                  // 1.3 m/s로 북쪽, 오차 ±5m
+      const north = Math.min(Math.max(t - 3, 0), walkS) * 1.3 + (Math.random() - .5) * 10;
+      g.push({ t: t * 1000, lat: 37.5 + north / 111320, lon: 127 + (Math.random() - .5) * 10 / 88300, acc: 6 });
+    }
+    finish(s, true, g);
   });
 }
 

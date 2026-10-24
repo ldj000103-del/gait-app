@@ -72,11 +72,12 @@
       <p>· 이 앱은 걸음을 재는 건강관리 도구이며 <b>의료 진단이 아니에요</b>.</p>
       <p>· 만 14세 이상만 쓸 수 있어요.</p>
       <p>· 측정 기록과 내 정보(성별·나이)는 <b>이 휴대폰에만</b> 저장돼요.</p>
+      <p>· GPS로 거리를 잴 때 위치는 측정하는 동안 이 휴대폰 안에서 거리 계산에만 쓰고, 저장하거나 보내지 않아요.</p>
     </div>
 
     <label class="chk"><input type="checkbox" id="cShare"><span><b>[선택]</b> 익명 측정 결과 수집·이용에 동의해요</span></label>
     <div class="terms">
-      <p>· 항목: 케이던스, 걸음 수, 걷는 시간, 속도, 걸음 길이, 입력 거리, 휴대폰 위치, 경고 종류, 나이대(10살 단위), 성별, 운영체제(iOS·Android), 측정 날짜</p>
+      <p>· 항목: 케이던스, 걸음 수, 걷는 시간, 속도, 걸음 길이, 걸은 거리(숫자만, 위치 좌표 아님), 휴대폰을 둔 곳, 경고 종류, 나이대(10살 단위), 성별, 운영체제(iOS·Android), 측정 날짜</p>
       <p>· 이름·연락처·위치·정확한 나이·측정 시각은 받지 않아요.</p>
       <p>· 목적: 측정 정확도 개선, 한국인 보행 통계 연구</p>
       <p>· 보관: 받은 날부터 3년 뒤 파기</p>
@@ -111,11 +112,21 @@
       <option value="waist">허리 (벨트·밴드)</option>
       <option value="hand">손에 들고</option>
     </select>
-    <label for="dist">걸을 거리 (m, 알면 입력 — 속도 계산용, 20m 이상 권장)</label>
-    <input id="dist" type="number" inputmode="decimal" min="0" step="0.5" placeholder="예: 30 (모르면 비워 두기)">
+    <label for="dmode">걸은 거리 재는 방법 (속도·걸음 길이 계산용)</label>
+    <select id="dmode">
+      <option value="gps">GPS 자동 (야외 1분 이상)</option>
+      <option value="manual">거리를 직접 입력</option>
+      <option value="none">재지 않음 (케이던스만)</option>
+    </select>
+    <div id="distBox" class="hidden">
+      <label for="dist">걸을 거리 (m, 20m 이상 권장)</label>
+      <input id="dist" type="number" inputmode="decimal" min="0" step="0.5" placeholder="예: 30">
+    </div>
+    <div class="sub" id="gpsNote">⚠️ 휴대폰 GPS는 위치 오차가 보통 몇 m라서 <b>짧은 거리는 오차가 크게 생길 수 있어요.</b> 그래서 1분·50m보다 짧으면 속도를 계산하지 않고, 길게 걸어도 "참고" 등급이에요. 실내에서는 GPS가 잘 안 잡혀요.<br>
+      위치 권한을 물어봐요. 위치는 이 휴대폰 안에서 거리 계산에만 쓰고 저장하거나 보내지 않아요.</div>
     <ol class="guide sub">
       <li><b>시작</b>을 누르고 3초 안에 휴대폰을 주머니에 넣어요.</li>
-      <li><b>평소처럼 직선으로</b> 20초 이상 걸어요. 특정 지점을 밟으려고 하지 마세요.</li>
+      <li><b>평소처럼</b> 걸어요. 케이던스만 볼 땐 20초 이상, GPS로 속도까지 볼 땐 <b>야외에서 1분 이상</b>. 특정 지점을 밟으려고 하지 마세요.</li>
       <li>멈춰서 휴대폰을 꺼내 <b>끝</b>을 눌러요.</li>
     </ol>
     <button id="start">시작</button>
