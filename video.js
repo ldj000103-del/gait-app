@@ -33,16 +33,18 @@ export function analyzeSide(frames, W, H) {
   const rows = [];
   for (const f of pts) {
     const [hip, knee, ankle, heel, toe] = ['Hip', 'Knee', 'Ankle', 'Heel', 'Toe'].map(k => f.p[ix(k)]);
-    if ([hip, knee, ankle, heel, toe].some(q => q.v < VIS)) continue;
+    if ([hip, knee, ankle].some(q => q.v < VIS)) continue;
+    const footOk = heel.v >= VIS && toe.v >= VIS;
     rows.push({
       t: f.t,
       knee: 180 - angleAt(hip, knee, ankle),                                       // 무릎 굽힘
       thigh: deg(Math.atan2(dir * (knee.x - hip.x), knee.y - hip.y)),              // 넓적다리: 수직 기준, 앞으로 = +
-      ankle: 90 - between([knee.x - ankle.x, knee.y - ankle.y], [toe.x - heel.x, toe.y - heel.y]),   // 발등굽힘 = +
+      ankle: footOk ? 90 - between([knee.x - ankle.x, knee.y - ankle.y], [toe.x - heel.x, toe.y - heel.y]) : NaN,   // 발등굽힘 = +, 발이 안 잡히면 빈칸
       fwd: dir * (ankle.x - hip.x) / Math.hypot(knee.x - hip.x, knee.y - hip.y),  // 발이 엉덩이보다 얼마나 앞에 (넓적다리 길이 단위)
     });
   }
-  if (rows.length < frames.length * 0.5 || rows.length < 20) return { error: 'noPerson', validFrac: rows.length / Math.max(1, frames.length) };
+  const diag = { frames: frames.length, legFrames: rows.length, side, dir };
+  if (rows.length < frames.length * 0.4 || rows.length < 20) return { error: 'noPerson', validFrac: rows.length / Math.max(1, frames.length), diag };
 
   // 첫 닿기 ≈ 발이 엉덩이보다 가장 앞에 있는 순간 (근사)
   const fwd = smooth(rows.map(r => r.fwd));
@@ -66,15 +68,16 @@ export function analyzeSide(frames, W, H) {
     }
     cycles.push({ dur, curve });
   }
-  if (!cycles.length) return { error: 'noCycle', validFrac: rows.length / frames.length };
+  diag.contacts = ics.length; diag.cycles = cycles.length;
+  if (!cycles.length) return { error: 'noCycle', validFrac: rows.length / frames.length, diag };
 
-  const avg = key => Array.from({ length: 101 }, (_, q) => mean(cycles.map(c => c.curve[key][q])));
+  const avg = key => Array.from({ length: 101 }, (_, q) => { const v = cycles.map(c => c.curve[key][q]).filter(x => !Number.isNaN(x)); return v.length ? mean(v) : NaN; });
   const knee = avg('knee'), thigh = avg('thigh'), ankle = avg('ankle');
   const range = (xs, a, b) => xs.slice(a, b + 1);
   const argmax = (xs, a, b) => a + range(xs, a, b).indexOf(Math.max(...range(xs, a, b)));
   const swingIdx = argmax(knee, 50, 90);
   return {
-    view: 'side', side, dir, nCycles: cycles.length, cadence: 120 / mean(cycles.map(c => c.dur)),
+    view: 'side', side, dir, nCycles: cycles.length, diag, cadence: 120 / mean(cycles.map(c => c.dur)),
     validFrac: rows.length / frames.length, curves: { knee, thigh, ankle },
     m: {
       kneeIC: knee[0],
@@ -120,7 +123,7 @@ export function analyzeFrontal(frames, W, H, view) {
     S[st].valgus.push(knee(st));
     S[st].drop.push(st === 'l' ? -pelvis : pelvis);                     // 디딤 다리 반대쪽 골반이 내려간 각도
   }
-  if (n < frames.length * 0.3 || n < 15) return { error: 'noPerson', validFrac: n / Math.max(1, frames.length) };
+  if (n < frames.length * 0.3 || n < 15) return { error: 'noPerson', validFrac: n / Math.max(1, frames.length), diag: { frames: frames.length, bodyFrames: n } };
   const q90 = xs => xs.length >= 5 ? pct(xs, 0.9) : null;               // 튀는 값을 피하려 최대 대신 상위 10% 값
   return {
     view, validFrac: n / frames.length,
@@ -136,31 +139,44 @@ export function analyzeFrontal(frames, W, H, view) {
 // ── 브라우저에서 영상 → 자세 인식 점 (MediaPipe, 휴대폰 안에서 처리, 영상은 어디에도 보내지 않음) ──
 const TV = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14';
 const MODEL = 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_full/float16/1/pose_landmarker_full.task';
-let landmarker = null;
-async function getLandmarker() {
-  if (landmarker) return landmarker;
+let landmarker = null, delegate = 'GPU';
+async function getLandmarker(force) {
+  if (landmarker && !force) return landmarker;
   const { FilesetResolver, PoseLandmarker } = await import(TV);
   const fs = await FilesetResolver.forVisionTasks(TV + '/wasm');
-  const opts = delegate => ({ baseOptions: { modelAssetPath: MODEL, delegate }, runningMode: 'VIDEO', numPoses: 1 });
-  try { landmarker = await PoseLandmarker.createFromOptions(fs, opts('GPU')); }
-  catch { landmarker = await PoseLandmarker.createFromOptions(fs, opts('CPU')); }
+  const opts = d => ({ baseOptions: { modelAssetPath: MODEL, delegate: d }, runningMode: 'VIDEO', numPoses: 1 });
+  if (force) { landmarker?.close(); delegate = force; landmarker = await PoseLandmarker.createFromOptions(fs, opts(force)); return landmarker; }
+  try { landmarker = await PoseLandmarker.createFromOptions(fs, opts('GPU')); delegate = 'GPU'; }
+  catch { landmarker = await PoseLandmarker.createFromOptions(fs, opts('CPU')); delegate = 'CPU'; }
   return landmarker;
 }
 // ponytail: 프레임마다 영상을 되감아(seek) 처리해서 느림(20초 영상에 수십 초). 빨라야 하면 requestVideoFrameCallback으로 재생하며 처리
 export async function extractPose(file, onProgress, { fps = 30, maxSec = 20 } = {}) {
-  const lmk = await getLandmarker();
+  let lmk = await getLandmarker();
   const video = document.createElement('video');
   video.muted = true; video.playsInline = true; video.preload = 'auto'; video.src = URL.createObjectURL(file);
-  await new Promise((ok, no) => { video.onloadeddata = ok; video.onerror = () => no(new Error('영상을 열 수 없어요')); });
-  const dur = Math.min(video.duration || 0, maxSec), frames = [];
-  for (let t = 0; t < dur; t += 1 / fps) {
-    video.currentTime = t;
-    await new Promise(r => { video.onseeked = r; });
-    const res = lmk.detectForVideo(video, Math.round(t * 1000) + 1);
-    if (res.landmarks?.[0]) frames.push({ t, lm: res.landmarks[0].map(q => ({ x: q.x, y: q.y, v: q.visibility ?? 1 })) });
-    onProgress?.(t / dur);
-  }
-  return { frames, W: video.videoWidth, H: video.videoHeight, video, dur };
+  await new Promise((ok, no) => { video.onloadeddata = ok; video.onerror = () => no(new Error('영상을 열 수 없어요. 다른 영상으로 해 보세요.')); });
+  // 휴대폰 브라우저는 한 번도 재생 안 한 영상을 넘기면 검은 화면이 나오기도 해서 잠깐 재생해 깨움
+  try { await video.play(); video.pause(); } catch {}
+  const dur = Math.min(Number.isFinite(video.duration) ? video.duration : maxSec, maxSec);
+  let ts = 1;
+  const run = async (from, to, step) => {
+    const out = [];
+    for (let t = from; t < to; t += step) {
+      video.currentTime = t;
+      await new Promise(r => { video.onseeked = r; setTimeout(r, 1500); });   // 넘기기가 멈추면 1.5초 뒤 다음으로
+      const res = lmk.detectForVideo(video, ts += 34);
+      if (res.landmarks?.[0]) out.push({ t, lm: res.landmarks[0].map(q => ({ x: q.x, y: q.y, v: q.visibility ?? 1 })) });
+      onProgress?.(t / dur);
+    }
+    return out;
+  };
+  // 처음 1초를 먼저 봐서 사람을 하나도 못 찾으면, GPU 대신 CPU로 바꿔 다시 (앱 안에서 GPU가 조용히 실패하는 경우 대비)
+  let frames = await run(0, Math.min(1, dur), 1 / fps);
+  if (!frames.length && delegate === 'GPU') { lmk = await getLandmarker('CPU'); frames = await run(0, Math.min(1, dur), 1 / fps); }
+  frames = frames.concat(await run(Math.min(1, dur), dur, 1 / fps));
+  const processed = Math.round(dur * fps);
+  return { frames, W: video.videoWidth, H: video.videoHeight, video, dur, processed, delegate };
 }
 
 // 결과 확인용: 가운데 장면에 인식된 뼈대를 그려 보여 줌

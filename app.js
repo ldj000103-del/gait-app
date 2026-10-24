@@ -252,7 +252,7 @@ function send(r) {
 }
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v15';
+const APP_VERSION = 'v16';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -594,18 +594,23 @@ async function runVideo(file) {
   const prog = (r, msg) => { $('vbar').style.width = `${Math.round(r * 100)}%`; $('vmsg').textContent = msg; };
   prog(0, '자세 인식 프로그램 준비 중… (처음 한 번은 조금 걸려요)');
   try {
-    const { frames, W, H, video, dur } = await extractPose(file, r => prog(r, `영상 분석 중… ${Math.round(r * 100)}%`));
+    const { frames, W, H, video, dur, processed, delegate } = await extractPose(file, r => prog(r, `영상 분석 중… ${Math.round(r * 100)}%`));
     prog(1, '계산 중…');
-    if (frames.length < 15) throw new Error('사람을 거의 찾지 못했어요. 머리부터 발끝까지 보이게 밝은 곳에서 다시 찍어 주세요.');
+    // 실패하면 원인을 찾을 수 있게 숫자를 같이 보여 줌
+    const info = extra => `<details open><summary>측정 정보 (문제 찾기용)</summary><div class="sub">영상 길이 ${dur.toFixed(1)}초(최대 20초 분석) · 화면 ${W}×${H} · 확인한 장면 ${processed}개 · 사람이 잡힌 장면 ${frames.length}개 · 계산 방식 ${delegate}${extra || ''}</div></details>`;
+    if (frames.length < 15) throw { html: '사람을 거의 찾지 못했어요. 머리부터 발끝까지 보이게, 밝은 곳에서 다시 찍어 주세요.' + info() };
     const r = view === 'side' ? analyzeSide(frames, W, H) : analyzeFrontal(frames, W, H, view);
-    if (r.error) throw new Error({ noPerson: '다리가 또렷하게 잡힌 장면이 너무 적어요. 다리 전체가 보이게, 밝은 곳에서 다시 찍어 주세요.',
-      noCycle: '한 걸음 주기(같은 발이 두 번 닿기)를 찾지 못했어요. 옆에서 3걸음 이상 지나가게 찍어 주세요.' }[r.error]);
+    const d = r.diag || {};
+    const extra = view === 'side' ? ` · 다리(엉덩이·무릎·발목)가 잡힌 장면 ${d.legFrames ?? '-'}개 · 카메라 쪽 다리 ${d.side === 'l' ? '왼' : '오른'}쪽 · 걷는 방향 ${d.dir > 0 ? '→' : '←'} · 찾은 발 닿기 ${d.contacts ?? '-'}번 · 쓸 수 있는 보행 주기 ${d.cycles ?? '-'}개`
+      : ` · 몸 전체가 잡힌 장면 ${d.bodyFrames ?? '-'}개`;
+    if (r.error) throw { html: { noPerson: '다리가 또렷하게 잡힌 장면이 너무 적어요. 다리 전체가 보이게, 밝은 곳에서 다시 찍어 주세요.',
+      noCycle: '한 걸음 주기(같은 발이 두 번 닿기)를 찾지 못했어요. 옆에서 화면 끝에서 끝까지 3걸음 이상 지나가게 찍어 주세요.' }[r.error] + info(extra) };
     $('vcanvas').classList.remove('hidden');
     await drawSnapshot($('vcanvas'), video, frames[Math.floor(frames.length / 2)]);
     URL.revokeObjectURL(video.src);
     renderVideo(r, dur);
   } catch (err) {
-    showV(`<h2>다시 찍어 주세요</h2><div class="warn">${err.message || err}</div>`);
+    showV(`<h2>다시 찍어 주세요</h2><div class="warn">${err.html || err.message || err}</div>`);
   } finally { $('vprog').classList.add('hidden'); }
 }
 
