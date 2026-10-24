@@ -259,7 +259,7 @@ function send(r) {
 }
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v28';
+const APP_VERSION = 'v29';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -749,12 +749,13 @@ function tile(label, value, unit, sub, i) {
   return `<button class="tile" data-i="${i}"><div class="k">${label}</div><div class="v">${value}<small> ${unit}</small></div><div class="d">${sub}</div></button>`;
 }
 
-// 주간 요약: 이번 주(월요일부터) vs 지난주, 점수 없이 숫자와 차이만
-function weekSummary(hist) {
-  const mon = new Date(); mon.setHours(0, 0, 0, 0); mon.setDate(mon.getDate() - ((mon.getDay() + 6) % 7));
+// 주간 통계: 고른 주(월~일) vs 그 전 주, 점수 없이 숫자와 차이만
+const dayKey = d => new Date(d).toLocaleDateString('sv-SE');                 // 2026-10-25 (휴대폰 시간 기준)
+const monOf = d => { const m = new Date(d); m.setHours(0, 0, 0, 0); m.setDate(m.getDate() - ((m.getDay() + 6) % 7)); return m; };
+function weekSummary(hist, mon = monOf(new Date())) {
+  const next = new Date(mon); next.setDate(mon.getDate() + 7);
   const prevMon = new Date(mon); prevMon.setDate(mon.getDate() - 7);
   const inW = (h, a, b) => { const t = new Date(h.date); return t >= a && t < b; };
-  const far = new Date(8.64e15);
   const pick = (a, b) => hist.filter(h => !h.practice && inW(h, a, b));
   const stat = list => {
     const avg = xs => xs.length ? xs.reduce((s, x) => s + x, 0) / xs.length : null;
@@ -763,20 +764,53 @@ function weekSummary(hist) {
       runCad: avg(list.filter(h => h.activity === 'run').map(h => h.cadence)),
       jog: list.filter(h => h.activity === 'slowrun').reduce((s, h) => s + h.activeS / 60, 0), video: list.filter(h => h.activity === 'video').length };
   };
-  return { cur: stat(pick(mon, far)), prev: stat(pick(prevMon, mon)) };
+  return { cur: stat(pick(mon, next)), prev: stat(pick(prevMon, mon)) };
 }
+// 기록 달력: 날짜마다 활동 종류별 점, 누르면 그날 기록 + 그 주 통계
+const ACT_C = { walk: 'var(--c-walk)', run: 'var(--c-run)', slowrun: 'var(--c-slow)', video: 'var(--c-video)' };
+let calMonth = new Date(); calMonth.setDate(1); let calSel = dayKey(new Date());
 function renderWeek() {
-  const { cur, prev } = weekSummary(store.get('history', []));
+  const hist = store.get('history', []), byDay = {};
+  hist.forEach((h, i) => (byDay[dayKey(h.date)] ??= []).push(i));
+  const y = calMonth.getFullYear(), mo = calMonth.getMonth(), end = new Date(y, mo + 1, 1), today = dayKey(new Date());
+  let cells = '';
+  for (let d = monOf(new Date(y, mo, 1)); d < end || d.getDay() !== 1; d.setDate(d.getDate() + 1)) {   // 월요일부터, 마지막 주는 일요일까지 채움
+    const k = dayKey(d), list = byDay[k] ?? [], acts = [...new Set(list.map(i => hist[i].activity ?? 'walk'))];
+    cells += `<button class="cday${d.getMonth() !== mo ? ' out' : ''}${k === today ? ' today' : ''}${k === calSel ? ' sel' : ''}" data-d="${k}"
+      aria-label="${d.getMonth() + 1}월 ${d.getDate()}일 기록 ${list.length}개"><span>${d.getDate()}</span><i>${acts.map(a => `<b style="background:${ACT_C[a]}"></b>`).join('')}</i></button>`;
+  }
+  // 고른 날의 기록
+  const sel = new Date(calSel + 'T00:00'), selList = byDay[calSel] ?? [];
+  const val = h => h.activity === 'video' ? `${VIEW[h.view]}모습 영상` : h.cadence != null ? `${h.cadence.toFixed(0)} 걸음/분` : '';
+  const recs = selList.length ? selList.map(i => { const h = hist[i];
+      return `<button class="dayrec" data-i="${i}"><span>${ACT[h.activity ?? 'walk']}${h.practice ? ' <span class="sub">(연습)</span>' : ''}</span>
+        <span>${val(h)} <span class="sub">${new Date(h.date).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })} ›</span></span></button>`; }).join('')
+    : '<div class="sub" style="margin-top:6px">이날은 기록이 없어요.</div>';
+  // 고른 날이 속한 주의 통계
+  const mon = monOf(sel), sun = new Date(mon); sun.setDate(mon.getDate() + 6);
+  const { cur, prev } = weekSummary(hist, mon);
   const row = (label, a, b, unit, dec = 0) => {
     const v = a == null ? '-' : `${a.toFixed(dec)}<small> ${unit}</small>`;
     const d = a != null && b != null ? `${a - b >= 0 ? '+' : ''}${(a - b).toFixed(dec)}` : '-';
     return `<tr><td>${label}</td><td class="num">${v}</td><td class="num sub">${d}</td></tr>`;
   };
-  $('week').innerHTML = `<table class="wk"><tr class="sub"><td></td><td class="num">이번 주</td><td class="num">지난주 대비</td></tr>
+  const thisWeek = dayKey(mon) === dayKey(monOf(new Date()));
+  $('week').innerHTML = `<div class="calhead"><button data-m="-1" aria-label="지난달">‹</button><span>${y}년 ${mo + 1}월</span><button data-m="1" aria-label="다음 달">›</button></div>
+    <div class="cal">${['월', '화', '수', '목', '금', '토', '일'].map(w => `<div class="dow">${w}</div>`).join('')}${cells}</div>
+    <div class="legend">${Object.entries(ACT_C).map(([a, c]) => `<span><b style="background:${c}"></b>${ACT[a]}</span>`).join('')}</div>
+    <div class="calsec">${sel.getMonth() + 1}월 ${sel.getDate()}일 기록</div>${recs}
+    <div class="calsec">${thisWeek ? '이번 주' : `${shortDate(mon)}~${shortDate(sun)} 주`} 통계</div>
+    <table class="wk"><tr class="sub"><td></td><td class="num">${thisWeek ? '이번 주' : '그 주'}</td><td class="num">전 주 대비</td></tr>
     ${row('측정 횟수', cur.n, prev.n, '회')}${row('걷기 케이던스 평균', cur.walkCad, prev.walkCad, '걸음/분')}${row('걷는 속도 평균', cur.speed, prev.speed, 'm/s', 2)}
     ${row('러닝 케이던스 평균', cur.runCad, prev.runCad, '걸음/분')}${row('슬로우 조깅', cur.jog, prev.jog, '분')}${row('영상 분석', cur.video, prev.video, '회')}</table>
-    <div class="sub" style="margin-top:6px">월요일부터 지금까지의 기록이에요(연습 측정 제외). 점수로 바꾸지 않고 잰 숫자만 모았어요.</div>`;
+    <div class="sub" style="margin-top:6px">월요일~일요일 기록이에요(연습 측정 제외). 점수로 바꾸지 않고 잰 숫자만 모았어요. 날짜를 누르면 그날 기록과 그 주 통계가 보여요.</div>`;
 }
+$('week').addEventListener('click', e => {
+  const m = e.target.closest('button[data-m]'), d = e.target.closest('.cday'), r = e.target.closest('.dayrec');
+  if (m) { calMonth.setMonth(calMonth.getMonth() + +m.dataset.m); renderWeek(); }
+  else if (d) { calSel = d.dataset.d; const t = new Date(calSel + 'T00:00'); if (t.getMonth() !== calMonth.getMonth()) calMonth = new Date(t.getFullYear(), t.getMonth(), 1); renderWeek(); }
+  else if (r) showRecord(+r.dataset.i);
+});
 function renderHome() {
   const hist = store.get('history', []);
   const idx = f => hist.findIndex(f);

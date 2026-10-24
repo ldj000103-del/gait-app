@@ -12,11 +12,13 @@
   /* 색 규칙(디자인 토큰): 바탕·카드·글자·선·주요색 + 정확도 등급 4색 + 그래프 선 */
   :root { --bg:#f4f6f5; --card:#fff; --ink:#121816; --sub:#69736f; --line:#e6eae8; --accent:#1d6b5c; --accent-weak:#e3f1ed;
           --series:#008a6e; --band:rgba(0,138,110,.10); --radius:14px; --shadow:0 1px 2px rgba(0,0,0,.04), 0 2px 8px rgba(0,0,0,.04);
-          --g:#1e8e3e; --y:#b08000; --o:#c4551b; --n:#7a8380; }
+          --g:#1e8e3e; --y:#b08000; --o:#c4551b; --n:#7a8380;
+          --c-walk:#008a6e; --c-run:#2f6fd1; --c-slow:#c46f1c; --c-video:#8a5cd1; }
   @media (prefers-color-scheme: dark) {
     :root { --bg:#111614; --card:#1a201e; --ink:#eef2f0; --sub:#9aa5a1; --line:#2a3330; --accent:#5fc2ab; --accent-weak:#1f3a33;
             --series:#16a383; --band:rgba(22,163,131,.14); --shadow:none;
-            --g:#5cc77a; --y:#e0b84a; --o:#f08a55; --n:#9aa4a1; }
+            --g:#5cc77a; --y:#e0b84a; --o:#f08a55; --n:#9aa4a1;
+            --c-walk:#16a383; --c-run:#5b8fe6; --c-slow:#c97c33; --c-video:#9a72dc; }
   }
   * { box-sizing:border-box; }
   body { margin:0; font:400 15px/1.6 "Pretendard Variable",Pretendard,system-ui,-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
@@ -97,6 +99,19 @@
   .ctxrow { display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin:6px 0; } .ctxk { font-size:.75rem; color:var(--sub); width:44px; flex:none; }
   .chip { width:auto; margin:0; padding:6px 11px; border-radius:999px; font-size:.8125rem; font-weight:500; background:var(--card); color:var(--ink); border:1px solid var(--line); }
   .chip[aria-pressed="true"] { background:var(--accent); color:#fff; border-color:var(--accent); }
+  .calhead { display:flex; align-items:center; justify-content:space-between; font-weight:700; }
+  .calhead button { width:auto; margin:0; padding:6px 14px; background:none; color:var(--accent); font-size:1.1rem; }
+  .cal { display:grid; grid-template-columns:repeat(7,1fr); gap:2px; margin-top:6px; }
+  .cal .dow { text-align:center; font-size:.6875rem; color:var(--sub); padding:2px 0; }
+  .cday { width:auto; margin:0; padding:6px 0 5px; min-height:46px; background:none; color:var(--ink); border-radius:10px; font-size:.8125rem; font-weight:500;
+          display:flex; flex-direction:column; align-items:center; gap:4px; }
+  .cday.out { opacity:.35; } .cday.today span { color:var(--accent); font-weight:800; } .cday.sel { background:var(--accent-weak); }
+  .cday i { display:flex; gap:2px; height:6px; } .cday b { width:6px; height:6px; border-radius:50%; }
+  .legend { display:flex; flex-wrap:wrap; gap:4px 12px; font-size:.75rem; color:var(--sub); margin:8px 0 2px; }
+  .legend b { display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:4px; vertical-align:1px; }
+  .dayrec { display:flex; justify-content:space-between; gap:8px; margin:6px 0 0; padding:10px 12px; background:var(--bg); color:var(--ink); font-weight:500; text-align:left; }
+  .dayrec .sub { font-weight:400; }
+  .calsec { margin:14px 0 4px; font-weight:700; font-size:.875rem; }
   table.wk { width:100%; border-collapse:collapse; font-size:.875rem; } table.wk td { padding:7px 2px; border-top:1px solid var(--line); }
   table.wk tr:first-child td { border-top:0; font-size:.75rem; } table.wk .num { text-align:right; } table.wk small { color:var(--sub); font-size:.75rem; }
   .rec { border:1px solid var(--line); border-radius:12px; padding:12px; margin:10px 0; background:var(--bg); }
@@ -155,7 +170,7 @@
   <section id="home" data-tab="home">
     <div class="tiles" id="tiles"></div>
     <div class="card">
-      <h2>이번 주 요약</h2>
+      <h2>기록 달력</h2>
       <div id="week"></div>
     </div>
     <div class="card">
