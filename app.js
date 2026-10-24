@@ -253,7 +253,7 @@ function send(r) {
 }
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v19';
+const APP_VERSION = 'v20';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -568,12 +568,102 @@ for (const id of ['setup', 'vsetup', 'about', 'consent', 'profile']) markTerms($
 
 function renderHistory() {
   const hist = store.get('history', []);
+  if (homeReady && document.body.dataset.tab === 'home') renderHome();   // 홈 코드가 다 읽힌 뒤에만
   if (!hist.length) return;
   $('histBody').innerHTML = `<div class="sub">줄을 누르면 그때 결과를 다시 볼 수 있어요.</div><table class="hist"><tr><td>날짜</td><td>활동</td><td>케이던스</td><td>걸음</td><td>속도</td></tr>` +
     hist.slice(0, 20).map((h, i) => `<tr data-i="${i}" class="clickable"><td>${new Date(h.date).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}${h.practice ? ' (연습)' : ''}${h.receipt ? `<br><span class="sub">접수 ${h.receipt}</span>` : ''}</td>
       <td>${ACT[h.activity ?? 'walk']}${h.view ? `(${VIEW[h.view]})` : ''}</td><td>${(h.cadence ?? h.r?.cadence)?.toFixed(0) ?? '-'}</td><td>${h.steps ?? '-'}</td><td>${h.speed ? h.speed.toFixed(2) + ' m/s' : '-'}</td></tr>`).join('') + '</table>';
 }
 renderHistory();
+
+// ── 아래 탭 ──
+var homeReady = false;   // var: 위쪽 renderHistory가 먼저 불려도 오류 없이 false로 보임
+function setTab(name) {
+  document.body.dataset.tab = name;
+  for (const b of document.querySelectorAll('#tabbar button')) b.setAttribute('aria-selected', b.dataset.go === name);
+  if (name === 'home') renderHome();
+}
+document.querySelector('#tabbar').addEventListener('click', e => { const b = e.target.closest('button[data-go]'); if (b) { setTab(b.dataset.go); scrollTo(0, 0); } });
+
+// ── 홈: 요약 카드 · 이번 주 슬로우 조깅 링 · 변화 그래프 ──
+const shortDate = d => new Date(d).toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric' });
+function tile(label, value, unit, sub, i) {
+  if (value == null) return `<div class="tile empty"><div class="k">${label}</div><div class="v">기록 없음</div><div class="d">${sub}</div></div>`;
+  return `<button class="tile" data-i="${i}"><div class="k">${label}</div><div class="v">${value}<small> ${unit}</small></div><div class="d">${sub}</div></button>`;
+}
+function renderHome() {
+  const hist = store.get('history', []);
+  const idx = f => hist.findIndex(f);
+  const isWalk = h => (h.activity ?? 'walk') === 'walk';
+  const iw = idx(isWalk), w = hist[iw];
+  const wPrev = iw >= 0 ? hist.slice(iw + 1).find(isWalk) : null;
+  const is = idx(h => isWalk(h) && h.speed), sp = hist[is];
+  const ir = idx(h => h.activity === 'run'), rn = hist[ir];
+  const iv = idx(h => h.activity === 'video' && h.view === 'side' && h.r?.m), vd = hist[iv];
+  const delta = (a, b) => b ? ` · 지난번보다 ${a - b >= 0 ? '+' : ''}${(a - b).toFixed(0)}` : '';
+  $('tiles').innerHTML =
+    tile('최근 걷기 케이던스', w?.cadence.toFixed(0), '걸음/분', w ? `${shortDate(w.date)}${delta(w.cadence, wPrev?.cadence)}` : '측정 탭에서 걸어 보세요', iw) +
+    tile('최근 걷는 속도', sp?.speed.toFixed(2), 'm/s', sp ? `${shortDate(sp.date)} · Perry 성인 평균 1.37` : 'GPS나 거리 입력이 필요해요', is) +
+    tile('최근 러닝 케이던스', rn?.cadence.toFixed(0), '걸음/분', rn ? shortDate(rn.date) : '측정 탭에서 러닝을 골라요', ir) +
+    tile('영상: 유각기 무릎', vd ? vd.r.m.kneeSwingMax.toFixed(0) : null, '°', vd ? `${shortDate(vd.date)} · Perry 약 60°` : '영상 탭에서 옆모습을 찍어요', iv);
+  // 링: 이번 주 슬로우 조깅 분 / 연구의 주간량 90분 (Ikenaga 2017)
+  const wk = weekSlowJogMin(hist), frac = Math.min(1, wk / 90), C = 2 * Math.PI * 42;
+  $('ring').innerHTML = `<svg viewBox="0 0 108 108" role="img" aria-label="이번 주 슬로우 조깅 ${wk.toFixed(0)}분, 90분 중 ${Math.round(frac * 100)}%">
+      <circle cx="54" cy="54" r="42" fill="none" stroke="var(--line)" stroke-width="10"/>
+      <circle cx="54" cy="54" r="42" fill="none" stroke="var(--series)" stroke-width="10" stroke-linecap="round"
+        stroke-dasharray="${(C * frac).toFixed(1)} ${C.toFixed(1)}" transform="rotate(-90 54 54)"/>
+      <text x="54" y="52" text-anchor="middle" font-size="22" font-weight="800" fill="var(--ink)">${wk.toFixed(0)}</text>
+      <text x="54" y="70" text-anchor="middle" font-size="11" fill="var(--sub)">/ 90분</text></svg>
+    <div><div style="font-weight:700">${Math.round(frac * 100)}%</div>
+      <div class="sub">월요일부터 이번 주에 슬로우 러닝으로 조깅한 시간이에요. 90분은 Ikenaga 2017 무작위 연구의 주간 조깅량이에요(목표 처방이 아니에요).</div></div>`;
+  renderTrend();
+  markTerms($('home'));
+}
+$('tiles').addEventListener('click', e => { const t = e.target.closest('.tile[data-i]'); if (t) showRecord(+t.dataset.i); });
+
+// 변화 그래프: 선 하나 + 기준선/기준 범위(출처), 점을 누르면 값과 날짜
+const TREND = {
+  walkCad: { label: '걷기 케이던스', unit: '걸음/분', pick: h => (h.activity ?? 'walk') === 'walk' ? h.cadence : null,
+    ref: () => { const { sex } = store.get('profile', {}); const n = sex === 'm' ? 111 : sex === 'f' ? 117 : 113; return { band: [n * 0.9, n * 1.1], text: `회색 띠 = Perry 성인 평균 ${n}걸음/분 ±10%` }; } },
+  walkSpeed: { label: '걷는 속도', unit: 'm/s', dec: 2, pick: h => (h.activity ?? 'walk') === 'walk' ? h.speed ?? null : null, ref: () => ({ line: 1.37, text: '점선 = Perry 성인 평균 1.37 m/s' }) },
+  runCad: { label: '러닝 케이던스', unit: '걸음/분', pick: h => h.activity === 'run' ? h.cadence : null, ref: () => ({ text: '러닝 케이던스는 사람·속도마다 달라 기준선 없이 변화만 봐요' }) },
+  knee: { label: '영상: 유각기 무릎 굽힘', unit: '°', pick: h => h.activity === 'video' && h.view === 'side' ? h.r?.m?.kneeSwingMax ?? null : null, ref: () => ({ line: 60, text: '점선 = Perry 초기 유각 약 60° · 영상 각도는 같은 조건으로 찍어야 비교돼요' }) },
+};
+$('tmetric').value = store.get('tmetric', 'walkCad');
+$('tmetric').addEventListener('change', () => { store.set('tmetric', $('tmetric').value); renderTrend(); });
+function renderTrend() {
+  const cfg = TREND[$('tmetric').value], dec = cfg.dec ?? 0;
+  const pts = store.get('history', []).filter(h => !h.practice).map(h => ({ d: h.date, v: cfg.pick(h) })).filter(p => p.v != null && !Number.isNaN(p.v)).reverse().slice(-20);
+  const ref = cfg.ref();
+  if (pts.length < 2) { $('tchart').innerHTML = `<div class="sub" style="margin-top:10px">기록이 2개 이상 쌓이면 그래프가 그려져요. (지금 ${pts.length}개, 연습 측정은 빼요)</div>`; return; }
+  const vals = pts.map(p => p.v).concat(ref.band ?? [], ref.line ?? []);
+  let lo = Math.min(...vals), hi = Math.max(...vals); const pad = (hi - lo) * 0.15 || 1; lo -= pad; hi += pad;
+  const Wd = 320, Ht = 170, L = 38, R = 10, T = 12, B = 26;
+  const X = i => L + (Wd - L - R) * (pts.length === 1 ? 0.5 : i / (pts.length - 1)), Y = v => T + (Ht - T - B) * (1 - (v - lo) / (hi - lo));
+  const ticks = [lo + pad, (lo + hi) / 2, hi - pad];
+  $('tchart').innerHTML = `<svg viewBox="0 0 ${Wd} ${Ht}" class="chart" role="img" aria-label="${cfg.label} 변화, 최근 ${pts.length}개">
+      ${ticks.map(t => `<line x1="${L}" x2="${Wd - R}" y1="${Y(t)}" y2="${Y(t)}" stroke="var(--line)"/><text x="${L - 6}" y="${Y(t) + 4}" font-size="10" text-anchor="end" fill="var(--sub)">${t.toFixed(dec)}</text>`).join('')}
+      ${ref.band ? `<rect x="${L}" width="${Wd - L - R}" y="${Y(ref.band[1])}" height="${Y(ref.band[0]) - Y(ref.band[1])}" fill="var(--sub)" opacity=".12"/>` : ''}
+      ${ref.line ? `<line x1="${L}" x2="${Wd - R}" y1="${Y(ref.line)}" y2="${Y(ref.line)}" stroke="var(--sub)" stroke-width="1.5" stroke-dasharray="5 4"/>` : ''}
+      <polyline points="${pts.map((p, i) => `${X(i).toFixed(1)},${Y(p.v).toFixed(1)}`).join(' ')}" fill="none" stroke="var(--series)" stroke-width="2" stroke-linejoin="round"/>
+      ${pts.map((p, i) => `<circle cx="${X(i)}" cy="${Y(p.v)}" r="4" fill="var(--series)" stroke="var(--card)" stroke-width="2"/><circle class="hit" data-k="${i}" cx="${X(i)}" cy="${Y(p.v)}" r="14" fill="transparent"/>`).join('')}
+      <text x="${L}" y="${Ht - 6}" font-size="10" fill="var(--sub)">${shortDate(pts[0].d)}</text>
+      <text x="${Wd - R}" y="${Ht - 6}" font-size="10" text-anchor="end" fill="var(--sub)">${shortDate(pts[pts.length - 1].d)}</text>
+    </svg><div id="ttip" class="hidden"></div>
+    <div class="sub">${cfg.label}(${cfg.unit}) · 최근 ${pts.length}개 · ${ref.text}. 점을 누르면 값이 보여요. 표는 기록 탭에서 볼 수 있어요.</div>`;
+  const svg = $('tchart').querySelector('svg');
+  const show = e => {
+    const c = e.target.closest?.('.hit'); if (!c) return $('ttip').classList.add('hidden');
+    const p = pts[+c.dataset.k], box = svg.getBoundingClientRect(), sc = box.width / Wd;
+    $('ttip').textContent = `${shortDate(p.d)} · ${p.v.toFixed(dec)} ${cfg.unit}`;
+    $('ttip').classList.remove('hidden');
+    const half = $('ttip').offsetWidth / 2, x = c.cx.baseVal.value * sc;   // 말풍선이 그래프 밖으로 잘리지 않게
+    $('ttip').style.left = `${Math.min(Math.max(x, half), box.width - half)}px`; $('ttip').style.top = `${c.cy.baseVal.value * sc}px`;
+  };
+  svg.addEventListener('pointermove', show); svg.addEventListener('click', show);
+  svg.addEventListener('pointerleave', () => $('ttip').classList.add('hidden'));
+}
+
 $('histBody').addEventListener('click', e => { const tr = e.target.closest('tr[data-i]'); if (tr) showRecord(+tr.dataset.i); });
 function showRecord(i) {
   const hist = store.get('history', []), h = hist[i];
@@ -581,7 +671,8 @@ function showRecord(i) {
   const when = new Date(h.date).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
   const banner = `<div class="sub" style="margin-bottom:6px">📅 지난 기록 다시 보기 · ${when}</div>`;
   const act = h.activity ?? 'walk';
-  if (act === 'video') { renderVideo(h.r); $('vresult').insertAdjacentHTML('afterbegin', banner); return; }
+  if (act === 'video') { setTab('video'); renderVideo(h.r); $('vresult').insertAdjacentHTML('afterbegin', banner); return; }
+  setTab('measure');
   const prev = hist.slice(i + 1).find(x => !x.practice && (x.activity ?? 'walk') === act);
   if (act === 'slowrun') renderSlow(h, hist); else if (act === 'run') renderRun(h, prev); else render(h, prev);
   $('result').insertAdjacentHTML('afterbegin', banner);
@@ -762,4 +853,6 @@ if (new URLSearchParams(location.search).has('demo')) {
   });
 }
 
+homeReady = true;
+setTab('home');
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});

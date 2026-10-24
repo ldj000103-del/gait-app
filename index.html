@@ -7,21 +7,25 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <meta name="theme-color" content="#1d6b5c">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <style>
-  :root { --bg:#f6f7f5; --card:#fff; --ink:#1c2321; --sub:#5c6764; --line:#dfe4e1; --accent:#1d6b5c;
+  /* 색 규칙(디자인 토큰): 바탕·카드·글자·선·주요색 + 정확도 등급 4색 + 그래프 선 */
+  :root { --bg:#f6f7f5; --card:#fff; --ink:#1c2321; --sub:#5c6764; --line:#dfe4e1; --accent:#1d6b5c; --accent-weak:#e3f1ed;
+          --series:#008a6e; --band:rgba(0,138,110,.10); --radius:14px; --shadow:0 1px 2px rgba(0,0,0,.04), 0 2px 8px rgba(0,0,0,.04);
           --g:#1e8e3e; --y:#b08000; --o:#c4551b; --n:#7a8380; }
   @media (prefers-color-scheme: dark) {
-    :root { --bg:#141917; --card:#1d2422; --ink:#e7ecea; --sub:#a3aeab; --line:#2e3835; --accent:#5fc2ab;
+    :root { --bg:#141917; --card:#1d2422; --ink:#e7ecea; --sub:#a3aeab; --line:#2e3835; --accent:#5fc2ab; --accent-weak:#1f3a33;
+            --series:#16a383; --band:rgba(22,163,131,.14); --shadow:none;
             --g:#5cc77a; --y:#e0b84a; --o:#f08a55; --n:#9aa4a1; }
   }
   * { box-sizing:border-box; }
-  body { margin:0; font:16px/1.55 system-ui,-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  body { margin:0; font:16px/1.55 "Pretendard Variable",Pretendard,system-ui,-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
          background:var(--bg); color:var(--ink); }
-  main { max-width:560px; margin:0 auto; padding:16px 16px 48px; }
+  main { max-width:560px; margin:0 auto; padding:16px 16px 96px; }
   h1 { font-size:1.4rem; margin:8px 0 2px; }
   h2 { font-size:1.05rem; margin:0 0 10px; }
   .sub { color:var(--sub); font-size:.9rem; }
-  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:16px; margin:14px 0; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:var(--radius); padding:16px; margin:14px 0; box-shadow:var(--shadow); }
   label { display:block; margin:10px 0 4px; font-weight:600; font-size:.95rem; }
   select, input { width:100%; font:inherit; padding:10px 12px; border-radius:10px; border:1px solid var(--line);
                   background:var(--bg); color:var(--ink); }
@@ -46,6 +50,25 @@
   .bar i { position:absolute; top:-4px; width:4px; height:18px; background:var(--ink); border-radius:2px; }
   .hist td { padding:6px 4px; border-top:1px solid var(--line); font-size:.9rem; } .hist { width:100%; border-collapse:collapse; }
   .hidden { display:none; }
+  /* 아래 탭: body[data-tab]에 맞는 칸만 보임 */
+  body[data-tab="home"] main > [data-tab]:not([data-tab="home"]),
+  body[data-tab="measure"] main > [data-tab]:not([data-tab="measure"]),
+  body[data-tab="video"] main > [data-tab]:not([data-tab="video"]),
+  body[data-tab="records"] main > [data-tab]:not([data-tab="records"]) { display:none; }
+  #tabbar { position:fixed; left:0; right:0; bottom:0; z-index:20; display:flex; background:var(--card); border-top:1px solid var(--line);
+            padding:6px max(8px, env(safe-area-inset-left)) calc(6px + env(safe-area-inset-bottom)); }
+  #tabbar button { flex:1; margin:0; padding:6px 0; background:none; color:var(--sub); font-size:.78rem; font-weight:600; border-radius:10px; }
+  #tabbar button b { display:block; font-size:1.25rem; line-height:1.2; }
+  #tabbar button[aria-selected="true"] { color:var(--accent); background:var(--accent-weak); }
+  body.needConsent #tabbar, body.recording #tabbar { display:none; }
+  /* 홈: 요약 카드·링·변화 그래프 */
+  .tiles { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .tile { background:var(--card); border:1px solid var(--line); border-radius:var(--radius); padding:12px; box-shadow:var(--shadow); text-align:left; color:var(--ink); margin:0; font-weight:400; cursor:pointer; }
+  .tile .k { font-size:.8rem; color:var(--sub); font-weight:600; } .tile .v { font-size:1.9rem; font-weight:800; letter-spacing:-.02em; line-height:1.15; margin-top:4px; }
+  .tile .v small { font-size:.8rem; font-weight:600; color:var(--sub); } .tile .d { font-size:.78rem; color:var(--sub); margin-top:2px; }
+  .tile.empty { cursor:default; } .tile.empty .v { color:var(--sub); font-size:1.2rem; }
+  .ringwrap { display:flex; gap:14px; align-items:center; } .ringwrap svg { flex:none; width:108px; height:108px; }
+  #tchart { position:relative; } #ttip { position:absolute; pointer-events:none; background:var(--ink); color:var(--card); font-size:.8rem; padding:4px 8px; border-radius:8px; white-space:nowrap; transform:translate(-50%,-110%); }
   #consent { display:none; }
   body.needConsent #consent { display:block; }
   body.needConsent main > section:not(#consent) { display:none; }
@@ -83,7 +106,7 @@
   ol.guide { padding-left:20px; margin:6px 0; } ol.guide li { margin:3px 0; }
 </style>
 </head>
-<body>
+<body data-tab="home">
 <main>
   <h1>걸음 분석</h1>
   <div class="sub">휴대폰 센서로 케이던스(분당 걸음 수)를 잽니다. 의료 진단이 아닙니다.</div>
@@ -121,7 +144,25 @@
     <button id="cOk" disabled>동의하고 시작</button>
   </section>
 
-  <section class="card" id="profile">
+  <section id="home" data-tab="home">
+    <div class="tiles" id="tiles"></div>
+    <div class="card">
+      <h2>이번 주 슬로우 조깅</h2>
+      <div class="ringwrap" id="ring"></div>
+    </div>
+    <div class="card">
+      <h2>변화 그래프</h2>
+      <select id="tmetric">
+        <option value="walkCad">걷기 케이던스</option>
+        <option value="walkSpeed">걷는 속도</option>
+        <option value="runCad">러닝 케이던스</option>
+        <option value="knee">영상: 유각기 무릎 굽힘</option>
+      </select>
+      <div id="tchart"></div>
+    </div>
+  </section>
+
+  <section class="card" id="profile" data-tab="measure">
     <h2>내 정보 <span class="sub">(기준값 비교용, 이 휴대폰에만 저장)</span></h2>
     <div class="row">
       <div><label for="sex">성별</label>
@@ -130,7 +171,7 @@
     </div>
   </section>
 
-  <section class="card" id="setup">
+  <section class="card" id="setup" data-tab="measure">
     <h2>측정하기</h2>
     <label for="act">무엇을 할까요?</label>
     <select id="act">
@@ -168,7 +209,7 @@
     <button id="demo" class="ghost hidden">데모 데이터로 보기</button>
   </section>
 
-  <section class="card" id="vsetup">
+  <section class="card" id="vsetup" data-tab="video">
     <h2>영상 분석 <span class="sub">(옆·앞·뒤)</span></h2>
     <label for="vview">어느 방향에서 찍을까요?</label>
     <select id="vview">
@@ -188,23 +229,23 @@
     <canvas id="vcanvas" class="hidden" style="width:100%;border-radius:10px;margin-top:10px"></canvas>
   </section>
 
-  <section class="card hidden" id="vresult"></section>
+  <section class="card hidden" id="vresult" data-tab="video"></section>
 
-  <section class="card hidden" id="rec">
+  <section class="card hidden" id="rec" data-tab="measure">
     <h2 id="recTitle">준비…</h2>
     <div class="big" id="recTime">0초</div>
     <div class="sub" id="recHint">휴대폰을 주머니에 넣고 걸으세요.</div>
     <button id="stop" style="touch-action:none;user-select:none">끝 (1초 길게 누르기)</button>
   </section>
 
-  <section class="card hidden" id="result"></section>
+  <section class="card hidden" id="result" data-tab="measure"></section>
 
-  <section class="card" id="history">
+  <section class="card" id="history" data-tab="records">
     <h2>지난 기록</h2>
     <div id="histBody" class="sub">아직 기록이 없어요.</div>
   </section>
 
-  <section class="card sub" id="about">
+  <section class="card sub" id="about" data-tab="home">
     <h2>이 앱의 근거</h2>
     정상 보행 기준은 Perry 『Gait Analysis』(1992)를 기본으로 하고, 최신 학술지 연구를 함께 씁니다.
     각 결과의 <b>정확도 등급</b>: <span class="badge b-g">정확</span> <span class="badge b-y">참고</span>
@@ -213,6 +254,12 @@
     <p><span id="consentState"></span> · <a href="#" id="cEdit">동의 변경</a> · <a href="privacy.html">개인정보 처리방침</a></p>
   </section>
 </main>
+<nav id="tabbar" role="tablist" aria-label="화면 이동">
+  <button role="tab" data-go="home"><b>🏠</b>홈</button>
+  <button role="tab" data-go="measure"><b>👟</b>측정</button>
+  <button role="tab" data-go="video"><b>🎥</b>영상</button>
+  <button role="tab" data-go="records"><b>📋</b>기록</button>
+</nav>
 <div id="tip" class="hidden" role="status"></div>
 <script type="module" src="app.js"></script>
 </body>
