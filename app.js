@@ -26,6 +26,7 @@ const REF = {
   ikenaga2017: 'Ikenaga M 외. Short-interval, intermittent, low-intensity, slow-jogging program in older adults: RCT. Eur J Appl Physiol 2017. doi:10.1007/s00421-016-3493-9',
 };
 const ACT = { walk: '걷기', run: '러닝', slowrun: '슬로우 러닝' };
+const MET_NOTE = 'MET(대사당량) = 가만히 앉아 쉴 때 쓰는 에너지를 1로 본 운동 강도 단위예요. 3 MET는 쉴 때의 약 3배 에너지를 쓰는 강도예요(1 MET ≈ 몸무게 1kg당 1분에 산소 3.5mL).';
 const INTERVAL_S = 60;   // 슬로우 러닝: 조깅 1분 + 걷기 1분 반복 (Ikenaga 2017)
 const GRADE = {
   g: ['b-g', '정확'], y: ['b-y', '참고'], o: ['b-o', '부정확할 수 있음'], n: ['b-n', '검증 안 됨'],
@@ -245,7 +246,7 @@ function send(r) {
 }
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v12';
+const APP_VERSION = 'v13';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -307,7 +308,7 @@ function render(r, prev) {
   });
   html += metric({
     title: '걷기 강도', value: intensity, unit: '', grade: 'y',
-    body: `<div class="sub">${older ? '61세 이상 기준: 100 = 중강도, 110 = 4 MET, 120 = 5 MET' : '기준: 100걸음/분 = 중강도, 130 = 고강도'}</div>`,
+    body: `<div class="sub">${older ? '61세 이상 기준: 100걸음/분 = 중강도(3 MET), 110 = 4 MET, 120 = 5 MET' : '기준: 100걸음/분 = 중강도(3 MET), 130 = 고강도(6 MET)'}<br>${MET_NOTE}</div>`,
     why: ['실험실에서 호흡 가스로 잰 강도와 케이던스를 비교한 연구의 기준값', '실제 바닥 걷기에서 100걸음/분 기준이 중강도를 맞힌 비율은 약 75% → "참고" 등급', '나이를 입력하면 61세 이상 기준으로 바뀌어요.'],
     refs: ['cadenceAdults', 'aguiar'],
   });
@@ -371,7 +372,7 @@ function recsWalk(r, { sex, age }) {
     calc: [`${next} − ${c} = <b>+${next - c}걸음/분</b>`],
     facts: [older ? 'CADENCE-Adults(61~85세): 100걸음/분 ≈ 3 MET(중강도), 110 ≈ 4 MET, 120 ≈ 5 MET' : 'CADENCE-Adults(21~60세): 100걸음/분 ≈ 3 MET(중강도), 130 ≈ 6 MET(고강도)',
       'Aguiar 2022: 실제 바닥 걷기에서 100걸음/분 기준이 중강도를 맞힌 비율 약 75%'],
-    limit: '실험실 호흡가스 측정으로 정한 평균 기준이라 사람마다 다를 수 있음', refs: ['cadenceAdults', 'aguiar'] }));
+    limit: '실험실 호흡가스 측정으로 정한 평균 기준이라 사람마다 다를 수 있음. ' + MET_NOTE, refs: ['cadenceAdults', 'aguiar'] }));
   const ideal = sex === 'f' ? 0.0064 : sex === 'm' ? 0.0072 : null;
   if (ideal && r.stepLength) {
     const cm = r.stepLength * 100, ratio = r.stepLength / r.cadence, opt = ideal * r.cadence * 100;
