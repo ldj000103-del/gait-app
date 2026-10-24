@@ -55,9 +55,12 @@ const store = {
 };
 const prof = store.get('profile', { sex: '', age: '' });
 $('sex').value = prof.sex; $('age').value = prof.age;
+const under14 = age => +age > 0 && +age < 14;
+const ageNote = () => $('ageNote').classList.toggle('hidden', !under14($('age').value));
 for (const id of ['sex', 'age']) $(id).addEventListener('change', () => {
-  store.set('profile', { sex: $('sex').value, age: $('age').value });
+  store.set('profile', { sex: $('sex').value, age: $('age').value }); ageNote();
 });
+ageNote();
 
 // ── 활동 종류 (선택은 이 휴대폰에 기억) ──
 $('act').value = store.get('act', 'walk');
@@ -241,6 +244,7 @@ function finishSlow(data, demo) {
 const ENDPOINT = 'https://script.google.com/macros/s/AKfycbwLfXvMoqIPDkmemDjQ5oJWhaDDKboetKlxkU603xABxQqTPjzvr1hN3Iyhb9km3OCb/exec';
 function send(r) {
   const { sex, age } = store.get('profile', {});
+  if (under14(age)) return null;                                           // 개인정보 보호법 제22조의2: 만 14세 미만은 법정대리인 동의가 필요해서 보내지 않음
   const ua = navigator.userAgent;
   const receipt = crypto.randomUUID().slice(0, 8);                       // 삭제 요청용 접수번호, 개인과 연결 안 됨
   const body = {
@@ -259,7 +263,7 @@ function send(r) {
 }
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v29';
+const APP_VERSION = 'v30';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
