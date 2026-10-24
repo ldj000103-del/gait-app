@@ -168,6 +168,7 @@ async function stopRec() {
 }
 
 function finish(data, demo = false, gps = []) {
+  shownDate = null;
   const position = $('pos').value;
   const act = $('act').value;
   if (act === 'slowrun') return finishSlow(data, demo);
@@ -199,6 +200,7 @@ function finish(data, demo = false, gps = []) {
   const rec = { date: new Date().toISOString(), activity: act, position, practice, ...res, distance: dist, ...d, distSource: d.speed ? mode : null, diag, diagHtml };
   if (!demo && consent?.share && ENDPOINT) rec.receipt = send(rec);
   hist.unshift(rec); store.set('history', hist.slice(0, 200));
+  shownDate = rec.date;
   const prev = hist.find(h => !h.practice && h !== rec && (h.activity ?? 'walk') === act);
   act === 'run' ? renderRun(rec, prev) : render(rec, prev);
   renderHistory();
@@ -206,6 +208,7 @@ function finish(data, demo = false, gps = []) {
 
 // ── 슬로우 러닝: 1분 단위로 잘라 조깅 구간은 러닝, 걷기 구간은 걷기로 분석 ──
 function finishSlow(data, demo) {
+  shownDate = null;
   const position = $('pos').value, t0s = data[0].t, segs = [];
   for (let k = 0; ; k++) {
     const a = t0s + k * INTERVAL_S * 1000, b = a + INTERVAL_S * 1000;
@@ -226,6 +229,7 @@ function finishSlow(data, demo) {
     diag: { src: Native ? 'app' : 'web', durS: (data[data.length - 1].t - t0s) / 1000, hz: data.length / Math.max(1, (data[data.length - 1].t - t0s) / 1000), gapS: 0, gpsGood: 0 } };
   if (!demo && consent?.share && ENDPOINT) rec.receipt = send(rec);
   hist.unshift(rec); store.set('history', hist.slice(0, 200));
+  shownDate = rec.date;
   renderSlow(rec, hist);
   renderHistory();
 }
@@ -253,7 +257,7 @@ function send(r) {
 }
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v20';
+const APP_VERSION = 'v21';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -362,13 +366,13 @@ function render(r, prev) {
 // ── 추천 카드: 효과를 뭉뚱그리지 않고 계산식 + 출처별 실제 결과 + 한계만 보여 줌 ──
 function recCard({ title, calc = [], facts = [], limit = '', grade = 'y', refs = [] }) {
   const [cls, label] = GRADE[grade];
-  return `<div class="rec"><div class="mhead"><b>💡 ${title}</b><span class="badge ${cls}">${label}</span></div>
+  return `<div class="rec"><div class="mhead"><b>${title}</b><span class="badge ${cls}">${label}</span></div>
     ${calc.length ? `<div class="calc">${calc.join('<br>')}</div>` : ''}
     <ul class="facts">${facts.map(f => `<li>${f}</li>`).join('')}</ul>
     ${limit ? `<div class="sub">한계: ${limit}</div>` : ''}
     <details><summary>출처 전체</summary><ul>${refs.map(r => `<li>${REF[r]}</li>`).join('')}</ul></details></div>`;
 }
-const recSection = (cards, title = '📚 근거로 본 추천') => cards.length ? `<details class="recs"><summary>${title} <span class="sub">(눌러서 보기)</span></summary><div class="sub" style="margin-top:8px">책·연구의 기준값과 이번 값, 계산식만 옮겼어요. 원인 판단과 내 몸에 맞는지는 전문가와 상의하세요.</div>${cards.join('')}</details>` : '';
+const recSection = (cards, title = '근거로 본 추천') => cards.length ? `<details class="recs"><summary>${title} <span class="sub">(눌러서 보기)</span></summary><div class="sub" style="margin-top:8px">책·연구의 기준값과 이번 값, 계산식만 옮겼어요. 원인 판단과 내 몸에 맞는지는 전문가와 상의하세요.</div>${cards.join('')}</details>` : '';
 
 function recsWalk(r, { sex, age }) {
   const c = Math.round(r.cadence), cards = [];
@@ -471,8 +475,38 @@ function renderSlow(r, hist) {
   showHtml(html);
 }
 
+
+// ── 그때 상황 남기기: 글자 입력 없이 탭으로 (기록에만 저장, 시트로 보내지 않음) ──
+const CTX = {
+  cond: ['컨디션', ['좋음', '보통', '피곤', '통증 있음']],
+  road: ['길', ['평지', '오르막', '내리막', '트레드밀']],
+  shoe: ['신발', ['운동화', '구두·샌들', '맨발·기타']],
+};
+let shownDate = null;   // 지금 결과 화면에 떠 있는 기록의 날짜 (이걸로 기록을 찾음)
+function ctxBox(date) {
+  const h = store.get('history', []).find(x => x.date === date);
+  if (!h) return '';
+  const c = h.ctx || {};
+  return `<div class="ctx" data-date="${date}"><div class="sub" style="margin-bottom:6px">그때 상황 남기기 <span style="opacity:.7">(선택 · 누르기만 하면 저장돼요)</span></div>
+    ${Object.entries(CTX).map(([k, [name, opts]]) => `<div class="ctxrow"><span class="ctxk">${name}</span>${opts.map(o => `<button class="chip" data-k="${k}" data-v="${o}" aria-pressed="${c[k] === o}">${o}</button>`).join('')}</div>`).join('')}
+    <div class="sub" style="margin-top:4px;font-size:.75rem">Neumann 16장: 오르막·내리막에 따라 착지 충격이 달라져서, 길 종류를 남겨 두면 기록을 비교할 때 도움이 돼요.</div></div>`;
+}
+document.addEventListener('click', e => {
+  const b = e.target.closest?.('.ctx .chip');
+  if (!b) return;
+  const box = b.closest('.ctx'), hist = store.get('history', []), h = hist.find(x => x.date === box.dataset.date);
+  if (!h) return;
+  h.ctx = h.ctx || {};
+  h.ctx[b.dataset.k] = h.ctx[b.dataset.k] === b.dataset.v ? undefined : b.dataset.v;   // 같은 걸 다시 누르면 지움
+  store.set('history', hist);
+  for (const x of box.querySelectorAll(`.chip[data-k="${b.dataset.k}"]`)) x.setAttribute('aria-pressed', h.ctx[b.dataset.k] === x.dataset.v);
+  renderHistory();
+});
+const ctxText = c => c ? Object.keys(CTX).map(k => c[k]).filter(Boolean).join(' · ') : '';
+
 function showHtml(html) {
   const el = $('result'); el.innerHTML = html;
+  if (shownDate) el.querySelector('h2')?.insertAdjacentHTML('afterend', ctxBox(shownDate));
   el.insertAdjacentHTML('beforeend', glossList(markTerms(el)));
   el.classList.remove('hidden'); el.scrollIntoView({ behavior: 'smooth' });
 }
@@ -555,7 +589,7 @@ function markTerms(root) {
 }
 function glossList(terms) {
   if (!terms.length) return '';
-  return `<details class="gloss"><summary>📖 용어 풀이 (${terms.length}개)</summary><dl>${terms.map(t => `<dt>${t}</dt><dd>${GLOSS[t]}</dd>`).join('')}</dl></details>`;
+  return `<details class="gloss"><summary>용어 풀이 (${terms.length}개)</summary><dl>${terms.map(t => `<dt>${t}</dt><dd>${GLOSS[t]}</dd>`).join('')}</dl></details>`;
 }
 document.addEventListener('click', e => {
   const t = e.target.closest?.('.term');
@@ -571,7 +605,7 @@ function renderHistory() {
   if (homeReady && document.body.dataset.tab === 'home') renderHome();   // 홈 코드가 다 읽힌 뒤에만
   if (!hist.length) return;
   $('histBody').innerHTML = `<div class="sub">줄을 누르면 그때 결과를 다시 볼 수 있어요.</div><table class="hist"><tr><td>날짜</td><td>활동</td><td>케이던스</td><td>걸음</td><td>속도</td></tr>` +
-    hist.slice(0, 20).map((h, i) => `<tr data-i="${i}" class="clickable"><td>${new Date(h.date).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}${h.practice ? ' (연습)' : ''}${h.receipt ? `<br><span class="sub">접수 ${h.receipt}</span>` : ''}</td>
+    hist.slice(0, 20).map((h, i) => `<tr data-i="${i}" class="clickable"><td>${new Date(h.date).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}${h.practice ? ' (연습)' : ''}${h.receipt ? `<br><span class="sub">접수 ${h.receipt}</span>` : ''}${h.ctx && ctxText(h.ctx) ? `<br><span class="sub">${ctxText(h.ctx)}</span>` : ''}</td>
       <td>${ACT[h.activity ?? 'walk']}${h.view ? `(${VIEW[h.view]})` : ''}</td><td>${(h.cadence ?? h.r?.cadence)?.toFixed(0) ?? '-'}</td><td>${h.steps ?? '-'}</td><td>${h.speed ? h.speed.toFixed(2) + ' m/s' : '-'}</td></tr>`).join('') + '</table>';
 }
 renderHistory();
@@ -590,6 +624,35 @@ const shortDate = d => new Date(d).toLocaleDateString('ko-KR', { month: 'numeric
 function tile(label, value, unit, sub, i) {
   if (value == null) return `<div class="tile empty"><div class="k">${label}</div><div class="v">기록 없음</div><div class="d">${sub}</div></div>`;
   return `<button class="tile" data-i="${i}"><div class="k">${label}</div><div class="v">${value}<small> ${unit}</small></div><div class="d">${sub}</div></button>`;
+}
+
+// 주간 요약: 이번 주(월요일부터) vs 지난주, 점수 없이 숫자와 차이만
+function weekSummary(hist) {
+  const mon = new Date(); mon.setHours(0, 0, 0, 0); mon.setDate(mon.getDate() - ((mon.getDay() + 6) % 7));
+  const prevMon = new Date(mon); prevMon.setDate(mon.getDate() - 7);
+  const inW = (h, a, b) => { const t = new Date(h.date); return t >= a && t < b; };
+  const far = new Date(8.64e15);
+  const pick = (a, b) => hist.filter(h => !h.practice && inW(h, a, b));
+  const stat = list => {
+    const avg = xs => xs.length ? xs.reduce((s, x) => s + x, 0) / xs.length : null;
+    const walk = list.filter(h => (h.activity ?? 'walk') === 'walk');
+    return { n: list.length, walkCad: avg(walk.map(h => h.cadence)), speed: avg(walk.filter(h => h.speed).map(h => h.speed)),
+      runCad: avg(list.filter(h => h.activity === 'run').map(h => h.cadence)),
+      jog: list.filter(h => h.activity === 'slowrun').reduce((s, h) => s + h.activeS / 60, 0), video: list.filter(h => h.activity === 'video').length };
+  };
+  return { cur: stat(pick(mon, far)), prev: stat(pick(prevMon, mon)) };
+}
+function renderWeek() {
+  const { cur, prev } = weekSummary(store.get('history', []));
+  const row = (label, a, b, unit, dec = 0) => {
+    const v = a == null ? '-' : `${a.toFixed(dec)}<small> ${unit}</small>`;
+    const d = a != null && b != null ? `${a - b >= 0 ? '+' : ''}${(a - b).toFixed(dec)}` : '-';
+    return `<tr><td>${label}</td><td class="num">${v}</td><td class="num sub">${d}</td></tr>`;
+  };
+  $('week').innerHTML = `<table class="wk"><tr class="sub"><td></td><td class="num">이번 주</td><td class="num">지난주 대비</td></tr>
+    ${row('측정 횟수', cur.n, prev.n, '회')}${row('걷기 케이던스 평균', cur.walkCad, prev.walkCad, '걸음/분')}${row('걷는 속도 평균', cur.speed, prev.speed, 'm/s', 2)}
+    ${row('러닝 케이던스 평균', cur.runCad, prev.runCad, '걸음/분')}${row('슬로우 조깅', cur.jog, prev.jog, '분')}${row('영상 분석', cur.video, prev.video, '회')}</table>
+    <div class="sub" style="margin-top:6px">월요일부터 지금까지의 기록이에요(연습 측정 제외). 점수로 바꾸지 않고 잰 숫자만 모았어요.</div>`;
 }
 function renderHome() {
   const hist = store.get('history', []);
@@ -616,6 +679,7 @@ function renderHome() {
       <text x="54" y="70" text-anchor="middle" font-size="11" fill="var(--sub)">/ 90분</text></svg>
     <div><div style="font-weight:700">${Math.round(frac * 100)}%</div>
       <div class="sub">월요일부터 이번 주에 슬로우 러닝으로 조깅한 시간이에요. 90분은 Ikenaga 2017 무작위 연구의 주간 조깅량이에요(목표 처방이 아니에요).</div></div>`;
+  renderWeek();
   renderTrend();
   markTerms($('home'));
 }
@@ -669,8 +733,9 @@ function showRecord(i) {
   const hist = store.get('history', []), h = hist[i];
   if (!h) return;
   const when = new Date(h.date).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-  const banner = `<div class="sub" style="margin-bottom:6px">📅 지난 기록 다시 보기 · ${when}</div>`;
+  const banner = `<div class="sub" style="margin-bottom:6px">지난 기록 다시 보기 · ${when}</div>`;
   const act = h.activity ?? 'walk';
+  shownDate = h.date;
   if (act === 'video') { setTab('video'); renderVideo(h.r); $('vresult').insertAdjacentHTML('afterbegin', banner); return; }
   setTab('measure');
   const prev = hist.slice(i + 1).find(x => !x.practice && (x.activity ?? 'walk') === act);
@@ -694,6 +759,7 @@ for (const id of ['vcam', 'vfile']) $(id).addEventListener('change', e => { cons
 
 async function runVideo(file) {
   const view = $('vview').value;
+  shownDate = null;
   $('vresult').classList.add('hidden'); $('vcanvas').classList.add('hidden'); $('vprog').classList.remove('hidden');
   const prog = (r, msg) => { $('vbar').style.width = `${Math.round(r * 100)}%`; $('vmsg').textContent = msg; };
   prog(0, '자세 인식 프로그램 준비 중… (처음 한 번은 조금 걸려요)');
@@ -713,8 +779,9 @@ async function runVideo(file) {
     await drawSnapshot($('vcanvas'), video, frames[Math.floor(frames.length / 2)]);
     URL.revokeObjectURL(video.src);
     const hist = store.get('history', []);
-    hist.unshift({ date: new Date().toISOString(), activity: 'video', view, r });   // 영상은 저장 안 하고 계산된 숫자만
-    store.set('history', hist.slice(0, 200));
+    const vrec = { date: new Date().toISOString(), activity: 'video', view, r };   // 영상은 저장 안 하고 계산된 숫자만
+    hist.unshift(vrec); store.set('history', hist.slice(0, 200));
+    shownDate = vrec.date;
     renderVideo(r, dur);
     renderHistory();
   } catch (err) {
@@ -727,6 +794,7 @@ async function runVideo(file) {
 
 function showV(html) {
   const el = $('vresult'); el.innerHTML = html;
+  if (shownDate) el.querySelector('h2')?.insertAdjacentHTML('afterend', ctxBox(shownDate));
   el.insertAdjacentHTML('beforeend', glossList(markTerms(el)));
   el.classList.remove('hidden'); el.scrollIntoView({ behavior: 'smooth' });
 }
@@ -823,7 +891,7 @@ function renderVideo(r, dur) {
       body: `<div class="sub">두 발목 사이 가로 거리 ÷ 양쪽 엉덩이 점 사이 거리 (중앙값). 참고: Neumann 15장 성인 걸음 폭 8~10cm</div>`,
       why: ['영상에는 cm 기준이 없어서 골반 너비에 대한 비율로만 보여 줘요'], refs: ['neumann15'] });
   }
-  html += recSection(videoRecs(r), '📚 레퍼런스로 본 걷는 법');
+  html += recSection(videoRecs(r), '레퍼런스로 본 걷는 법');
   html += `<div class="sub" style="margin-top:12px">이 결과는 의료 진단이 아니에요. 걸음이 걱정되면 전문가와 상담하세요. 영상은 저장되지 않았어요(계산된 숫자만 지난 기록에 남아요).</div>`;
   showV(html);
 }
