@@ -101,10 +101,19 @@ $('start').addEventListener('click', async () => {
     }, 500);
   }, 1000);
 });
-// 화면이 켜진 채 주머니에 있으니 실수로 눌리지 않게 1초 길게 눌러야 끝
+// 웹앱은 화면이 켜진 채 주머니에 있으니 실수로 눌리지 않게 1초 길게 눌러야 끝
 let holdTimer = null;
+// 설치형 앱은 화면을 끄고 걸어서 실수로 눌릴 일이 없으니 한 번 누르면 끝
+if (Native) {
+  $('stop').textContent = '끝'; $('stop').addEventListener('click', stopRec);
+  document.querySelector('ol.guide').innerHTML = `<li><b>시작</b>을 누르고 3초 뒤 <b>화면을 끄고</b> 주머니에 넣어요. 알림창에 "걸음 측정 중"이 떠 있으면 화면이 꺼져도 측정돼요.</li>
+    <li><b>평소처럼, 멈추지 말고 이어서</b> 걸어요. 케이던스만 볼 땐 20초 이상, GPS로 속도까지 볼 땐 야외에서 1분 이상. 방향을 틀며 멈추면 그 앞뒤가 따로 잘려 짧게 잡혀요.</li>
+    <li>멈춰서 화면을 켜고 <b>끝</b>을 눌러요.</li>`;
+}
+else {
 $('stop').addEventListener('pointerdown', () => { $('stop').textContent = '계속 누르고 있어요…'; holdTimer = setTimeout(stopRec, 1000); });
 for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) $('stop').addEventListener(ev, () => { clearTimeout(holdTimer); $('stop').textContent = '끝 (1초 길게 누르기)'; });
+}
 $('stop').addEventListener('contextmenu', e => e.preventDefault());
 async function stopRec() {
   clearInterval(timer); t0 = 0;
@@ -174,7 +183,7 @@ function send(r) {
 }
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v8';
+const APP_VERSION = 'v9';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
