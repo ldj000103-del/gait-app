@@ -25,6 +25,7 @@ const WARN = {
   running: '달리기로 보여요(케이던스 170 이상). 이 분석은 걷기에서만 정확해요.',
   slow: '아주 천천히 걸으면 휴대폰이 걸음 수를 적게 셀 수 있어요.',
   hand: '손에 들면 팔 흔들림이 섞여 정확도가 낮아요. 바지 앞주머니를 권장해요.',
+  paused: '측정 중에 화면이 꺼져 센서가 잠시 멈췄어요. 끊기지 않고 가장 길게 걸은 구간만으로 계산해서 걸음 수가 실제보다 적을 수 있어요. 다음엔 전원 버튼을 누르지 말고 주머니 모드 그대로 넣어 주세요.',
 };
 
 // ── 내 정보 ──
@@ -45,7 +46,9 @@ $('dmode').addEventListener('change', () => { store.set('dmode', $('dmode').valu
 showDmode();
 
 // ── 측정 ──
-let samples = [], t0 = 0, timer = null, gpsPts = [], gpsWatch = null, gpsDenied = false;
+let samples = [], t0 = 0, timer = null, gpsPts = [], gpsWatch = null, gpsDenied = false, wakeLock = null, hiddenDuringRec = false;
+// 휴대폰 브라우저는 화면이 꺼지면 센서·GPS를 멈춤 → 측정 중엔 화면 켜짐 유지, 그래도 꺼지면 기록해 두고 이유를 알려 줌
+document.addEventListener('visibilitychange', () => { if (document.hidden && t0) hiddenDuringRec = true; });
 // 위치 좌표는 이 휴대폰 안에서 거리 계산에만 쓰고 저장·전송하지 않음
 function startGps() {
   gpsPts = []; gpsDenied = false;
@@ -67,6 +70,8 @@ $('start').addEventListener('click', async () => {
     catch { return alert('움직임 센서 권한을 받지 못했어요.'); }
   }
   startGps();                                                              // 위치 권한 창은 여기서 뜸 (카운트다운 동안 GPS가 잡힘)
+  try { wakeLock = await navigator.wakeLock?.request('screen'); } catch { wakeLock = null; }
+  document.body.classList.add('recording');
   samples = []; $('setup').classList.add('hidden'); $('result').classList.add('hidden'); $('rec').classList.remove('hidden');
   let left = 3;
   $('recTitle').textContent = '3초 안에 주머니에 넣으세요';
@@ -77,7 +82,7 @@ $('start').addEventListener('click', async () => {
     navigator.vibrate?.(200);
     $('recTitle').textContent = '걷는 중… 평소처럼 직선으로';
     window.addEventListener('devicemotion', onMotion);
-    t0 = performance.now();
+    t0 = performance.now(); hiddenDuringRec = false;
     timer = setInterval(() => {
       $('recTime').textContent = Math.round((performance.now() - t0) / 1000) + '초';
       const last = gpsPts[gpsPts.length - 1];
@@ -86,19 +91,34 @@ $('start').addEventListener('click', async () => {
     }, 500);
   }, 1000);
 });
-$('stop').addEventListener('click', () => {
-  clearInterval(timer);
+// 화면이 켜진 채 주머니에 있으니 실수로 눌리지 않게 1초 길게 눌러야 끝
+let holdTimer = null;
+$('stop').addEventListener('pointerdown', () => { $('stop').textContent = '계속 누르고 있어요…'; holdTimer = setTimeout(stopRec, 1000); });
+for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) $('stop').addEventListener(ev, () => { clearTimeout(holdTimer); $('stop').textContent = '끝 (1초 길게 누르기)'; });
+$('stop').addEventListener('contextmenu', e => e.preventDefault());
+function stopRec() {
+  clearInterval(timer); t0 = 0;
+  document.body.classList.remove('recording');
+  wakeLock?.release().catch(() => {}); wakeLock = null;
   window.removeEventListener('devicemotion', onMotion);
   stopGps();
   $('rec').classList.add('hidden'); $('setup').classList.remove('hidden');
   if (samples.length < 20) return alert('센서 값이 거의 들어오지 않았어요. 다시 시도해 주세요.');
   finish(samples, false, gpsPts);
-});
+}
 
 function finish(data, demo = false, gps = []) {
   const position = $('pos').value;
   const res = analyzeWalk(data, { position });
   const mode = $('dmode').value;
+  let maxGap = 0;
+  for (let i = 1; i < data.length; i++) maxGap = Math.max(maxGap, data[i].t - data[i - 1].t);
+  const paused = !demo && (hiddenDuringRec || maxGap > 2000);              // 2초 넘게 센서 값이 끊김 = 화면 꺼짐·다른 앱
+  if (paused && !res.error) res.warnings.push('paused');
+  if (res.error && paused) {
+    showHtml(`<h2>다시 측정해 주세요</h2><div class="warn">측정 중에 화면이 꺼지거나 다른 앱으로 바뀌어서 센서가 멈췄어요 (최대 ${Math.round(maxGap / 1000)}초 끊김). <b>전원 버튼은 누르지 말고</b> 시작 후 그대로 주머니에 넣어 주세요(화면이 까만 주머니 모드는 켜진 상태라 측정이 계속돼요). 끝은 1초 길게 눌러야 멈춰서 주머니 속에서 실수로 눌리지 않아요.</div>`);
+    return;
+  }
   if (res.error) {
     const msg = { tooShort: '측정 시간이 너무 짧아요(8초 이상).', noWalk: '걷는 움직임을 찾지 못했어요. 휴대폰을 주머니에 넣고 6초 이상 걸어 주세요.', irregular: '반복되는 걸음 신호를 찾지 못했어요.' }[res.error];
     showHtml(`<h2>다시 측정해 주세요</h2><div class="warn">${msg}</div>`);
@@ -138,7 +158,7 @@ function send(r) {
 }
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v6';
+const APP_VERSION = 'v7';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');

@@ -55,6 +55,14 @@
   .terms p { margin:4px 0; }
   button:disabled { opacity:.4; cursor:not-allowed; }
   a { color:var(--accent); }
+  /* 주머니 모드: 측정 중엔 검은 화면(배터리 절약, 꺼진 것처럼), 실제로는 켜져 있어 센서가 계속 돎 */
+  body.recording { background:#000; }
+  body.recording main > section:not(#rec) { display:none; }
+  body.recording main > h1, body.recording main > .sub { display:none; }
+  body.recording #rec { position:fixed; inset:0; margin:0; border:0; border-radius:0; background:#000; color:#555;
+                        display:flex; flex-direction:column; justify-content:center; padding:24px; }
+  body.recording #rec .sub { color:#444; }
+  body.recording #stop { background:#111; color:#666; border:1px solid #222; margin-top:40vh; }
   ol.guide { padding-left:20px; margin:6px 0; } ol.guide li { margin:3px 0; }
 </style>
 </head>
@@ -125,9 +133,9 @@
     <div class="sub" id="gpsNote">⚠️ 휴대폰 GPS는 위치 오차가 보통 몇 m라서 <b>짧은 거리는 오차가 크게 생길 수 있어요.</b> 그래서 1분·50m보다 짧으면 속도를 계산하지 않고, 길게 걸어도 "참고" 등급이에요. 실내에서는 GPS가 잘 안 잡혀요.<br>
       위치 권한을 물어봐요. 위치는 이 휴대폰 안에서 거리 계산에만 쓰고 저장하거나 보내지 않아요.</div>
     <ol class="guide sub">
-      <li><b>시작</b>을 누르고 3초 안에 휴대폰을 주머니에 넣어요.</li>
+      <li><b>시작</b>을 누르고 3초 안에 주머니에 넣어요. 화면이 까맣게 바뀌는 <b>주머니 모드</b>가 돼요. <b>전원 버튼은 누르지 마세요</b> — 누르면 휴대폰이 센서를 멈춰요.</li>
       <li><b>평소처럼</b> 걸어요. 케이던스만 볼 땐 20초 이상, GPS로 속도까지 볼 땐 <b>야외에서 1분 이상</b>. 특정 지점을 밟으려고 하지 마세요.</li>
-      <li>멈춰서 휴대폰을 꺼내 <b>끝</b>을 눌러요.</li>
+      <li>멈춰서 휴대폰을 꺼내 <b>끝을 1초 길게</b> 눌러요.</li>
     </ol>
     <button id="start">시작</button>
     <button id="demo" class="ghost hidden">데모 데이터로 보기</button>
@@ -137,7 +145,7 @@
     <h2 id="recTitle">준비…</h2>
     <div class="big" id="recTime">0초</div>
     <div class="sub" id="recHint">휴대폰을 주머니에 넣고 걸으세요.</div>
-    <button id="stop">끝</button>
+    <button id="stop" style="touch-action:none;user-select:none">끝 (1초 길게 누르기)</button>
   </section>
 
   <section class="card hidden" id="result"></section>
