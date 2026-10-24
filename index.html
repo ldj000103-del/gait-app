@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>걸음 분석</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<meta name="theme-color" content="#1d6b5c">
+<style>
+  :root { --bg:#f6f7f5; --card:#fff; --ink:#1c2321; --sub:#5c6764; --line:#dfe4e1; --accent:#1d6b5c;
+          --g:#1e8e3e; --y:#b08000; --o:#c4551b; --n:#7a8380; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#141917; --card:#1d2422; --ink:#e7ecea; --sub:#a3aeab; --line:#2e3835; --accent:#5fc2ab;
+            --g:#5cc77a; --y:#e0b84a; --o:#f08a55; --n:#9aa4a1; }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; font:16px/1.55 system-ui,-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+         background:var(--bg); color:var(--ink); }
+  main { max-width:560px; margin:0 auto; padding:16px 16px 48px; }
+  h1 { font-size:1.4rem; margin:8px 0 2px; }
+  h2 { font-size:1.05rem; margin:0 0 10px; }
+  .sub { color:var(--sub); font-size:.9rem; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:16px; margin:14px 0; }
+  label { display:block; margin:10px 0 4px; font-weight:600; font-size:.95rem; }
+  select, input { width:100%; font:inherit; padding:10px 12px; border-radius:10px; border:1px solid var(--line);
+                  background:var(--bg); color:var(--ink); }
+  .row { display:flex; gap:10px; } .row > * { flex:1; }
+  button { font:inherit; font-weight:700; border:0; border-radius:12px; padding:14px; width:100%;
+           background:var(--accent); color:#fff; cursor:pointer; margin-top:14px; }
+  button.ghost { background:transparent; color:var(--accent); border:1px solid var(--accent); }
+  .big { font-size:2.6rem; font-weight:800; letter-spacing:-.02em; }
+  .metric { border-top:1px solid var(--line); padding:12px 0; }
+  .metric:first-of-type { border-top:0; }
+  .mhead { display:flex; justify-content:space-between; align-items:baseline; gap:8px; }
+  .mval { font-size:1.6rem; font-weight:800; }
+  .badge { font-size:.78rem; font-weight:700; padding:2px 8px; border-radius:999px; white-space:nowrap; border:1px solid currentColor; }
+  .b-g { color:var(--g); } .b-y { color:var(--y); } .b-o { color:var(--o); } .b-n { color:var(--n); }
+  details { margin-top:6px; font-size:.88rem; color:var(--sub); }
+  summary { cursor:pointer; color:var(--accent); font-weight:600; }
+  details li { margin:4px 0; }
+  .warn { background:color-mix(in srgb, var(--o) 12%, transparent); border-left:4px solid var(--o);
+          padding:10px 12px; border-radius:8px; margin:8px 0; font-size:.92rem; }
+  .bar { position:relative; height:10px; border-radius:6px; margin:10px 0 4px;
+         background:linear-gradient(90deg, var(--line) 0 40%, color-mix(in srgb,var(--g) 45%,transparent) 40% 75%, color-mix(in srgb,var(--y) 45%,transparent) 75%); }
+  .bar i { position:absolute; top:-4px; width:4px; height:18px; background:var(--ink); border-radius:2px; }
+  .hist td { padding:6px 4px; border-top:1px solid var(--line); font-size:.9rem; } .hist { width:100%; border-collapse:collapse; }
+  .hidden { display:none; }
+  ol.guide { padding-left:20px; margin:6px 0; } ol.guide li { margin:3px 0; }
+</style>
+</head>
+<body>
+<main>
+  <h1>걸음 분석</h1>
+  <div class="sub">휴대폰 센서로 케이던스(분당 걸음 수)를 잽니다. 의료 진단이 아닙니다.</div>
+
+  <section class="card" id="profile">
+    <h2>내 정보 <span class="sub">(정상 기준값 비교용, 이 휴대폰에만 저장)</span></h2>
+    <div class="row">
+      <div><label for="sex">성별</label>
+        <select id="sex"><option value="">선택 안 함</option><option value="m">남성</option><option value="f">여성</option></select></div>
+      <div><label for="age">나이</label><input id="age" type="number" inputmode="numeric" min="18" max="100" placeholder="예: 45"></div>
+    </div>
+  </section>
+
+  <section class="card" id="setup">
+    <h2>측정하기</h2>
+    <label for="pos">휴대폰 위치</label>
+    <select id="pos">
+      <option value="pocket">바지 앞주머니 (허벅지에 밀착) — 권장</option>
+      <option value="waist">허리 (벨트·밴드)</option>
+      <option value="hand">손에 들고</option>
+    </select>
+    <label for="dist">걸을 거리 (m, 알면 입력 — 속도 계산용)</label>
+    <input id="dist" type="number" inputmode="decimal" min="0" step="0.5" placeholder="예: 20 (모르면 비워 두기)">
+    <ol class="guide sub">
+      <li><b>시작</b>을 누르고 3초 안에 휴대폰을 주머니에 넣어요.</li>
+      <li><b>평소처럼 직선으로</b> 20초 이상 걸어요. 특정 지점을 밟으려고 하지 마세요.</li>
+      <li>멈춰서 휴대폰을 꺼내 <b>끝</b>을 눌러요.</li>
+    </ol>
+    <button id="start">시작</button>
+    <button id="demo" class="ghost hidden">데모 데이터로 보기</button>
+  </section>
+
+  <section class="card hidden" id="rec">
+    <h2 id="recTitle">준비…</h2>
+    <div class="big" id="recTime">0초</div>
+    <div class="sub" id="recHint">휴대폰을 주머니에 넣고 걸으세요.</div>
+    <button id="stop">끝</button>
+  </section>
+
+  <section class="card hidden" id="result"></section>
+
+  <section class="card" id="history">
+    <h2>지난 기록</h2>
+    <div id="histBody" class="sub">아직 기록이 없어요.</div>
+  </section>
+
+  <section class="card sub" id="about">
+    <h2>이 앱의 근거</h2>
+    정상 보행 기준은 Perry 『Gait Analysis』(1992)를 기본으로 하고, 최신 학술지 연구를 함께 씁니다.
+    각 결과의 <b>정확도 등급</b>: <span class="badge b-g">정확</span> <span class="badge b-y">참고</span>
+    <span class="badge b-o">부정확할 수 있음</span> <span class="badge b-n">검증 안 됨</span>
+    — 결과마다 "근거 보기"에서 출처를 확인할 수 있어요.
+  </section>
+</main>
+<script type="module" src="app.js"></script>
+</body>
+</html>

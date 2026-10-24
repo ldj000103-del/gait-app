@@ -1,0 +1,10 @@
+{
+  "name": "걸음 분석",
+  "short_name": "걸음분석",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f6f7f5",
+  "theme_color": "#1d6b5c",
+  "lang": "ko",
+  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}
