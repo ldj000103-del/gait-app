@@ -46,6 +46,15 @@
   .bar i { position:absolute; top:-4px; width:4px; height:18px; background:var(--ink); border-radius:2px; }
   .hist td { padding:6px 4px; border-top:1px solid var(--line); font-size:.9rem; } .hist { width:100%; border-collapse:collapse; }
   .hidden { display:none; }
+  #consent { display:none; }
+  body.needConsent #consent { display:block; }
+  body.needConsent main > section:not(#consent) { display:none; }
+  .chk { display:flex; gap:10px; align-items:flex-start; font-weight:400; margin:14px 0 4px; }
+  .chk input { width:22px; height:22px; flex:none; margin-top:2px; }
+  .terms { font-size:.85rem; color:var(--sub); background:var(--bg); border-radius:8px; padding:8px 12px; margin:4px 0 0 32px; }
+  .terms p { margin:4px 0; }
+  button:disabled { opacity:.4; cursor:not-allowed; }
+  a { color:var(--accent); }
   ol.guide { padding-left:20px; margin:6px 0; } ol.guide li { margin:3px 0; }
 </style>
 </head>
@@ -53,6 +62,37 @@
 <main>
   <h1>걸음 분석</h1>
   <div class="sub">휴대폰 센서로 케이던스(분당 걸음 수)를 잽니다. 의료 진단이 아닙니다.</div>
+
+  <section class="card" id="consent">
+    <h2>시작하기 전에</h2>
+    <button id="cAll" class="ghost" style="margin-top:0">모두 동의</button>
+
+    <label class="chk"><input type="checkbox" id="cMust"><span><b>[필수]</b> 이용 안내에 동의해요</span></label>
+    <div class="terms">
+      <p>· 이 앱은 걸음을 재는 건강관리 도구이며 <b>의료 진단이 아니에요</b>.</p>
+      <p>· 만 14세 이상만 쓸 수 있어요.</p>
+      <p>· 측정 기록과 내 정보(성별·나이)는 <b>이 휴대폰에만</b> 저장돼요.</p>
+    </div>
+
+    <label class="chk"><input type="checkbox" id="cShare"><span><b>[선택]</b> 익명 측정 결과 수집·이용에 동의해요</span></label>
+    <div class="terms">
+      <p>· 항목: 케이던스, 걸음 수, 걷는 시간, 속도, 걸음 길이, 입력 거리, 휴대폰 위치, 경고 종류, 나이대(10살 단위), 성별, 운영체제(iOS·Android), 측정 날짜</p>
+      <p>· 이름·연락처·위치·정확한 나이·측정 시각은 받지 않아요.</p>
+      <p>· 목적: 측정 정확도 개선, 한국인 보행 통계 연구</p>
+      <p>· 보관: 받은 날부터 3년 뒤 파기</p>
+      <p>· 동의하지 않아도 앱의 모든 기능을 똑같이 쓸 수 있어요.</p>
+    </div>
+
+    <label class="chk"><input type="checkbox" id="cHealth"><span><b>[선택]</b> 건강정보(민감정보) 수집·이용에 <b>별도로</b> 동의해요</span></label>
+    <div class="terms">
+      <p>· 위 걸음 측정값은 개인정보 보호법 제23조의 '건강'에 관한 정보(민감정보)에 해당할 수 있어요.</p>
+      <p>· 항목·목적·보관 기간은 위와 같아요. 거부해도 불이익이 없어요.</p>
+      <p>· 위 두 가지 선택 항목에 모두 동의해야 결과가 보내져요. 언제든 화면 아래 <b>동의 변경</b>에서 철회할 수 있어요.</p>
+    </div>
+
+    <div class="sub" style="margin-top:10px"><a href="privacy.html">개인정보 처리방침 전문 보기</a></div>
+    <button id="cOk" disabled>동의하고 시작</button>
+  </section>
 
   <section class="card" id="profile">
     <h2>내 정보 <span class="sub">(정상 기준값 비교용, 이 휴대폰에만 저장)</span></h2>
@@ -102,6 +142,7 @@
     각 결과의 <b>정확도 등급</b>: <span class="badge b-g">정확</span> <span class="badge b-y">참고</span>
     <span class="badge b-o">부정확할 수 있음</span> <span class="badge b-n">검증 안 됨</span>
     — 결과마다 "근거 보기"에서 출처를 확인할 수 있어요.
+    <p><span id="consentState"></span> · <a href="#" id="cEdit">동의 변경</a> · <a href="privacy.html">개인정보 처리방침</a></p>
   </section>
 </main>
 <script type="module" src="app.js"></script>

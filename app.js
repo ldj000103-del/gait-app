@@ -72,7 +72,7 @@ $('stop').addEventListener('click', () => {
   finish(samples);
 });
 
-function finish(data) {
+function finish(data, demo = false) {
   const position = $('pos').value;
   const res = analyzeWalk(data, { position });
   const dist = parseFloat($('dist').value);
@@ -81,14 +81,57 @@ function finish(data) {
     showHtml(`<h2>다시 측정해 주세요</h2><div class="warn">${msg}</div>`);
     return;
   }
-  const today = new Date().toISOString().slice(0, 10);
+  const today = new Date().toLocaleDateString('sv-SE');                  // 휴대폰 시간대 기준 YYYY-MM-DD
   const hist = store.get('history', []);
-  const practice = !hist.some(h => h.date.startsWith(today));             // 그날 첫 측정 = 연습 (Perry 20장)
+  const practice = !hist.some(h => new Date(h.date).toLocaleDateString('sv-SE') === today);             // 그날 첫 측정 = 연습 (Perry 20장)
   const rec = { date: new Date().toISOString(), position, practice, ...res, ...withDistance(res, dist), distance: dist || null };
+  if (!demo && consent?.share && ENDPOINT) rec.receipt = send(rec);
   hist.unshift(rec); store.set('history', hist.slice(0, 200));
   render(rec, hist.find(h => !h.practice && h !== rec));
   renderHistory();
 }
+
+// ── 익명 결과 보내기 (선택 동의 2개를 모두 한 사람만) ──
+// 구글 Apps Script 웹앱 주소. 비어 있으면 아무것도 보내지 않음 (설정법: apps_script.gs)
+const ENDPOINT = '';
+function send(r) {
+  const { sex, age } = store.get('profile', {});
+  const ua = navigator.userAgent;
+  const receipt = crypto.randomUUID().slice(0, 8);                       // 삭제 요청용 접수번호, 개인과 연결 안 됨
+  const body = {
+    receipt, date: new Date(r.date).toLocaleDateString('sv-SE'), appVersion: APP_VERSION,           // 시각은 빼고 날짜만 (식별 가능성 낮춤)
+    cadence: +r.cadence.toFixed(1), steps: r.steps, activeS: +r.activeS.toFixed(1), regularity: +r.regularity.toFixed(2),
+    speed: r.speed ? +r.speed.toFixed(2) : '', stepLength: r.stepLength ? +r.stepLength.toFixed(2) : '', distance: r.distance ?? '',
+    position: r.position, practice: r.practice, warnings: r.warnings.join(' '),
+    ageGroup: +age ? Math.floor(+age / 10) * 10 : '', sex: sex || '',
+    os: /iPhone|iPad/.test(ua) ? 'iOS' : /Android/.test(ua) ? 'Android' : '기타',
+  };
+  // no-cors: Apps Script는 응답을 못 읽지만 저장은 됨. 실패하면 조용히 넘어감 (측정 기록은 휴대폰에 남아 있음)
+  fetch(ENDPOINT, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(body) }).catch(() => {});
+  return receipt;
+}
+
+// ── 처음 시작할 때 동의 ──
+const APP_VERSION = 'v3';
+let consent = store.get('consent', null);
+function showConsent() {
+  document.body.classList.add('needConsent');
+  $('cShare').checked = $('cHealth').checked = !!consent?.share;
+  $('cMust').checked = !!consent;
+  updateConsentBtn();
+}
+function updateConsentBtn() { $('cOk').disabled = !$('cMust').checked; }
+$('cMust').addEventListener('change', updateConsentBtn);
+$('cAll').addEventListener('click', () => { $('cMust').checked = $('cShare').checked = $('cHealth').checked = true; updateConsentBtn(); });
+$('cOk').addEventListener('click', () => {
+  consent = { date: new Date().toISOString(), version: 1, share: $('cShare').checked && $('cHealth').checked };
+  store.set('consent', consent);
+  document.body.classList.remove('needConsent');
+  $('consentState').textContent = consent.share ? '익명 결과 보내기: 동의함' : '익명 결과 보내기: 동의 안 함';
+});
+$('cEdit').addEventListener('click', e => { e.preventDefault(); showConsent(); scrollTo(0, 0); });
+if (!consent) showConsent();
+else $('consentState').textContent = consent.share ? '익명 결과 보내기: 동의함' : '익명 결과 보내기: 동의 안 함';
 
 // ── 결과 화면 ──
 function metric({ title, value, unit, grade, body = '', why = [], refs = [] }) {
@@ -160,6 +203,7 @@ function render(r, prev) {
       refs: ['neumann15', 'perry20'],
     });
   }
+  if (r.receipt) html += `<div class="sub" style="margin-top:12px">익명 결과를 보냈어요. 접수번호 <b>${r.receipt}</b> (삭제 요청할 때 필요해요, 지난 기록에도 남아요)</div>`;
   html += `<div class="sub" style="margin-top:12px">이 결과는 의료 진단이 아니에요. 걸음이 걱정되면 전문가와 상담하세요.</div>`;
   showHtml(html);
 }
@@ -170,7 +214,7 @@ function renderHistory() {
   const hist = store.get('history', []);
   if (!hist.length) return;
   $('histBody').innerHTML = `<table class="hist"><tr><td>날짜</td><td>케이던스</td><td>걸음</td><td>속도</td></tr>` +
-    hist.slice(0, 20).map(h => `<tr><td>${new Date(h.date).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}${h.practice ? ' (연습)' : ''}</td>
+    hist.slice(0, 20).map(h => `<tr><td>${new Date(h.date).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}${h.practice ? ' (연습)' : ''}${h.receipt ? `<br><span class="sub">접수 ${h.receipt}</span>` : ''}</td>
       <td>${h.cadence.toFixed(0)}</td><td>${h.steps}</td><td>${h.speed ? h.speed.toFixed(2) + ' m/s' : '-'}</td></tr>`).join('') + '</table>';
 }
 renderHistory();
@@ -186,7 +230,7 @@ if (new URLSearchParams(location.search).has('demo')) {
       const a = 9.81 + (walking ? (Math.floor(k) % 2 ? 0.4 : 3.2) * Math.exp(-(((ph - .15) / .07) ** 2)) + 2 * Math.sin(Math.PI * k) : 0) + (Math.random() - .5) * .3;
       s.push({ t: t * 1000, x: 0, y: a, z: 0 });
     }
-    finish(s);
+    finish(s, true);
   });
 }
 
