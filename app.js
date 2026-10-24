@@ -138,7 +138,12 @@ function finish(data, demo = false, gps = []) {
   const mode = $('dmode').value;
   let maxGap = 0;
   for (let i = 1; i < data.length; i++) maxGap = Math.max(maxGap, data[i].t - data[i - 1].t);
-  const paused = !demo && ((!Native && hiddenDuringRec) || maxGap > 2000);              // 2초 넘게 센서 값이 끊김 = 화면 꺼짐·다른 앱
+  const paused = !demo && ((!Native && hiddenDuringRec) || maxGap > 2000);
+  // 측정 정보: 문제가 생겼을 때 원인(센서 끊김, GPS 없음, 웹/앱 방식)을 찾기 위한 값
+  const durS = data.length > 1 ? (data[data.length - 1].t - data[0].t) / 1000 : 0;
+  const diag = { src: Native ? 'app' : 'web', n: data.length, durS, hz: durS ? data.length / durS : 0, gapS: maxGap / 1000,
+    gpsN: gps.length, gpsGood: gps.filter(p => p.acc <= 20).length, hidden: !Native && hiddenDuringRec };
+  const diagHtml = `<details><summary>측정 정보 (문제 찾기용)</summary><div class="sub">${diag.src === 'app' ? '설치형 앱' : '웹'} 방식 · 센서 값 ${diag.n}개 · 기록 시간 ${durS.toFixed(0)}초 · 초당 ${diag.hz.toFixed(0)}회 · 가장 길게 끊긴 시간 ${diag.gapS.toFixed(1)}초 · GPS 점 ${diag.gpsN}개(오차 20m 이내 ${diag.gpsGood}개)${diag.hidden ? ' · 화면 꺼짐 감지' : ''}</div></details>`;              // 2초 넘게 센서 값이 끊김 = 화면 꺼짐·다른 앱
   if (paused && !res.error) res.warnings.push('paused');
   if (res.error && paused) {
     showHtml(`<h2>다시 측정해 주세요</h2><div class="warn">측정 중에 화면이 꺼지거나 다른 앱으로 바뀌어서 센서가 멈췄어요 (최대 ${Math.round(maxGap / 1000)}초 끊김). <b>전원 버튼은 누르지 말고</b> 시작 후 그대로 주머니에 넣어 주세요(화면이 까만 주머니 모드는 켜진 상태라 측정이 계속돼요). 끝은 1초 길게 눌러야 멈춰서 주머니 속에서 실수로 눌리지 않아요.</div>`);
@@ -146,7 +151,7 @@ function finish(data, demo = false, gps = []) {
   }
   if (res.error) {
     const msg = { tooShort: '측정 시간이 너무 짧아요(8초 이상).', noWalk: '걷는 움직임을 찾지 못했어요. 휴대폰을 주머니에 넣고 6초 이상 걸어 주세요.', irregular: '반복되는 걸음 신호를 찾지 못했어요.' }[res.error];
-    showHtml(`<h2>다시 측정해 주세요</h2><div class="warn">${msg}</div>`);
+    showHtml(`<h2>다시 측정해 주세요</h2><div class="warn">${msg}</div>${diagHtml}`);
     return;
   }
   const today = new Date().toLocaleDateString('sv-SE');                  // 휴대폰 시간대 기준 YYYY-MM-DD
@@ -154,7 +159,7 @@ function finish(data, demo = false, gps = []) {
   const practice = !hist.some(h => new Date(h.date).toLocaleDateString('sv-SE') === today);             // 그날 첫 측정 = 연습 (Perry 20장)
   const dist = mode === 'manual' ? parseFloat($('dist').value) || null : null;
   const d = mode === 'gps' ? (gpsDenied && !demo ? { gpsError: 'denied' } : gpsSpeed(res, gps)) : withDistance(res, dist);
-  const rec = { date: new Date().toISOString(), position, practice, ...res, distance: dist, ...d, distSource: d.speed ? mode : null };
+  const rec = { date: new Date().toISOString(), position, practice, ...res, distance: dist, ...d, distSource: d.speed ? mode : null, diag, diagHtml };
   if (!demo && consent?.share && ENDPOINT) rec.receipt = send(rec);
   hist.unshift(rec); store.set('history', hist.slice(0, 200));
   render(rec, hist.find(h => !h.practice && h !== rec));
@@ -173,7 +178,8 @@ function send(r) {
     cadence: +r.cadence.toFixed(1), steps: r.steps, activeS: +r.activeS.toFixed(1), regularity: +r.regularity.toFixed(2),
     speed: r.speed ? +r.speed.toFixed(2) : '', stepLength: r.stepLength ? +r.stepLength.toFixed(2) : '', distance: r.distance ? +r.distance.toFixed(1) : '',
     // ponytail: 시트 칸을 늘리려면 Apps Script 재배포가 필요해서 거리 출처(gps)는 warnings 칸에 붙여 보냄
-    position: r.position, practice: r.practice, warnings: [...r.warnings, r.distSource === 'gps' && 'gps'].filter(Boolean).join(' '),
+    position: r.position, practice: r.practice, warnings: [...r.warnings, r.distSource === 'gps' && 'gps',
+      `d:${r.diag.src}/${r.diag.durS.toFixed(0)}s/${r.diag.hz.toFixed(0)}hz/gap${r.diag.gapS.toFixed(1)}/gps${r.diag.gpsGood}`].filter(Boolean).join(' '),
     ageGroup: +age ? Math.floor(+age / 10) * 10 : '', sex: sex || '',
     os: /iPhone|iPad/.test(ua) ? 'iOS' : /Android/.test(ua) ? 'Android' : '기타',
   };
@@ -183,7 +189,7 @@ function send(r) {
 }
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v9';
+const APP_VERSION = 'v10';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -283,6 +289,7 @@ function render(r, prev) {
     if (msg) html += `<div class="sub" style="margin-top:12px">${msg} 케이던스와 걸음 수는 GPS 없이도 정확해요.</div>`;
   }
   if (r.receipt) html += `<div class="sub" style="margin-top:12px">익명 결과를 보냈어요. 접수번호 <b>${r.receipt}</b> (삭제 요청할 때 필요해요, 지난 기록에도 남아요)</div>`;
+  html += r.diagHtml || '';
   html += `<div class="sub" style="margin-top:12px">이 결과는 의료 진단이 아니에요. 걸음이 걱정되면 전문가와 상담하세요.</div>`;
   showHtml(html);
 }
