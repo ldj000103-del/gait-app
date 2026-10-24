@@ -55,6 +55,11 @@
   .terms p { margin:4px 0; }
   button:disabled { opacity:.4; cursor:not-allowed; }
   a { color:var(--accent); }
+  .term { border-bottom:1.5px dotted currentColor; cursor:help; }
+  #tip { position:fixed; left:12px; right:12px; bottom:12px; z-index:30; background:var(--ink); color:var(--bg);
+         padding:12px 14px; border-radius:12px; font-size:.95rem; box-shadow:0 6px 24px rgba(0,0,0,.25); max-width:536px; margin:0 auto; }
+  #tip .sub { color:inherit; opacity:.7; }
+  .gloss { margin-top:14px; } .gloss dt { font-weight:700; margin-top:8px; color:var(--ink); } .gloss dd { margin:2px 0 0; }
   .rec { border:1px solid var(--line); border-radius:12px; padding:12px; margin:10px 0; background:var(--bg); }
   .calc { font-variant-numeric:tabular-nums; background:var(--card); border-radius:8px; padding:8px 10px; margin:8px 0; font-size:.95rem; }
   ul.facts { margin:6px 0; padding-left:20px; font-size:.9rem; } ul.facts li { margin:4px 0; }
@@ -176,6 +181,7 @@
     <p><span id="consentState"></span> · <a href="#" id="cEdit">동의 변경</a> · <a href="privacy.html">개인정보 처리방침</a></p>
   </section>
 </main>
+<div id="tip" class="hidden" role="status"></div>
 <script type="module" src="app.js"></script>
 </body>
 </html>

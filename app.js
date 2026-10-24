@@ -246,7 +246,7 @@ function send(r) {
 }
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v13';
+const APP_VERSION = 'v14';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -464,7 +464,89 @@ function renderSlow(r, hist) {
   showHtml(html);
 }
 
-function showHtml(html) { const el = $('result'); el.innerHTML = html; el.classList.remove('hidden'); el.scrollIntoView({ behavior: 'smooth' }); }
+function showHtml(html) {
+  const el = $('result'); el.innerHTML = html;
+  el.insertAdjacentHTML('beforeend', glossList(markTerms(el)));
+  el.classList.remove('hidden'); el.scrollIntoView({ behavior: 'smooth' });
+}
+
+// ── 전문 용어 풀이: 화면에 처음 나오는 용어에 점선 밑줄, 누르면 아래에 쉬운 뜻 ──
+const GLOSS = {
+  '케이던스': '1분 동안 걷거나 달린 걸음 수예요. 발이 땅에 닿는 횟수를 세요.',
+  'MET': '대사당량. 가만히 앉아 쉴 때 쓰는 에너지를 1로 본 운동 강도 단위예요. 3 MET는 쉴 때의 약 3배 에너지를 써요.',
+  '중강도': '숨이 조금 차지만 대화는 할 수 있는 정도의 운동 강도예요(약 3~6 MET 미만).',
+  '고강도': '숨이 차서 말을 길게 하기 어려운 정도의 운동 강도예요(약 6 MET 이상).',
+  '저강도': '숨이 거의 차지 않는 가벼운 운동 강도예요(3 MET 미만).',
+  '걸음 길이': '한 발이 닿은 곳에서 반대 발이 닿은 곳까지의 거리예요.',
+  '한걸음 길이': '같은 발이 다시 땅에 닿을 때까지 간 거리예요(두 걸음).',
+  '한발짝': '한 발이 닿은 뒤 반대 발이 닿을 때까지의 한 걸음이에요.',
+  'walk ratio': '걸음 길이(m)를 케이던스(걸음/분)로 나눈 값이에요. Neumann 책은 이 값이 일정할 때 에너지 효율이 좋다고 해요.',
+  '페이스': '1km를 가는 데 걸리는 시간이에요(예: 6분 30초/km).',
+  'GPS': '위성 신호로 휴대폰 위치를 찾는 기능이에요. 위치가 보통 몇 m씩 어긋나요.',
+  '디딤기': '발이 땅에 닿아 있는 동안이에요.',
+  '흔들기': '발이 땅에서 떨어져 공중에 있는 동안이에요.',
+  '제동충격량': '발이 땅에 닿을 때 몸을 뒤로 잡아끄는 브레이크 힘이 쌓인 양(힘 × 시간)이에요.',
+  '충격정점': '발이 땅에 닿는 순간 땅이 몸을 밀어 올리는 첫 번째 큰 힘이에요.',
+  '충격력': '발이 땅에 닿을 때 몸에 전해지는 힘이에요.',
+  '부하율': '착지할 때 힘이 얼마나 빨리 커지는지예요.',
+  '무릎넙다리관절': '무릎뼈(슬개골)와 허벅지뼈가 맞닿는 무릎 앞쪽 관절이에요.',
+  '무릎넙다리': '무릎뼈(슬개골)와 허벅지뼈가 맞닿는 무릎 앞쪽 부분이에요. 이곳 통증은 러너에게 흔해요.',
+  '엉덩관절 모음': '허벅지가 몸 안쪽(가운데)으로 모이는 움직임이에요.',
+  '엉덩관절': '골반과 허벅지뼈가 만나는 관절(고관절)이에요.',
+  '모멘트': '관절을 돌리려는 힘(회전력)이에요.',
+  '무릎 굽힘 정점': '발을 디딜 때 무릎이 가장 많이 굽혀지는 각도예요.',
+  '에너지 흡수': '착지 충격을 근육이 받아내며 쓰는 일의 양이에요.',
+  '아킬레스힘줄': '종아리 근육과 발뒤꿈치뼈를 잇는 굵은 힘줄이에요.',
+  '무산소역치': '운동을 점점 세게 할 때 피로 물질(젖산)이 빠르게 쌓이기 시작하는 지점이에요. 지구력을 보는 지표예요.',
+  '앉았다 일어서기': '의자에서 정해진 시간 동안 일어섰다 앉는 횟수로 다리 힘을 보는 검사예요.',
+  '근육 속 지방': '근육 사이나 안쪽에 끼어 있는 지방이에요.',
+  '대조군': '비교하려고 프로그램을 하지 않은 사람들이에요.',
+  '메타분석': '같은 주제의 여러 연구 결과를 모아 통계로 합친 분석이에요.',
+  '체계적 고찰': '정해진 방법으로 관련 연구를 빠짐없이 찾아 정리한 연구예요.',
+  '우산 고찰': '체계적 고찰 여러 편을 다시 모아 정리한 연구예요.',
+  '무작위 연구': '참가자를 제비뽑기처럼 무작위로 나눠 효과를 비교한 연구예요. 원인과 결과를 보기에 좋아요.',
+  '관찰 연구': '사람들의 생활을 지켜보며 관계만 본 연구예요. 무엇이 원인인지 단정할 수는 없어요.',
+  '인과관계': '하나가 다른 하나의 원인이라는 관계예요.',
+  '연관성': '함께 나타나는 관계예요. 원인이라는 뜻은 아니에요.',
+  '지침': '전문 학회나 기관이 연구를 바탕으로 만든 권고예요.',
+  '낙상': '넘어짐을 말해요.',
+  '오차': '측정한 값과 실제 값의 차이예요.',
+  '정확도 등급': '이 앱이 보여 주는 값이 얼마나 믿을 만한지 연구를 바탕으로 4단계로 나눈 표시예요.',
+};
+const GLOSS_KEYS = Object.keys(GLOSS).sort((a, b) => b.length - a.length);   // 긴 용어부터 (무릎넙다리관절 > 무릎넙다리)
+const SKIP_TAGS = new Set(['SELECT', 'OPTION', 'BUTTON', 'SCRIPT', 'STYLE', 'SUMMARY', 'INPUT', 'TEXTAREA']);
+// root 안의 글자에서 각 용어의 첫 번째만 밑줄. 쓰인 용어 목록을 돌려줌
+function markTerms(root) {
+  const used = [];
+  for (const term of GLOSS_KEYS) {
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+      acceptNode: n => {
+        for (let e = n.parentElement; e && e !== root; e = e.parentElement) if (SKIP_TAGS.has(e.tagName) || e.classList.contains('term') || e.classList.contains('gloss')) return NodeFilter.FILTER_REJECT;
+        return n.nodeValue.includes(term) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP;
+      } });
+    const node = walker.nextNode();
+    if (!node) continue;
+    const i = node.nodeValue.indexOf(term), after = node.splitText(i);
+    after.splitText(term.length);
+    const span = document.createElement('span');
+    span.className = 'term'; span.tabIndex = 0; span.textContent = term;
+    after.replaceWith(span);
+    used.push(term);
+  }
+  return used;
+}
+function glossList(terms) {
+  if (!terms.length) return '';
+  return `<details class="gloss"><summary>📖 용어 풀이 (${terms.length}개)</summary><dl>${terms.map(t => `<dt>${t}</dt><dd>${GLOSS[t]}</dd>`).join('')}</dl></details>`;
+}
+document.addEventListener('click', e => {
+  const t = e.target.closest?.('.term');
+  if (!t) return $('tip').classList.add('hidden');
+  $('tip').innerHTML = `<b>${t.textContent}</b> — ${GLOSS[t.textContent] ?? ''}<div class="sub" style="margin-top:6px">화면을 누르면 닫혀요</div>`;
+  $('tip').classList.remove('hidden');
+});
+for (const id of ['setup', 'about', 'consent', 'profile']) markTerms($(id));
+
 
 function renderHistory() {
   const hist = store.get('history', []);
