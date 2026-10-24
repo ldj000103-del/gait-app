@@ -257,7 +257,7 @@ function send(r) {
 }
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v26';
+const APP_VERSION = 'v27';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -1047,4 +1047,10 @@ if (new URLSearchParams(location.search).has('demo')) {
 
 homeReady = true;
 setTab('home');
-if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+// 새 화면 버전이 적용되면 한 번 새로고침 (옛 화면이 남지 않게)
+if ('serviceWorker' in navigator) {
+  const had = !!navigator.serviceWorker.controller;
+  navigator.serviceWorker.addEventListener('controllerchange', () => { if (had && !window.__reloaded) { window.__reloaded = true; location.reload(); } });
+  navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(r => r.update()).catch(() => {});
+}
+$('appver').textContent = `화면 버전 ${APP_VERSION}`;
