@@ -27,3 +27,15 @@ allprojects {
 task clean(type: Delete) {
     delete rootProject.buildDir
 }
+
+// 공유 부품(Capacitor Share·Filesystem)이 자바 21 도구를 찾는데, 이 컴퓨터엔 Android Studio의 자바 25만 있음
+// → 부품이 정한 자바 도구 버전을 지금 실행 중인 자바(25)로 바꿔 줌 (결과물 호환 버전은 부품 설정 그대로 21)
+subprojects {
+    afterEvaluate { p ->
+        def cur = JavaVersion.current().majorVersion as int
+        def java = p.extensions.findByName('java')
+        if (java?.hasProperty('toolchain')) java.toolchain.languageVersion = JavaLanguageVersion.of(cur)
+        def kotlin = p.extensions.findByName('kotlin')
+        if (kotlin != null) kotlin.jvmToolchain(cur)
+    }
+}
