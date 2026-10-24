@@ -60,12 +60,17 @@
          padding:12px 14px; border-radius:12px; font-size:.95rem; box-shadow:0 6px 24px rgba(0,0,0,.25); max-width:536px; margin:0 auto; }
   #tip .sub { color:inherit; opacity:.7; }
   .gloss { margin-top:14px; } .gloss dt { font-weight:700; margin-top:8px; color:var(--ink); } .gloss dd { margin:2px 0 0; }
+  .btnlike { display:block; text-align:center; font-weight:700; border-radius:12px; padding:14px; margin-top:14px; background:var(--accent); color:#fff; cursor:pointer; }
+  .ghostlike { background:transparent; color:var(--accent); border:1px solid var(--accent); }
+  .bar2 { height:10px; border-radius:6px; background:var(--line); overflow:hidden; margin-top:12px; } .bar2 i { display:block; height:100%; width:0; background:var(--accent); }
+  svg.chart { width:100%; height:auto; margin-top:8px; }
   .rec { border:1px solid var(--line); border-radius:12px; padding:12px; margin:10px 0; background:var(--bg); }
   .calc { font-variant-numeric:tabular-nums; background:var(--card); border-radius:8px; padding:8px 10px; margin:8px 0; font-size:.95rem; }
   ul.facts { margin:6px 0; padding-left:20px; font-size:.9rem; } ul.facts li { margin:4px 0; }
   /* 주머니 모드: 측정 중엔 검은 화면(배터리 절약, 꺼진 것처럼), 실제로는 켜져 있어 센서가 계속 돎 */
   body.recording { background:#000; }
   body.recording main > section:not(#rec) { display:none; }
+  body.needConsent main > section#vsetup, body.needConsent main > section#vresult { display:none; }
   body.recording main > h1, body.recording main > .sub { display:none; }
   body.recording #rec { position:fixed; inset:0; margin:0; border:0; border-radius:0; background:#000; color:#555;
                         display:flex; flex-direction:column; justify-content:center; padding:24px; }
@@ -89,6 +94,7 @@
       <p>· 만 14세 이상만 쓸 수 있어요.</p>
       <p>· 측정 기록과 내 정보(성별·나이)는 <b>이 휴대폰에만</b> 저장돼요.</p>
       <p>· GPS로 거리를 잴 때 위치는 측정하는 동안 이 휴대폰 안에서 거리 계산에만 쓰고, 저장하거나 보내지 않아요.</p>
+      <p>· 영상 분석의 영상은 이 휴대폰 안에서만 분석하고, 저장하거나 보내지 않아요.</p>
     </div>
 
     <label class="chk"><input type="checkbox" id="cShare"><span><b>[선택]</b> 익명 측정 결과 수집·이용에 동의해요</span></label>
@@ -157,6 +163,28 @@
     <button id="start">시작</button>
     <button id="demo" class="ghost hidden">데모 데이터로 보기</button>
   </section>
+
+  <section class="card" id="vsetup">
+    <h2>영상 분석 <span class="sub">(옆·앞·뒤)</span></h2>
+    <label for="vview">어느 방향에서 찍을까요?</label>
+    <select id="vview">
+      <option value="side">옆모습 — 무릎·넓적다리·발목 각도</option>
+      <option value="front">앞모습 — 카메라 쪽으로 걸어오기</option>
+      <option value="back">뒷모습 — 카메라에서 멀어지기</option>
+    </select>
+    <ol class="guide sub" id="vguide"></ol>
+    <div class="row">
+      <label class="btnlike" for="vcam">📷 촬영하기</label>
+      <label class="btnlike ghostlike" for="vfile">🎞️ 갤러리에서</label>
+    </div>
+    <input id="vcam" type="file" accept="video/*" capture="environment" class="hidden">
+    <input id="vfile" type="file" accept="video/*" class="hidden">
+    <div class="sub" style="margin-top:8px">영상은 이 휴대폰 안에서만 분석하고 저장하거나 보내지 않아요. 처음 한 번은 자세 인식 프로그램(약 10MB)을 내려받아요.</div>
+    <div id="vprog" class="hidden"><div class="bar2"><i id="vbar"></i></div><div class="sub" id="vmsg"></div></div>
+    <canvas id="vcanvas" class="hidden" style="width:100%;border-radius:10px;margin-top:10px"></canvas>
+  </section>
+
+  <section class="card hidden" id="vresult"></section>
 
   <section class="card hidden" id="rec">
     <h2 id="recTitle">준비…</h2>

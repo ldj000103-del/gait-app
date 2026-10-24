@@ -1,4 +1,5 @@
 import { analyzeWalk, withDistance, gpsSpeed } from './gait.js';
+import { analyzeSide, analyzeFrontal, extractPose, drawSnapshot } from './video.js';
 
 const $ = id => document.getElementById(id);
 
@@ -23,6 +24,11 @@ const REF = {
   goss2025: 'Goss 외. Effects of step rate based gait training on running biomechanics: meta-analysis. Gait Posture 2025. doi:10.1016/j.gaitpost.2025.110009',
   lee2014: 'Lee DC 외. Leisure-time running reduces all-cause and cardiovascular mortality risk. J Am Coll Cardiol 2014. doi:10.1016/j.jacc.2014.04.058',
   pedisic2019: 'Pedisic Z 외. Is running associated with a lower risk of all-cause, cardiovascular and cancer mortality? Br J Sports Med 2020. doi:10.1136/bjsports-2018-100493',
+  perry9: 'Perry J. Gait Analysis. 1992, 9장(다리 전체 기능: 단계별 관절 각도)',
+  perry17: 'Perry J. Gait Analysis. 1992, 17장(동작 분석: 카메라 1대의 한계)',
+  russo2026: 'Russo M 외. Estimation of the Knee Joint with Single-Camera Smartphone. Sensors 2026. doi:10.3390/s26072148',
+  cheng2025: 'Cheng X 외. Reliability and validity of computer vision based motion capture systems in gait analysis: systematic review. Gait Posture 2025. doi:10.1016/j.gaitpost.2025.04.016',
+  wegner2026: 'Wegner M 외. 2D video-based pose estimation app vs markerless 3D motion capture in knee osteoarthritis. Front Bioeng Biotechnol 2026. doi:10.3389/fbioe.2026.1869878',
   ikenaga2017: 'Ikenaga M 외. Short-interval, intermittent, low-intensity, slow-jogging program in older adults: RCT. Eur J Appl Physiol 2017. doi:10.1007/s00421-016-3493-9',
 };
 const ACT = { walk: '걷기', run: '러닝', slowrun: '슬로우 러닝' };
@@ -246,7 +252,7 @@ function send(r) {
 }
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v14';
+const APP_VERSION = 'v15';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -511,6 +517,17 @@ const GLOSS = {
   '지침': '전문 학회나 기관이 연구를 바탕으로 만든 권고예요.',
   '낙상': '넘어짐을 말해요.',
   '오차': '측정한 값과 실제 값의 차이예요.',
+  '보행 주기': '한 발이 땅에 닿은 뒤 같은 발이 다시 닿을 때까지의 한 번의 걸음 동작(두 걸음)이에요. 0~100%로 나눠 봐요.',
+  '첫 닿기': '발이 땅에 처음 닿는 순간이에요(보행 주기 0%).',
+  '체중 받기': '발이 닿은 직후 몸무게가 그 다리로 실리는 구간이에요(보행 주기 0~10%).',
+  '입각기': '발이 땅에 닿아 몸을 받치는 구간이에요(보행 주기 약 0~60%).',
+  '유각기': '발이 땅에서 떨어져 앞으로 나가는 구간이에요(보행 주기 약 60~100%).',
+  '넓적다리 각도': '허벅지가 수직선에서 앞(굽힘)이나 뒤(폄)로 기운 각도예요. Perry는 골반 움직임이 섞이지 않는 이 각도를 임상에서 더 쓸모 있다고 해요.',
+  '발등굽힘': '발끝이 정강이 쪽으로 올라가는 발목 움직임이에요.',
+  '발바닥굽힘': '발끝이 아래로 내려가는 발목 움직임이에요(까치발 방향).',
+  '골반 내려감': '한 발로 디딜 때 반대쪽 골반이 아래로 처지는 정도예요.',
+  '무릎 안쪽 모임': '앞이나 뒤에서 볼 때 무릎이 엉덩이-발목을 잇는 선보다 몸 안쪽으로 들어간 정도예요.',
+  '자세 인식': '영상 속 사람의 어깨·엉덩이·무릎·발목 위치를 AI가 찾아내는 기술이에요.',
   '정확도 등급': '이 앱이 보여 주는 값이 얼마나 믿을 만한지 연구를 바탕으로 4단계로 나눈 표시예요.',
 };
 const GLOSS_KEYS = Object.keys(GLOSS).sort((a, b) => b.length - a.length);   // 긴 용어부터 (무릎넙다리관절 > 무릎넙다리)
@@ -521,7 +538,7 @@ function markTerms(root) {
   for (const term of GLOSS_KEYS) {
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
       acceptNode: n => {
-        for (let e = n.parentElement; e && e !== root; e = e.parentElement) if (SKIP_TAGS.has(e.tagName) || e.classList.contains('term') || e.classList.contains('gloss')) return NodeFilter.FILTER_REJECT;
+        for (let e = n.parentElement; e && e !== root; e = e.parentElement) if (SKIP_TAGS.has(e.tagName) || e instanceof SVGElement || e.classList.contains('term') || e.classList.contains('gloss')) return NodeFilter.FILTER_REJECT;
         return n.nodeValue.includes(term) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP;
       } });
     const node = walker.nextNode();
@@ -545,7 +562,7 @@ document.addEventListener('click', e => {
   $('tip').innerHTML = `<b>${t.textContent}</b> — ${GLOSS[t.textContent] ?? ''}<div class="sub" style="margin-top:6px">화면을 누르면 닫혀요</div>`;
   $('tip').classList.remove('hidden');
 });
-for (const id of ['setup', 'about', 'consent', 'profile']) markTerms($(id));
+for (const id of ['setup', 'vsetup', 'about', 'consent', 'profile']) markTerms($(id));
 
 
 function renderHistory() {
@@ -557,8 +574,108 @@ function renderHistory() {
 }
 renderHistory();
 
+// ── 영상 분석 (옆·앞·뒤) ──
+const VGUIDE = {
+  side: ['휴대폰을 <b>허리 높이</b>에 세워 고정해요(누가 들어 주거나 물건에 기대기). 세로보다 <b>가로</b>로 찍으면 더 많이 담겨요.',
+    '걷는 길에서 <b>3~4m 떨어져 옆에서</b> 찍어요. 화면 끝에서 끝까지 <b>4~5m 지나가며 3걸음 이상</b> 담기게 해요.',
+    '머리부터 발끝까지 보이게, 밝은 곳에서. 반바지나 몸에 붙는 옷이 잘 잡혀요. 10~20초면 충분해요.'],
+  front: ['휴대폰을 <b>허리 높이, 정면</b>에 고정해요.', '<b>6~8m 떨어진 곳에서 카메라 쪽으로</b> 평소처럼 걸어와요.', '머리부터 발끝까지 보이게, 밝은 곳에서. 10~20초면 충분해요.'],
+  back: ['휴대폰을 <b>허리 높이</b>에 고정해요.', '카메라 바로 앞에서 출발해 <b>6~8m 멀어지며</b> 평소처럼 걸어가요.', '머리부터 발끝까지 보이게, 밝은 곳에서. 10~20초면 충분해요.'],
+};
+function showVGuide() { $('vguide').innerHTML = VGUIDE[$('vview').value].map(x => `<li>${x}</li>`).join(''); }
+$('vview').value = store.get('vview', 'side');
+$('vview').addEventListener('change', () => { store.set('vview', $('vview').value); showVGuide(); });
+showVGuide();
+for (const id of ['vcam', 'vfile']) $(id).addEventListener('change', e => { const f = e.target.files?.[0]; e.target.value = ''; if (f) runVideo(f); });
+
+async function runVideo(file) {
+  const view = $('vview').value;
+  $('vresult').classList.add('hidden'); $('vcanvas').classList.add('hidden'); $('vprog').classList.remove('hidden');
+  const prog = (r, msg) => { $('vbar').style.width = `${Math.round(r * 100)}%`; $('vmsg').textContent = msg; };
+  prog(0, '자세 인식 프로그램 준비 중… (처음 한 번은 조금 걸려요)');
+  try {
+    const { frames, W, H, video, dur } = await extractPose(file, r => prog(r, `영상 분석 중… ${Math.round(r * 100)}%`));
+    prog(1, '계산 중…');
+    if (frames.length < 15) throw new Error('사람을 거의 찾지 못했어요. 머리부터 발끝까지 보이게 밝은 곳에서 다시 찍어 주세요.');
+    const r = view === 'side' ? analyzeSide(frames, W, H) : analyzeFrontal(frames, W, H, view);
+    if (r.error) throw new Error({ noPerson: '다리가 또렷하게 잡힌 장면이 너무 적어요. 다리 전체가 보이게, 밝은 곳에서 다시 찍어 주세요.',
+      noCycle: '한 걸음 주기(같은 발이 두 번 닿기)를 찾지 못했어요. 옆에서 3걸음 이상 지나가게 찍어 주세요.' }[r.error]);
+    $('vcanvas').classList.remove('hidden');
+    await drawSnapshot($('vcanvas'), video, frames[Math.floor(frames.length / 2)]);
+    URL.revokeObjectURL(video.src);
+    renderVideo(r, dur);
+  } catch (err) {
+    showV(`<h2>다시 찍어 주세요</h2><div class="warn">${err.message || err}</div>`);
+  } finally { $('vprog').classList.add('hidden'); }
+}
+
+function showV(html) {
+  const el = $('vresult'); el.innerHTML = html;
+  el.insertAdjacentHTML('beforeend', glossList(markTerms(el)));
+  el.classList.remove('hidden'); el.scrollIntoView({ behavior: 'smooth' });
+}
+const f0 = x => x == null || Number.isNaN(x) ? '-' : `${x.toFixed(0)}°`;
+// 무릎 곡선 그림: 이번 영상(초록) vs Perry 5장 표의 기준점(회색 점선)
+function kneeChart(curve) {
+  const perry = [[0, 5], [15, 18], [40, 5], [62, 40], [73, 60], [85, 30], [97, 2], [100, 5]];
+  const X = q => 30 + q * 2.8, Y = d => 150 - d * 2;
+  const line = pts => pts.map(([q, d]) => `${X(q).toFixed(1)},${Y(d).toFixed(1)}`).join(' ');
+  return `<svg class="chart" viewBox="0 0 320 175" role="img" aria-label="무릎 굽힘 곡선">
+    ${[0, 20, 40, 60].map(d => `<line x1="30" x2="310" y1="${Y(d)}" y2="${Y(d)}" stroke="currentColor" opacity=".12"/><text x="24" y="${Y(d) + 4}" font-size="10" text-anchor="end" fill="currentColor" opacity=".6">${d}°</text>`).join('')}
+    <line x1="${X(60)}" x2="${X(60)}" y1="20" y2="150" stroke="currentColor" opacity=".2" stroke-dasharray="3 3"/>
+    <text x="${X(30)}" y="168" font-size="10" text-anchor="middle" fill="currentColor" opacity=".7">입각기</text><text x="${X(80)}" y="168" font-size="10" text-anchor="middle" fill="currentColor" opacity=".7">유각기</text>
+    <polyline points="${line(perry)}" fill="none" stroke="currentColor" opacity=".45" stroke-width="2" stroke-dasharray="5 4"/>
+    <polyline points="${line(curve.map((d, q) => [q, d]))}" fill="none" stroke="var(--accent)" stroke-width="3"/>
+  </svg><div class="sub">초록 = 이번 영상 평균, 회색 점선 = Perry 5장 표의 기준점 · 가로 = 보행 주기 0~100%</div>`;
+}
+
+function renderVideo(r, dur) {
+  let html = '';
+  if (r.view === 'side') {
+    const m = r.m;
+    html += `<h2>영상 분석 결과 · 옆모습</h2><div class="sub">${r.side === 'l' ? '왼' : '오른'}쪽 다리(카메라 쪽) · 보행 주기 ${r.nCycles}개 평균 · 다리가 잡힌 장면 ${Math.round(r.validFrac * 100)}%</div>`;
+    html += metric({ title: '무릎 각도', value: f0(m.kneeSwingMax), unit: `유각기 최대 굽힘 (보행 주기 ${m.kneeSwingAt}%)`, grade: 'y',
+      body: `${kneeChart(r.curves.knee)}<div class="calc">이번 값 / Perry 9장 기준<br>첫 닿기 ${f0(m.kneeIC)} / 0~5°<br>체중 받기 최대 ${f0(m.kneeLoad)} / 15~18°<br>입각기 최소 ${f0(m.kneeStanceMin)} / 약 5°<br>유각기 최대 ${f0(m.kneeSwingMax)} / 약 60°(초기 유각)</div>`,
+      why: ['무릎 각도 = 180° − (엉덩이·무릎·발목 세 점이 이루는 각). Perry 17장: 영상에서 가장 잘 잡히는 관절',
+        'Russo 2026: 스마트폰 + 같은 종류의 자세 인식(MediaPipe)으로 무릎 굽힘 평균 오차 3.2~4.1°',
+        'Wegner 2026: 무릎 곡선 모양은 잘 맞지만 정확한 절대 각도보다 같은 사람의 변화 추적에 알맞음',
+        '첫 닿기는 "발이 엉덩이보다 가장 앞에 있는 순간"으로 근사해서 실제보다 몇 % 일찍 잡힐 수 있어요'],
+      refs: ['perry9', 'perry17', 'russo2026', 'wegner2026'] });
+    html += metric({ title: '넓적다리 각도', value: f0(m.thighFlex), unit: `앞으로 최대 · 뒤로 최대 ${f0(m.thighExt)}`, grade: 'o',
+      body: `<div class="calc">이번 값 / Perry 기준<br>앞으로(굽힘) ${f0(m.thighFlex)} / 약 20°<br>뒤로(폄) ${f0(m.thighExt)} / 약 20°(말기 입각)</div>`,
+      why: ['넓적다리 각도 = 수직선과 허벅지(엉덩이→무릎)가 이루는 각. 골반 움직임이 섞이지 않아 Perry가 임상에서 권하는 지표',
+        'Cheng 2025: 2D 영상의 엉덩관절 각도 오차는 5° 안쪽이지만, Wegner 2026에선 일치도가 낮았어요 → "부정확할 수 있음"'],
+      refs: ['perry9', 'cheng2025', 'wegner2026'] });
+    html += metric({ title: '발목 각도', value: f0(m.ankleDF), unit: `입각기 최대 발등굽힘 · 최대 발바닥굽힘 ${f0(m.anklePF)}`, grade: 'o',
+      body: `<div class="calc">이번 값 / Perry 기준<br>발등굽힘 ${f0(m.ankleDF)} / 10°(말기 입각)<br>발바닥굽힘 ${f0(m.anklePF)} / 20°(유각 전)</div>`,
+      why: ['발목 각도 = 정강이(무릎→발목)와 발(뒤꿈치→발끝) 사이 각도 − 90°',
+        'Russo 2026, Cheng 2025: 영상의 발목 각도는 정확도가 낮음 → 참고만 하세요'],
+      refs: ['perry9', 'russo2026', 'cheng2025'] });
+    html += metric({ title: '영상으로 잰 케이던스', value: r.cadence.toFixed(0), unit: '걸음/분', grade: 'y',
+      why: ['보행 주기 시간으로 계산(케이던스 = 120 ÷ 주기 초)', 'Wegner 2026: 2D 영상의 케이던스는 기준 장비와 일치도 높음(ICC 0.74~0.95 범위)'], refs: ['wegner2026'] });
+  } else {
+    const m = r.m, side = r.view === 'front' ? '앞모습' : '뒷모습';
+    const diff = (a, b) => a != null && b != null ? `좌우 차이 ${Math.abs(a - b).toFixed(0)}°` : '';
+    html += `<h2>영상 분석 결과 · ${side}</h2><div class="sub">몸이 잡힌 장면 ${Math.round(r.validFrac * 100)}% · 앞·뒤 각도는 휴대폰 영상으로 검증된 연구를 찾지 못해 모두 "검증 안 됨"이에요. 같은 조건으로 찍어 좌우 비교·변화 추적에 쓰세요.</div>`;
+    html += metric({ title: '골반 내려감 (반대쪽)', value: `왼발 ${f0(m.dropL)} · 오른발 ${f0(m.dropR)}`, unit: '', grade: 'n',
+      body: `<div class="calc">한 발로 디딜 때 반대쪽 골반이 내려간 각도 (상위 10% 값)<br>${diff(m.dropL, m.dropR)}<br>Perry 4·9장: 체중 받기 때 반대쪽 골반 약 4°, 엉덩이 벌림근이 5° 이하로 제한</div>`,
+      why: ['양쪽 엉덩이 점을 잇는 선이 수평에서 기운 각도', '디딤 다리는 "발목이 화면에서 더 아래에 있는 다리"로 근사', '휴대폰 2D 영상의 정확도 연구는 찾지 못함'], refs: ['perry9'] });
+    html += metric({ title: '무릎 안쪽 모임', value: `왼 ${f0(m.valgusL)} · 오른 ${f0(m.valgusR)}`, unit: '', grade: 'n',
+      body: `<div class="calc">디딜 때 무릎이 엉덩이-발목 선보다 안쪽(+)·바깥쪽(−)으로 간 각도 (상위 10% 값)<br>${diff(m.valgusL, m.valgusR)}</div>`,
+      why: ['Perry 책에는 이 각도의 영상 기준값이 없어요 → 기준값 없이 좌우만 비교', 'Perry 17장: 다리가 돌아가 있으면 카메라 1대의 각도는 실제와 달라질 수 있어요'], refs: ['perry17'] });
+    html += metric({ title: '몸통 옆 기울기', value: `왼쪽 ${f0(m.leanL)} · 오른쪽 ${f0(m.leanR)}`, unit: '', grade: 'n',
+      body: `<div class="calc">어깨 가운데와 엉덩이 가운데를 잇는 선이 수직에서 기운 각도 (상위 10% 값)</div>`, why: ['휴대폰 2D 영상의 정확도 연구는 찾지 못함'], refs: [] });
+    html += metric({ title: '걸음 폭', value: m.width != null ? `골반 너비의 ${m.width.toFixed(2)}배` : '-', unit: '', grade: 'n',
+      body: `<div class="sub">두 발목 사이 가로 거리 ÷ 양쪽 엉덩이 점 사이 거리 (중앙값). 참고: Neumann 15장 성인 걸음 폭 8~10cm</div>`,
+      why: ['영상에는 cm 기준이 없어서 골반 너비에 대한 비율로만 보여 줘요'], refs: ['neumann15'] });
+  }
+  html += `<div class="sub" style="margin-top:12px">이 결과는 의료 진단이 아니에요. 걸음이 걱정되면 전문가와 상담하세요. 영상은 저장되지 않았어요.</div>`;
+  showV(html);
+}
+
 // ── 데모 (주소 끝에 ?demo=1): 휴대폰 없이 화면 확인용 가짜 신호 ──
 if (new URLSearchParams(location.search).has('demo')) {
+  window.__v = { renderVideo, analyzeSide, analyzeFrontal };   // 영상 결과 화면 점검용
   $('demo').classList.remove('hidden');
   $('demo').addEventListener('click', () => {
     // 걷기 108, 러닝 165, 슬로우 러닝은 1분마다 조깅 165 / 걷기 110을 번갈아

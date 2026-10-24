@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "test": "node test_gait.mjs",
-    "web": "node -e \"const fs=require('fs');fs.rmSync('www',{recursive:true,force:true});fs.mkdirSync('www');for(const f of ['index.html','app.js','gait.js','manifest.webmanifest','sw.js','icon.svg','privacy.html','offline.html'])fs.copyFileSync(f,'www/'+f)\"",
+    "web": "node -e \"const fs=require('fs');fs.rmSync('www',{recursive:true,force:true});fs.mkdirSync('www');for(const f of ['index.html','app.js','gait.js','video.js','manifest.webmanifest','sw.js','icon.svg','icon-192.png','icon-512.png','privacy.html','offline.html'])fs.copyFileSync(f,'www/'+f)\"",
     "sync": "npm run web && npx cap sync android"
   },
   "dependencies": {
