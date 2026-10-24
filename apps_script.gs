@@ -1,5 +1,6 @@
-// 구글 스프레드시트에 붙여 넣는 수신 코드 (확장 프로그램 → Apps Script)
+// 구글 Apps Script 수신 코드 (script.google.com 단독 프로젝트 '걸음분석 수신')
 // 배포 → 새 배포 → 웹 앱, 실행: 나, 액세스: 모든 사용자 → 나온 주소를 app.js의 ENDPOINT에 넣기
+const SHEET_ID = '19EJCFgAhHS5fOHbgu9CGx41WdPrWYRENbywh0AJbrKU';   // '걸음분석 수집' 시트 (운영자 계정에서만 열림)
 const KEYS = ['receipt', 'date', 'appVersion', 'cadence', 'steps', 'activeS', 'regularity', 'speed', 'stepLength',
   'distance', 'position', 'practice', 'warnings', 'ageGroup', 'sex', 'os'];
 
@@ -12,8 +13,8 @@ function doPost(e) {
     const s = String(v ?? '').slice(0, 60);
     return /^[=+\-@]/.test(s) ? "'" + s : s;
   });
-  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheets()[0];
-  if (sheet.getLastRow() === 0) sheet.appendRow(['받은 날', ...KEYS]);
+  const sheet = SpreadsheetApp.openById(SHEET_ID).getSheets()[0];
+  if (sheet.getLastRow() === 0) sheet.appendRow(['받은 날(UTC)', ...KEYS]);
   sheet.appendRow([new Date().toISOString().slice(0, 10), ...row]);
   return ContentService.createTextOutput('ok');
 }

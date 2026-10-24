@@ -93,7 +93,7 @@ function finish(data, demo = false) {
 
 // ── 익명 결과 보내기 (선택 동의 2개를 모두 한 사람만) ──
 // 구글 Apps Script 웹앱 주소. 비어 있으면 아무것도 보내지 않음 (설정법: apps_script.gs)
-const ENDPOINT = '';
+const ENDPOINT = 'https://script.google.com/macros/s/AKfycbwLfXvMoqIPDkmemDjQ5oJWhaDDKboetKlxkU603xABxQqTPjzvr1hN3Iyhb9km3OCb/exec';
 function send(r) {
   const { sex, age } = store.get('profile', {});
   const ua = navigator.userAgent;
@@ -112,7 +112,7 @@ function send(r) {
 }
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v3';
+const APP_VERSION = 'v5';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
