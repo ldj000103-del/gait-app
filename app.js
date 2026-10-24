@@ -257,7 +257,7 @@ function send(r) {
 }
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v25';
+const APP_VERSION = 'v26';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -507,34 +507,47 @@ const ctxText = c => c ? Object.keys(CTX).map(k => c[k]).filter(Boolean).join(' 
 // ── 결과 카드 공유: 내가 고른 결과만 이미지로 만들어 카톡·인스타 등으로 (서버 없음) ──
 const APP_URL = 'ldj000103-del.github.io/gait-app';
 function cardRows(h) {
-  const { sex } = store.get('profile', {});
-  const norm = sex === 'm' ? 111 : sex === 'f' ? 117 : 113;
+  const { sex, age } = store.get('profile', {});
+  const norm = sex === 'm' ? 111 : sex === 'f' ? 117 : 113, lo = norm * 0.9, hi = norm * 1.1;
   const f = (x, d = 0) => x == null || Number.isNaN(x) ? null : x.toFixed(d);
+  const vs = (a, ref, w) => a == null || Number.isNaN(a) ? '' : hint(a - ref, w);
   const act = h.activity ?? 'walk', rows = [];
+  const push = (k, v, u, n) => { if (v != null) rows.push(u === '°' ? { k, v: v + '°', u: '', n } : { k, v, u, n }); };   // 도(°)는 숫자에 붙임
   if (act === 'walk') {
-    rows.push(['케이던스', f(h.cadence), '걸음/분', `Perry 성인 평균 ${norm}`]);
-    if (h.speed) rows.push(['걷는 속도', f(h.speed, 2), 'm/s', 'Perry 성인 평균 1.37']);
-    rows.push(h.stepLength ? ['걸음 길이', f(h.stepLength * 100), 'cm', ''] : ['걸음 수', String(h.steps), '걸음', `걷는 시간 ${Math.round(h.activeS)}초`]);
+    const c = h.cadence, older = +age >= 61;
+    push('케이던스', f(c), '걸음/분', `Perry 성인 평균 ${norm}(±10% ${lo.toFixed(0)}–${hi.toFixed(0)}) · ${c < lo ? '기준 범위보다 낮은 값' : c > hi ? '기준 범위보다 높은 값' : '기준 범위 안'}`);
+    const level = older ? (c >= 120 ? '약 5 MET' : c >= 110 ? '약 4 MET' : c >= 100 ? '중강도(3 MET)' : '저강도') : (c >= 130 ? '고강도(6 MET)' : c >= 100 ? '중강도(3 MET)' : '저강도');
+    push('걷기 강도', level, '', older ? 'CADENCE-Adults 61세 이상 기준: 100 = 중강도' : 'CADENCE-Adults 기준: 100걸음/분 = 중강도, 130 = 고강도');
+    if (h.speed) push('걷는 속도', f(h.speed, 2), 'm/s', `Perry 성인 평균 1.37 · 차이 ${h.speed - 1.37 >= 0 ? '+' : ''}${(h.speed - 1.37).toFixed(2)}`);
+    if (h.stepLength && sex) { const ideal = (sex === 'f' ? 0.0064 : 0.0072) * c * 100; push('걸음 길이', f(h.stepLength * 100), 'cm', `Neumann 효율 최적 약 ${ideal.toFixed(0)}cm (${vs(h.stepLength * 100, ideal, ['더 길게 디뎌도 됨', '더 짧게 디뎌도 됨'])})`); }
+    push('걸음 수', String(h.steps), '걸음', `걷는 시간 ${Math.round(h.activeS)}초`);
   } else if (act === 'run') {
-    rows.push(['러닝 케이던스', f(h.cadence), '걸음/분', '']);
-    if (h.speed) { const pace = 1000 / h.speed / 60; rows.push(['페이스', `${Math.floor(pace)}'${String(Math.round((pace % 1) * 60)).padStart(2, '0')}"`, '/km', `${f(h.speed, 2)} m/s`]); }
-    rows.push(['걸음 수', String(h.steps), '걸음', `달린 시간 ${Math.round(h.activeS)}초`]);
+    push('러닝 케이던스', f(h.cadence), '걸음/분', `+5% = ${Math.round(h.cadence * 1.05)}, +10% = ${Math.round(h.cadence * 1.1)} (Heiderscheit 2011·Neumann 16장 연구 범위)`);
+    if (h.speed) { const pace = 1000 / h.speed / 60; push('페이스', `${Math.floor(pace)}'${String(Math.round((pace % 1) * 60)).padStart(2, '0')}"`, '/km', `속도 ${f(h.speed, 2)} m/s · GPS로 잰 참고값`); }
+    push('걸음 수', String(h.steps), '걸음', `달린 시간 ${Math.round(h.activeS)}초`);
   } else if (act === 'slowrun') {
-    rows.push(['조깅 케이던스', f(h.cadence), '걸음/분', '조깅 1분 + 걷기 1분']);
-    rows.push(['조깅한 시간', f(h.activeS / 60, 1), '분', '']);
-    rows.push(['이번 주 조깅', f(weekSlowJogMin(store.get('history', []))), '분', 'Ikenaga 2017 연구의 주간량 90분']);
+    push('조깅 케이던스', f(h.cadence), '걸음/분', h.walkCadence ? `걷기 구간 ${f(h.walkCadence)}걸음/분` : '조깅 1분 + 걷기 1분');
+    push('조깅한 시간', f(h.activeS / 60, 1), '분', `걷기 ${f(h.walkS / 60, 1)}분`);
+    const wk = weekSlowJogMin(store.get('history', []));
+    push('이번 주 조깅', f(wk), '분', `Ikenaga 2017 연구의 주간량 90분 중 ${Math.round(Math.min(1, wk / 90) * 100)}%`);
   } else if (h.view === 'side') {
     const m = h.r.m;
-    rows.push(['유각기 무릎 굽힘', f(m.kneeSwingMax), '°', 'Perry 약 60°']);
-    rows.push(['넓적다리 뒤로', f(m.thighExt), '°', 'Perry 약 20°']);
-    rows.push(['영상 케이던스', f(h.r.cadence), '걸음/분', '']);
+    push('유각기 무릎 굽힘', f(m.kneeSwingMax), '°', `Perry 약 60° · ${vs(m.kneeSwingMax, 60, BEND)} — 발끝이 바닥에 걸리지 않게 하는 굽힘`);
+    push('체중 받기 무릎 굽힘', f(m.kneeLoad), '°', `Perry 15~18° · ${vs(m.kneeLoad, 16, BEND)} — 충격 흡수`);
+    push('입각기 무릎 폄', f(m.kneeStanceMin), '°', `Perry 약 5° · ${vs(m.kneeStanceMin, 5, ['덜 펴도 됨', '더 펴야 함'])}`);
+    push('넓적다리 뒤로 젖힘', f(m.thighExt), '°', `Perry 약 20° · ${vs(m.thighExt, 20, ['더 뒤로 젖혀야 함', '덜 젖혀도 됨'])} — 한걸음 길이`);
   } else {
-    const m = h.r.m, lr = (a, b) => `${f(a) ?? '-'}° / ${f(b) ?? '-'}°`;
-    rows.push(['골반 내려감 (왼발/오른발)', lr(m.dropL, m.dropR), '', 'Perry 약 4°']);
-    rows.push(['무릎 안쪽 모임 (왼/오른)', lr(m.valgusL, m.valgusR), '', '좌우 비교용']);
+    const m = h.r.m, d0 = x => f(x) ?? '-';
+    const lrp = (a, b) => { if (a == null || b == null) return ''; const d = Math.abs(a - b); return `좌우 차이 ${d.toFixed(0)}° (${d <= 4 ? '비슷함' : d > 10 ? '많이 남' : '조금 남'})`; };
+    push('골반 내려감 (반대쪽)', `${d0(m.dropL)}° / ${d0(m.dropR)}°`, '왼발/오른발', `Perry 약 4° · 왼발 ${vs(m.dropL, 4, ['덜 내려가는 편', '덜 내려가야 함'])}, 오른발 ${vs(m.dropR, 4, ['덜 내려가는 편', '덜 내려가야 함'])}`);
+    push('무릎 안쪽 모임', `${d0(m.valgusL)}° / ${d0(m.valgusR)}°`, '왼/오른', `${lrp(m.valgusL, m.valgusR)} · 영상 기준값 없음`);
+    push('몸통 옆 기울기', `${d0(m.leanL)}° / ${d0(m.leanR)}°`, '왼쪽/오른쪽', lrp(m.leanL, m.leanR));
+    if (m.width != null) push('걸음 폭', f(m.width, 2), '× 골반 너비', 'Neumann 성인 걸음 폭 8~10cm (영상엔 cm 기준이 없어 비율로)');
   }
-  return rows.filter(r => r[1] != null);
+  return rows;
 }
+
+// 1080×1350 카드 그리기
 async function makeCard(h) {
   await Promise.race([document.fonts?.ready, new Promise(r => setTimeout(r, 1500))]);
   const W = 1080, H = 1350, c = document.createElement('canvas'); c.width = W; c.height = H;
@@ -543,29 +556,42 @@ async function makeCard(h) {
   g.fillStyle = bg; g.fillRect(0, 0, W, H);
   // 아이콘 불러오기가 늦거나 실패해도 카드는 만들어지게 (최대 2초 기다림)
   const icon = await new Promise(ok => { const im = new Image(); im.onload = () => ok(im); im.onerror = () => ok(null); im.src = 'icon-512.png'; setTimeout(() => ok(im.complete && im.naturalWidth ? im : null), 2000); });
-  if (icon) g.drawImage(icon, 72, 72, 112, 112);
-  g.fillStyle = '#fff'; g.font = F(700, 52); g.fillText('걸음 분석', 210, 128);
+  if (icon) g.drawImage(icon, 64, 56, 96, 96);
   const act = h.activity ?? 'walk', label = act === 'video' ? `영상 분석 · ${VIEW[h.view]}모습` : ACT[act];
-  g.globalAlpha = .82; g.font = F(500, 32);
-  g.fillText(`${label} · ${new Date(h.date).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })}`, 210, 172); g.globalAlpha = 1;
-  // 흰 카드
-  const x0 = 64, y0 = 250, w0 = W - 128, h0 = 900;
-  g.fillStyle = '#fff'; g.beginPath(); g.roundRect(x0, y0, w0, h0, 48); g.fill();
-  const rows = cardRows(h), step = h0 / Math.max(rows.length, 1);
-  rows.forEach(([k, v, unit, ref], i) => {
-    const y = y0 + step * i;
-    if (i) { g.fillStyle = '#e6eae8'; g.fillRect(x0 + 56, y, w0 - 112, 2); }
-    g.fillStyle = '#69736f'; g.font = F(500, 34); g.fillText(k, x0 + 64, y + 76);
-    g.fillStyle = '#121816'; g.font = F(700, v.length > 8 ? 84 : 120); g.fillText(v, x0 + 60, y + step / 2 + 60);
-    const vw = g.measureText(v).width;
-    g.fillStyle = '#69736f'; g.font = F(500, 40); g.fillText(unit, x0 + 72 + vw, y + step / 2 + 60);
-    if (ref) { g.font = F(400, 30); g.fillText(ref, x0 + 64, y + step - 36); }
+  g.fillStyle = '#fff'; g.font = F(700, 44); g.fillText('걸음 분석 결과', 184, 104);
+  g.globalAlpha = .85; g.font = F(500, 28);
+  g.fillText(`${label} · ${new Date(h.date).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })}${h.ctx && ctxText(h.ctx) ? ' · ' + ctxText(h.ctx) : ''}`, 184, 144); g.globalAlpha = 1;
+
+  // 흰 카드 + 줄마다 항목 / 큰 숫자 / 기준·풀이
+  const x0 = 56, y0 = 196, w0 = W - 112, chart = act === 'video' && h.view === 'side' && h.r?.curves?.knee;
+  const h0 = 1040, rows = cardRows(h), chartH = chart ? 250 : 0, rowH = (h0 - chartH - 40) / Math.max(rows.length, 1);
+  g.fillStyle = '#fff'; g.beginPath(); g.roundRect(x0, y0, w0, h0, 40); g.fill();
+  const wrap = (text, maxW) => {                                          // 기준·풀이 문장이 길면 두 줄로
+    const words = text.split(' '), lines = ['']; for (const wd of words) { const t = lines[lines.length - 1] ? lines[lines.length - 1] + ' ' + wd : wd; if (g.measureText(t).width > maxW && lines[lines.length - 1]) lines.push(wd); else lines[lines.length - 1] = t; } return lines.slice(0, 2);
+  };
+  rows.forEach((r, i) => {
+    const y = y0 + 24 + rowH * i;
+    if (i) { g.fillStyle = '#e6eae8'; g.fillRect(x0 + 48, y, w0 - 96, 2); }
+    g.fillStyle = '#69736f'; g.font = F(500, 28); g.fillText(r.k, x0 + 52, y + 46);
+    const big = r.v.length > 9 ? 52 : 68;
+    g.fillStyle = '#121816'; g.font = F(700, big); g.fillText(r.v, x0 + 50, y + 46 + big + 6);
+    const vw = g.measureText(r.v).width;
+    g.fillStyle = '#69736f'; g.font = F(500, 26); g.fillText(r.u, x0 + 62 + vw, y + 46 + big + 6);
+    g.font = F(400, 25);
+    wrap(r.n || '', w0 - 104).forEach((ln, j) => g.fillText(ln, x0 + 52, y + 46 + big + 46 + j * 32));
   });
-  const ctx = ctxText(h.ctx);
-  g.fillStyle = '#fff'; g.font = F(500, 30);
-  if (ctx) g.fillText(ctx, 72, 1206);
-  g.globalAlpha = .82; g.font = F(400, 28);
-  g.fillText(`${APP_URL} · 의료 진단이 아니에요`, 72, 1262); g.globalAlpha = 1;
+  if (chart) {                                                             // 무릎 굽힘 곡선: 이번 영상 vs Perry 기준점
+    const cx = x0 + 52, cy = y0 + h0 - chartH - 10, cw = w0 - 104, ch = chartH - 70;
+    const X = q => cx + cw * q / 100, Y = d => cy + 40 + ch * (1 - d / 70);
+    g.fillStyle = '#69736f'; g.font = F(500, 26); g.fillText('무릎 굽힘 곡선 (보행 주기 0~100%)', cx, cy + 22);
+    g.strokeStyle = '#e6eae8'; g.lineWidth = 2; for (const d of [0, 30, 60]) { g.beginPath(); g.moveTo(cx, Y(d)); g.lineTo(cx + cw, Y(d)); g.stroke(); }
+    g.setLineDash([12, 10]); g.strokeStyle = '#9aa5a1'; g.lineWidth = 4; g.beginPath();
+    [[0, 5], [15, 18], [40, 5], [62, 40], [73, 60], [85, 30], [97, 2], [100, 5]].forEach(([q, d], k) => k ? g.lineTo(X(q), Y(d)) : g.moveTo(X(q), Y(d))); g.stroke(); g.setLineDash([]);
+    g.strokeStyle = '#008a6e'; g.lineWidth = 6; g.beginPath(); chart.forEach((d, q) => q ? g.lineTo(X(q), Y(d)) : g.moveTo(X(q), Y(d))); g.stroke();
+    g.font = F(400, 22); g.fillStyle = '#008a6e'; g.fillText('이번 영상', cx + cw - 250, cy + 22); g.fillStyle = '#9aa5a1'; g.fillText('- - Perry 기준', cx + cw - 130, cy + 22);
+  }
+  g.fillStyle = '#fff'; g.globalAlpha = .85; g.font = F(400, 26);
+  g.fillText(`${APP_URL} · 책·논문 기준과 비교한 참고값이에요 · 의료 진단이 아니에요`, 60, 1300); g.globalAlpha = 1;
   return c;
 }
 async function shareRecord(date) {
