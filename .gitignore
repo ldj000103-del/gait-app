@@ -1,3 +1,6 @@
 refs/
 upload/
 .claude/
+node_modules/
+www/
+dist/

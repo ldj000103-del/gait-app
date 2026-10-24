@@ -46,6 +46,8 @@ $('dmode').addEventListener('change', () => { store.set('dmode', $('dmode').valu
 showDmode();
 
 // ── 측정 ──
+// 설치형 안드로이드 앱이면 네이티브 기록기(화면이 꺼져도 측정), 아니면 브라우저 센서
+const Native = window.Capacitor?.isNativePlatform?.() ? window.Capacitor.Plugins.GaitRecorder : null;
 let samples = [], t0 = 0, timer = null, gpsPts = [], gpsWatch = null, gpsDenied = false, wakeLock = null, hiddenDuringRec = false;
 // 휴대폰 브라우저는 화면이 꺼지면 센서·GPS를 멈춤 → 측정 중엔 화면 켜짐 유지, 그래도 꺼지면 기록해 두고 이유를 알려 줌
 document.addEventListener('visibilitychange', () => { if (document.hidden && t0) hiddenDuringRec = true; });
@@ -64,6 +66,11 @@ function onMotion(e) {
   if (a && a.x != null) samples.push({ t: e.timeStamp, x: a.x, y: a.y, z: a.z });
 }
 $('start').addEventListener('click', async () => {
+  const useGps = $('dmode').value === 'gps';
+  if (Native) {
+    const st = await Native.requestPermissions({ permissions: useGps ? ['location', 'notifications'] : ['notifications'] }).catch(() => ({}));
+    gpsDenied = useGps && st.location !== 'granted';
+  } else {
   if (typeof DeviceMotionEvent === 'undefined') return alert('이 기기·브라우저는 움직임 센서를 지원하지 않아요.');
   if (typeof DeviceMotionEvent.requestPermission === 'function') {          // 아이폰은 허락이 필요
     try { if (await DeviceMotionEvent.requestPermission() !== 'granted') return alert('움직임 센서 사용을 허락해야 측정할 수 있어요.'); }
@@ -71,7 +78,8 @@ $('start').addEventListener('click', async () => {
   }
   startGps();                                                              // 위치 권한 창은 여기서 뜸 (카운트다운 동안 GPS가 잡힘)
   try { wakeLock = await navigator.wakeLock?.request('screen'); } catch { wakeLock = null; }
-  document.body.classList.add('recording');
+  document.body.classList.toggle('recording', true);
+  }
   samples = []; $('setup').classList.add('hidden'); $('result').classList.add('hidden'); $('rec').classList.remove('hidden');
   let left = 3;
   $('recTitle').textContent = '3초 안에 주머니에 넣으세요';
@@ -81,12 +89,14 @@ $('start').addEventListener('click', async () => {
     clearInterval(timer);
     navigator.vibrate?.(200);
     $('recTitle').textContent = '걷는 중… 평소처럼 직선으로';
-    window.addEventListener('devicemotion', onMotion);
+    if (Native) Native.start({ gps: useGps && !gpsDenied });
+    else window.addEventListener('devicemotion', onMotion);
     t0 = performance.now(); hiddenDuringRec = false;
     timer = setInterval(() => {
       $('recTime').textContent = Math.round((performance.now() - t0) / 1000) + '초';
       const last = gpsPts[gpsPts.length - 1];
-      if ($('dmode').value === 'gps') $('recHint').textContent = gpsDenied ? '위치 권한이 없어 속도는 재지 않아요 (케이던스는 정상 측정)'
+      if (Native) $('recHint').textContent = '이제 화면을 꺼도 측정돼요. 알림창에 "걸음 측정 중"이 보이면 정상이에요.';
+      else if ($('dmode').value === 'gps') $('recHint').textContent = gpsDenied ? '위치 권한이 없어 속도는 재지 않아요 (케이던스는 정상 측정)'
         : last ? `GPS 오차 약 ${Math.round(last.acc)}m · 속도를 재려면 야외에서 1분 이상 걸어 주세요` : 'GPS 신호 찾는 중… (실내에서는 잘 안 잡혀요)';
     }, 500);
   }, 1000);
@@ -96,8 +106,14 @@ let holdTimer = null;
 $('stop').addEventListener('pointerdown', () => { $('stop').textContent = '계속 누르고 있어요…'; holdTimer = setTimeout(stopRec, 1000); });
 for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) $('stop').addEventListener(ev, () => { clearTimeout(holdTimer); $('stop').textContent = '끝 (1초 길게 누르기)'; });
 $('stop').addEventListener('contextmenu', e => e.preventDefault());
-function stopRec() {
+async function stopRec() {
   clearInterval(timer); t0 = 0;
+  if (Native) {
+    $('rec').classList.add('hidden'); $('setup').classList.remove('hidden');
+    const r = await Native.stop();
+    if (r.samples.length < 20) return alert('센서 값이 거의 들어오지 않았어요. 다시 시도해 주세요.');
+    return finish(r.samples, false, r.gps);
+  }
   document.body.classList.remove('recording');
   wakeLock?.release().catch(() => {}); wakeLock = null;
   window.removeEventListener('devicemotion', onMotion);
@@ -113,7 +129,7 @@ function finish(data, demo = false, gps = []) {
   const mode = $('dmode').value;
   let maxGap = 0;
   for (let i = 1; i < data.length; i++) maxGap = Math.max(maxGap, data[i].t - data[i - 1].t);
-  const paused = !demo && (hiddenDuringRec || maxGap > 2000);              // 2초 넘게 센서 값이 끊김 = 화면 꺼짐·다른 앱
+  const paused = !demo && ((!Native && hiddenDuringRec) || maxGap > 2000);              // 2초 넘게 센서 값이 끊김 = 화면 꺼짐·다른 앱
   if (paused && !res.error) res.warnings.push('paused');
   if (res.error && paused) {
     showHtml(`<h2>다시 측정해 주세요</h2><div class="warn">측정 중에 화면이 꺼지거나 다른 앱으로 바뀌어서 센서가 멈췄어요 (최대 ${Math.round(maxGap / 1000)}초 끊김). <b>전원 버튼은 누르지 말고</b> 시작 후 그대로 주머니에 넣어 주세요(화면이 까만 주머니 모드는 켜진 상태라 측정이 계속돼요). 끝은 1초 길게 눌러야 멈춰서 주머니 속에서 실수로 눌리지 않아요.</div>`);
@@ -158,7 +174,7 @@ function send(r) {
 }
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v7';
+const APP_VERSION = 'v8';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
