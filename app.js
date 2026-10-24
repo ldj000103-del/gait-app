@@ -245,7 +245,7 @@ function send(r) {
 }
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v11';
+const APP_VERSION = 'v12';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -280,7 +280,7 @@ function render(r, prev) {
   const norm = sex === 'm' ? 111 : sex === 'f' ? 117 : 113;
   const lo = norm * 0.9, hi = norm * 1.1;
   const c = r.cadence;
-  const where = c < lo ? '정상 범위보다 느려요' : c > hi ? '정상 범위보다 빨라요' : '정상 범위예요';
+  const where = `이번 값 ${c.toFixed(0)} · ${c < lo ? '기준 범위보다 낮은 값' : c > hi ? '기준 범위보다 높은 값' : '기준 범위 안의 값'}`;
   const pos = Math.min(Math.max((c - 60) / 100, 0), 1) * 100;
   const cadGrade = r.warnings.includes('hand') || r.warnings.includes('irregular') ? 'o' : 'g';
   const older = +age >= 61;
@@ -295,10 +295,10 @@ function render(r, prev) {
   html += metric({
     title: '케이던스 (분당 걸음 수)', value: c.toFixed(0), unit: '걸음/분', grade: cadGrade,
     body: `<div class="bar"><i style="left:calc(${pos}% - 2px)"></i></div>
-      <div class="sub">${where} · 정상 ${norm}걸음/분(±10%: ${lo.toFixed(0)}–${hi.toFixed(0)}) · 야외 평소 걸음 평균 116.7
+      <div class="sub">${where} · Perry 성인 평균 ${norm}걸음/분(±10%: ${lo.toFixed(0)}–${hi.toFixed(0)}) · 야외 평소 걸음 평균 116.7(Murtagh 2021)
       ${prev ? `<br>지난번 ${prev.cadence.toFixed(0)} → ${c >= prev.cadence ? '+' : ''}${(c - prev.cadence).toFixed(0)}` : ''}</div>`,
     why: [
-      '정상값: 성인 평균 113, 남성 111·여성 117걸음/분, 정상인의 편차는 평균의 약 ±10% (Perry 20장)',
+      'Perry 20장 기준값: 성인 평균 113, 남성 111·여성 117걸음/분, 건강한 성인의 편차는 평균의 약 ±10%',
       '야외에서 평소 속도로 걸을 때 평균 116.7걸음/분 (14,015명 메타분석)',
       '스마트폰 케이던스는 기준 장비와 거의 같음: 상관 0.997, 오차 범위 1.4% (허벅지에 고정한 연구)',
       cadGrade === 'o' ? '이번 측정은 손에 들었거나 신호가 불규칙해 등급을 낮췄어요.' : '권장 위치(허벅지 밀착)에서 측정한 값이에요.',
@@ -328,8 +328,8 @@ function render(r, prev) {
       : '입력한 거리 ÷ 센서가 찾은 걷는 시간. 출발·정지 구간이 포함돼 실제보다 약간 느리게 나올 수 있어요 → "참고"';
     html += metric({
       title: '걷는 속도', value: r.speed.toFixed(2), unit: `m/s (${(r.speed * 60).toFixed(0)} m/분)`, grade: dGrade,
-      body: `<div class="sub">정상 성인 평균 1.37 m/s(82 m/분)${shortNote}${slow ? `<br><b>1.0 m/s 미만:</b> 낙상 예방이 필요한지 전문가와 상담해 보세요.` : ''}</div>`,
-      why: [how, '정상 82 m/분 (Perry 20장)', '65세 이상 지침: 걷는 속도가 0.8~1.0 m/s 미만이면 낙상 예방 대상 (나이를 65 이상으로 입력하면 경고가 켜져요)', '65세 이상에서 걷는 속도 0.1 m/s 빠를 때마다 사망 위험 12% 낮음 (관찰 연구, 연관성)'],
+      body: `<div class="sub">Perry 성인 평균 1.37 m/s(82 m/분)${shortNote}${slow ? `<br>참고: JAMA 2024 지침은 65세 이상에서 걷는 속도 0.8~1.0 m/s 미만을 낙상 위험을 평가하는 기준 중 하나로 써요. 이 앱은 낙상 위험을 판정하지 않아요.` : ''}</div>`,
+      why: [how, '성인 평균 82 m/분 (Perry 20장)', 'JAMA 2024 지침: 65세 이상에서 지난 1년 낙상, 낙상 걱정, 걷는 속도 0.8~1.0 m/s 미만 중 하나가 있으면 낙상 예방 중재를 고려 (나이를 65 이상으로 입력하면 이 안내가 보여요)', '65세 이상에서 걷는 속도 0.1 m/s 빠를 때마다 사망 위험 12% 낮음 (관찰 연구, 연관성)'],
       refs: ['perry20', 'jama2024', 'studenski'],
     });
     const ideal = sex === 'f' ? 0.0064 : sex === 'm' ? 0.0072 : null;
@@ -426,7 +426,7 @@ function renderRun(r, prev) {
   const c = r.cadence;
   let html = `<h2>러닝 결과</h2>` + r.warnings.map(w => `<div class="warn">${WARN[w]}</div>`).join('');
   html += metric({ title: '케이던스 (분당 걸음 수)', value: c.toFixed(0), unit: '걸음/분', grade: r.warnings.includes('hand') || r.warnings.includes('irregular') ? 'o' : 'y',
-    body: `<div class="sub">${prev ? `지난 러닝 ${prev.cadence.toFixed(0)} → ${c >= prev.cadence ? '+' : ''}${(c - prev.cadence).toFixed(0)}` : '러닝 케이던스는 사람·속도마다 달라 정상값 하나로 비교하지 않아요.'}</div>`,
+    body: `<div class="sub">${prev ? `지난 러닝 ${prev.cadence.toFixed(0)} → ${c >= prev.cadence ? '+' : ''}${(c - prev.cadence).toFixed(0)}` : '러닝 케이던스는 사람·속도마다 달라 기준값 하나로 비교하지 않아요.'}</div>`,
     why: ['걷기 케이던스는 스마트폰 정확도 연구가 있지만(상관 0.997), 주머니 스마트폰의 달리기 케이던스 검증 연구는 아직 찾지 못해 "참고" 등급이에요.',
       'Neumann 16장: 속력이 빨라지면 한걸음 길이와 빈도가 모두 늘고, 일반 장거리 속도(2~5 m/s)에선 주로 한걸음 길이가 늘어요.'],
     refs: ['neumann16', 'shema'] });
