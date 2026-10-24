@@ -31,7 +31,8 @@ const REF = {
   wegner2026: 'Wegner M 외. 2D video-based pose estimation app vs markerless 3D motion capture in knee osteoarthritis. Front Bioeng Biotechnol 2026. doi:10.3389/fbioe.2026.1869878',
   ikenaga2017: 'Ikenaga M 외. Short-interval, intermittent, low-intensity, slow-jogging program in older adults: RCT. Eur J Appl Physiol 2017. doi:10.1007/s00421-016-3493-9',
 };
-const ACT = { walk: '걷기', run: '러닝', slowrun: '슬로우 러닝' };
+const ACT = { walk: '걷기', run: '러닝', slowrun: '슬로우 러닝', video: '영상' };
+const VIEW = { side: '옆', front: '앞', back: '뒤' };
 const MET_NOTE = 'MET(대사당량) = 가만히 앉아 쉴 때 쓰는 에너지를 1로 본 운동 강도 단위예요. 3 MET는 쉴 때의 약 3배 에너지를 쓰는 강도예요(1 MET ≈ 몸무게 1kg당 1분에 산소 3.5mL).';
 const INTERVAL_S = 60;   // 슬로우 러닝: 조깅 1분 + 걷기 1분 반복 (Ikenaga 2017)
 const GRADE = {
@@ -252,7 +253,7 @@ function send(r) {
 }
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v17';
+const APP_VERSION = 'v18';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -367,7 +368,7 @@ function recCard({ title, calc = [], facts = [], limit = '', grade = 'y', refs =
     ${limit ? `<div class="sub">한계: ${limit}</div>` : ''}
     <details><summary>출처 전체</summary><ul>${refs.map(r => `<li>${REF[r]}</li>`).join('')}</ul></details></div>`;
 }
-const recSection = cards => cards.length ? `<h2 style="margin-top:18px">근거로 본 추천</h2><div class="sub">연구에서 확인된 숫자만 옮겼어요. 내 몸에 맞는지는 전문가와 상의하세요.</div>${cards.join('')}` : '';
+const recSection = (cards, title = '📚 근거로 본 추천') => cards.length ? `<details class="recs"><summary>${title} <span class="sub">(눌러서 보기)</span></summary><div class="sub" style="margin-top:8px">책·연구의 기준값과 이번 값, 계산식만 옮겼어요. 원인 판단과 내 몸에 맞는지는 전문가와 상의하세요.</div>${cards.join('')}</details>` : '';
 
 function recsWalk(r, { sex, age }) {
   const c = Math.round(r.cadence), cards = [];
@@ -568,11 +569,23 @@ for (const id of ['setup', 'vsetup', 'about', 'consent', 'profile']) markTerms($
 function renderHistory() {
   const hist = store.get('history', []);
   if (!hist.length) return;
-  $('histBody').innerHTML = `<table class="hist"><tr><td>날짜</td><td>활동</td><td>케이던스</td><td>걸음</td><td>속도</td></tr>` +
-    hist.slice(0, 20).map(h => `<tr><td>${new Date(h.date).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}${h.practice ? ' (연습)' : ''}${h.receipt ? `<br><span class="sub">접수 ${h.receipt}</span>` : ''}</td>
-      <td>${ACT[h.activity ?? 'walk']}</td><td>${h.cadence.toFixed(0)}</td><td>${h.steps}</td><td>${h.speed ? h.speed.toFixed(2) + ' m/s' : '-'}</td></tr>`).join('') + '</table>';
+  $('histBody').innerHTML = `<div class="sub">줄을 누르면 그때 결과를 다시 볼 수 있어요.</div><table class="hist"><tr><td>날짜</td><td>활동</td><td>케이던스</td><td>걸음</td><td>속도</td></tr>` +
+    hist.slice(0, 20).map((h, i) => `<tr data-i="${i}" class="clickable"><td>${new Date(h.date).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}${h.practice ? ' (연습)' : ''}${h.receipt ? `<br><span class="sub">접수 ${h.receipt}</span>` : ''}</td>
+      <td>${ACT[h.activity ?? 'walk']}${h.view ? `(${VIEW[h.view]})` : ''}</td><td>${(h.cadence ?? h.r?.cadence)?.toFixed(0) ?? '-'}</td><td>${h.steps ?? '-'}</td><td>${h.speed ? h.speed.toFixed(2) + ' m/s' : '-'}</td></tr>`).join('') + '</table>';
 }
 renderHistory();
+$('histBody').addEventListener('click', e => { const tr = e.target.closest('tr[data-i]'); if (tr) showRecord(+tr.dataset.i); });
+function showRecord(i) {
+  const hist = store.get('history', []), h = hist[i];
+  if (!h) return;
+  const when = new Date(h.date).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  const banner = `<div class="sub" style="margin-bottom:6px">📅 지난 기록 다시 보기 · ${when}</div>`;
+  const act = h.activity ?? 'walk';
+  if (act === 'video') { renderVideo(h.r); $('vresult').insertAdjacentHTML('afterbegin', banner); return; }
+  const prev = hist.slice(i + 1).find(x => !x.practice && (x.activity ?? 'walk') === act);
+  if (act === 'slowrun') renderSlow(h, hist); else if (act === 'run') renderRun(h, prev); else render(h, prev);
+  $('result').insertAdjacentHTML('afterbegin', banner);
+}
 
 // ── 영상 분석 (옆·앞·뒤) ──
 const VGUIDE = {
@@ -608,7 +621,11 @@ async function runVideo(file) {
     $('vcanvas').classList.remove('hidden');
     await drawSnapshot($('vcanvas'), video, frames[Math.floor(frames.length / 2)]);
     URL.revokeObjectURL(video.src);
+    const hist = store.get('history', []);
+    hist.unshift({ date: new Date().toISOString(), activity: 'video', view, r });   // 영상은 저장 안 하고 계산된 숫자만
+    store.set('history', hist.slice(0, 200));
     renderVideo(r, dur);
+    renderHistory();
   } catch (err) {
     // 프로그램 내부 오류(영어)는 쉬운 안내 + 접은 칸에 원문
     const msg = err.html || (err.message && /[가-힣]/.test(err.message) ? err.message
@@ -635,6 +652,37 @@ function kneeChart(curve) {
     <polyline points="${line(perry)}" fill="none" stroke="currentColor" opacity=".45" stroke-width="2" stroke-dasharray="5 4"/>
     <polyline points="${line(curve.map((d, q) => [q, d]))}" fill="none" stroke="var(--accent)" stroke-width="3"/>
   </svg><div class="sub">초록 = 이번 영상 평균, 회색 점선 = Perry 5장 표의 기준점 · 가로 = 보행 주기 0~100%</div>`;
+}
+
+const dif = (a, ref) => a == null || Number.isNaN(a) ? '-' : `${a.toFixed(0)}° − ${ref}° = <b>${a - ref >= 0 ? '+' : ''}${(a - ref).toFixed(0)}°</b>`;
+function videoRecs(r) {
+  const m = r.m, lim = '카메라 1대로 찍은 2D 영상이라 다리가 돌아가 있으면 굽힘 각도가 작게 찍혀요(Perry 17장). 원인 판단은 전문가에게.';
+  if (r.view === 'side') return [
+    recCard({ title: '유각기 무릎 굽힘 (발 들어 올리기)', calc: [`이번 − Perry 약 60° → ${dif(m.kneeSwingMax, 60)}`],
+      facts: ['Perry 4장: 유각 전 무릎 약 35~40°, 초기 유각 약 60° 굽힘은 거의 근육 없이 관성으로 만들어짐',
+        'Perry 4장: 유각 전에 발목이 빠르게 발바닥굽힘 20°가 되면서 무릎 굽힘을 이끔',
+        'Perry 5장: 초기 유각에 굽힘이 15°에 못 미치면 다리가 덜 나가고 발끝이 바닥에 끌릴 수 있음'], limit: lim, refs: ['perry9', 'perry17'] }),
+    recCard({ title: '체중 받기 무릎 굽힘 (충격 흡수)', calc: [`이번 − Perry 약 15° → ${dif(m.kneeLoad, 15)} (기준 범위 15~18°)`],
+      facts: ['Perry 4장: 발이 닿고 0.02초 만에 체중 60%가 실림. 무릎 약 15° 굽힘, 발목 발바닥굽힘 10°, 반대쪽 골반 4° 내려감으로 충격을 흡수',
+        'Perry 5장의 구분: 체중 받기 때 25° 넘게 굽으면 "굽힘 과다"로 봄'], limit: lim, refs: ['perry9'] }),
+    recCard({ title: '입각기 무릎 펴기', calc: [`이번 최소 − Perry 약 5° → ${dif(m.kneeStanceMin, 5)}`],
+      facts: ['Perry 5장: 말기 입각에 무릎이 약 5°까지 펴짐. 10° 이내로 펴지지 않으면 "폄 부족"으로 봄', 'Perry 5장: 말기 유각에 덜 펴지면 걸음 길이가 짧아짐'], limit: lim, refs: ['perry9'] }),
+    recCard({ title: '넓적다리 뒤로 젖히기 (한걸음 길이)', grade: 'o', calc: [`이번 − Perry 약 20° → ${dif(m.thighExt, 20)}`, `앞으로 굽힘: 이번 − Perry 약 20° → ${dif(m.thighFlex, 20)}`],
+      facts: ['Perry 6장: 말기 입각에 넓적다리가 수직에서 뒤로 약 20° 젖혀짐', 'Perry 6장: 이 젖힘이 부족하면 한걸음 길이가 짧아짐', 'Perry 6장: 첫 닿기 때 고관절 굽힘 약 30°(넓적다리 약 20°)는 미끄러짐과 안정성 사이의 최적 타협'],
+      limit: lim + ' 넓적다리 각도는 영상 정확도가 낮은 편이에요(Wegner 2026).', refs: ['perry9', 'wegner2026'] }),
+    recCard({ title: '발목 (밀어내기)', grade: 'o', calc: [`발등굽힘: 이번 − Perry 약 10° → ${dif(m.ankleDF, 10)}`, `발바닥굽힘: 이번 − Perry 약 20° → ${dif(m.anklePF, 20)}`],
+      facts: ['Perry 4장: 말기 입각에 뒤꿈치가 들리며 발목 발등굽힘 약 10°. 앞발을 축으로 굴러가는 이 동작(앞발 흔들의자)이 가장 강한 추진력', 'Perry 4장: 중간 입각 30%까지 발등굽힘이 5° 이상 되는지 봄'],
+      limit: lim + ' 발목 각도는 영상 정확도가 낮아요(Russo 2026, Cheng 2025).', refs: ['perry9', 'russo2026', 'cheng2025'] }),
+  ];
+  const lr = (a, b) => a == null || b == null ? '-' : `|${a.toFixed(0)}° − ${b.toFixed(0)}°| = <b>${Math.abs(a - b).toFixed(0)}°</b>`;
+  return [
+    recCard({ title: '골반 내려감 (엉덩이 옆 근육)', grade: 'n', calc: [`왼발 디딜 때 − Perry 약 4° → ${dif(m.dropL, 4)}`, `오른발 디딜 때 − Perry 약 4° → ${dif(m.dropR, 4)}`, `좌우 차이 ${lr(m.dropL, m.dropR)}`],
+      facts: ['Perry 4장: 체중 받기 때 반대쪽 골반이 약 4° 내려가며 충격을 나눠 받음', 'Perry 6·9장: 엉덩이 벌림근(중둔근 등)이 체중의 약 1.5배 힘으로 골반 처짐을 5° 이하로 잡아 줌'],
+      limit: '휴대폰 앞·뒤 영상의 골반 각도는 검증 연구를 찾지 못했어요. 같은 조건으로 찍어 변화를 보세요.', refs: ['perry9'] }),
+    recCard({ title: '왼쪽·오른쪽 비교', grade: 'n', calc: [`무릎 안쪽 모임 ${lr(m.valgusL, m.valgusR)}`, `몸통 옆 기울기 ${lr(m.leanL, m.leanR)}`],
+      facts: ['Perry 책에는 이 두 각도의 영상 기준값이 없어서 숫자 기준 대신 좌우 차이와 이전 영상과의 변화로만 비교해요', 'Neumann 15장: 두 다리는 서로 의존해서, 한쪽 문제가 반대쪽 다리의 걸음에 나타나기도 함'],
+      limit: '검증 안 됨. 원인 판단은 전문가에게.', refs: ['perry17', 'neumann15'] }),
+  ];
 }
 
 function renderVideo(r, dur) {
@@ -677,7 +725,8 @@ function renderVideo(r, dur) {
       body: `<div class="sub">두 발목 사이 가로 거리 ÷ 양쪽 엉덩이 점 사이 거리 (중앙값). 참고: Neumann 15장 성인 걸음 폭 8~10cm</div>`,
       why: ['영상에는 cm 기준이 없어서 골반 너비에 대한 비율로만 보여 줘요'], refs: ['neumann15'] });
   }
-  html += `<div class="sub" style="margin-top:12px">이 결과는 의료 진단이 아니에요. 걸음이 걱정되면 전문가와 상담하세요. 영상은 저장되지 않았어요.</div>`;
+  html += recSection(videoRecs(r), '📚 레퍼런스로 본 걷는 법');
+  html += `<div class="sub" style="margin-top:12px">이 결과는 의료 진단이 아니에요. 걸음이 걱정되면 전문가와 상담하세요. 영상은 저장되지 않았어요(계산된 숫자만 지난 기록에 남아요).</div>`;
   showV(html);
 }
 

@@ -64,6 +64,10 @@
   .ghostlike { background:transparent; color:var(--accent); border:1px solid var(--accent); }
   .bar2 { height:10px; border-radius:6px; background:var(--line); overflow:hidden; margin-top:12px; } .bar2 i { display:block; height:100%; width:0; background:var(--accent); }
   svg.chart { width:100%; height:auto; margin-top:8px; }
+  details.recs > summary { list-style:none; font-weight:700; padding:13px 14px; margin-top:16px; border:1px solid var(--accent); border-radius:12px; color:var(--accent); text-align:center; }
+  details.recs > summary::-webkit-details-marker { display:none; }
+  details.recs[open] > summary { background:var(--accent); color:#fff; } details.recs[open] > summary .sub { color:#fff; }
+  tr.clickable { cursor:pointer; } tr.clickable:hover td { background:var(--bg); }
   .rec { border:1px solid var(--line); border-radius:12px; padding:12px; margin:10px 0; background:var(--bg); }
   .calc { font-variant-numeric:tabular-nums; background:var(--card); border-radius:8px; padding:8px 10px; margin:8px 0; font-size:.95rem; }
   ul.facts { margin:6px 0; padding-left:20px; font-size:.9rem; } ul.facts li { margin:4px 0; }
