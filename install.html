@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>걸음 분석 설치하기</title>
+<meta name="description" content="휴대폰 센서와 카메라로 걸음을 재고, 결과마다 책·논문 근거를 보여 주는 앱">
+<meta property="og:title" content="걸음 분석">
+<meta property="og:description" content="케이던스·걷는 속도·영상 관절 각도를 재고, 결과마다 근거를 보여 줘요. 의료 진단이 아니에요.">
+<meta property="og:image" content="https://ldj000103-del.github.io/gait-app/icon-512.png">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<meta name="theme-color" content="#2a9d84">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<style>
+  :root { --bg:#f4f6f5; --card:#fff; --ink:#121816; --sub:#69736f; --line:#e6eae8; --accent:#1d6b5c; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#111614; --card:#1a201e; --ink:#eef2f0; --sub:#9aa5a1; --line:#2a3330; --accent:#5fc2ab; } }
+  * { box-sizing:border-box; }
+  body { margin:0; font:400 15px/1.6 "Pretendard Variable",Pretendard,system-ui,sans-serif; letter-spacing:-0.01em; background:var(--bg); color:var(--ink); }
+  main { max-width:560px; margin:0 auto; padding:24px 16px 48px; }
+  .hero { display:flex; gap:14px; align-items:center; }
+  .hero img { width:72px; height:72px; border-radius:18px; }
+  h1 { font-size:1.5rem; font-weight:700; letter-spacing:-0.025em; margin:0; }
+  h2 { font-size:1.05rem; font-weight:600; margin:0 0 8px; }
+  .sub { color:var(--sub); font-size:.875rem; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:16px; margin:14px 0; }
+  .card.me { border:2px solid var(--accent); }
+  .btn { display:block; text-align:center; font-weight:600; text-decoration:none; border-radius:12px; padding:14px; margin:12px 0 4px; background:var(--accent); color:#fff; }
+  .btn.ghost { background:transparent; color:var(--accent); border:1px solid var(--accent); }
+  ol { padding-left:20px; margin:8px 0 0; } li { margin:6px 0; }
+  .tag { display:inline-block; font-size:.75rem; font-weight:600; color:var(--accent); background:color-mix(in srgb, var(--accent) 12%, transparent); border-radius:999px; padding:2px 9px; margin-left:6px; }
+  ul.feat { padding-left:18px; margin:6px 0 0; } ul.feat li { margin:3px 0; }
+</style>
+</head>
+<body>
+<main>
+  <div class="hero">
+    <img src="icon-512.png" alt="걸음 분석 아이콘">
+    <div><h1>걸음 분석</h1><div class="sub">걸음을 재고, 결과마다 책·논문 근거를 보여 줘요</div></div>
+  </div>
+
+  <div class="card">
+    <ul class="feat">
+      <li>걷기·러닝·슬로우 러닝의 케이던스(분당 걸음 수)와 GPS 속도</li>
+      <li>옆·앞·뒤 영상으로 무릎·엉덩관절·발목 각도 (영상은 휴대폰 밖으로 안 나가요)</li>
+      <li>모든 값에 정확도 등급과 출처(Perry 『Gait Analysis』, Neumann 『Kinesiology』, 학술지 논문)</li>
+    </ul>
+    <div class="sub" style="margin-top:8px">의료 진단이 아니에요. 걸음이 걱정되면 전문가와 상담하세요.</div>
+  </div>
+
+  <div class="card" id="android">
+    <h2>안드로이드 <span class="tag" id="tagA" hidden>내 휴대폰</span></h2>
+    <div class="sub">화면이 꺼져도 측정되는 설치형 앱이에요. 버전 0.8</div>
+    <a class="btn" href="download/gait-analysis.apk" download>앱 받기 (약 4MB)</a>
+    <ol class="sub">
+      <li>위 버튼을 누르면 파일을 내려받아요. 다 받으면 알림창(또는 내 파일 → 다운로드)에서 <b>gait-analysis.apk</b>를 눌러요.</li>
+      <li>"출처를 알 수 없는 앱" 화면이 나오면 <b>설정 → 이 출처 허용</b>을 켜고 뒤로 가서 <b>설치</b>를 눌러요.</li>
+      <li>"Play 프로텍트" 경고가 나오면 <b>세부정보 더보기 → 무시하고 설치</b>를 눌러요. 플레이스토어를 거치지 않은 앱이라 나오는 경고예요.</li>
+      <li>앱을 열고 동의 화면에서 시작해요. 측정할 때 위치·알림 권한을 허용하면 GPS 속도와 "측정 중" 알림이 동작해요.</li>
+    </ol>
+    <div class="sub" style="margin-top:8px">새 버전이 나오면 같은 버튼으로 받아 위에 설치하면 돼요. 기록은 그대로 남아요.</div>
+  </div>
+
+  <div class="card" id="ios">
+    <h2>아이폰 <span class="tag" id="tagI" hidden>내 휴대폰</span></h2>
+    <div class="sub">아이폰은 설치형 앱 대신 웹앱으로 써요. 기능은 같아요(측정 중엔 화면을 끄지 말고 주머니에 넣어요).</div>
+    <a class="btn ghost" href="./">웹앱 열기</a>
+    <ol class="sub">
+      <li><b>사파리</b>로 위 버튼을 눌러 열어요.</li>
+      <li>아래쪽 <b>공유 버튼(네모에 위 화살표)</b> → <b>홈 화면에 추가</b>를 누르면 앱처럼 아이콘이 생겨요.</li>
+      <li>처음 측정할 때 "동작 및 방향 접근"을 <b>허용</b>해야 해요.</li>
+    </ol>
+  </div>
+
+  <div class="sub"><a href="privacy.html" style="color:var(--accent)">개인정보 처리방침</a> · 문의 ldj000103@gmail.com</div>
+</main>
+<script>
+  // 접속한 휴대폰 종류에 맞는 칸을 먼저 보여 줌
+  const ua = navigator.userAgent, ios = /iPhone|iPad|iPod/.test(ua), android = /Android/.test(ua);
+  if (ios) { document.getElementById('tagI').hidden = false; document.getElementById('ios').classList.add('me'); document.querySelector('main').insertBefore(document.getElementById('ios'), document.getElementById('android')); }
+  if (android) { document.getElementById('tagA').hidden = false; document.getElementById('android').classList.add('me'); }
+</script>
+</body>
+</html>

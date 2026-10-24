@@ -257,7 +257,7 @@ function send(r) {
 }
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v24';
+const APP_VERSION = 'v25';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -586,6 +586,17 @@ async function shareRecord(date) {
   const a = document.createElement('a'); a.href = dataUrl; a.download = 'gait-card.png'; a.click();   // 공유가 안 되면 이미지 내려받기
 }
 document.addEventListener('click', e => { const b = e.target.closest?.('.sharebtn'); if (b) shareRecord(b.dataset.date); });
+// 친구에게 설치 안내 링크 보내기 (카톡은 apk 파일을 막아서 링크로)
+$('invite').addEventListener('click', async () => {
+  const url = `https://${APP_URL}/install.html`, text = `걸음 분석 앱: 걸음을 재고 결과마다 책·논문 근거를 보여 줘요. 설치 안내 👉 ${url}`;
+  const P = window.Capacitor?.isNativePlatform?.() ? window.Capacitor.Plugins : null;
+  try {
+    if (P?.Share) return await P.Share.share({ title: '걸음 분석', text, url });
+    if (navigator.share) return await navigator.share({ title: '걸음 분석', text, url });
+  } catch (e) { if (e?.name === 'AbortError' || /cancel/i.test(e?.message || '')) return; }
+  try { await navigator.clipboard.writeText(text); alert('설치 안내 링크를 복사했어요. 카톡에 붙여 넣어 보내세요.'); }
+  catch { prompt('이 링크를 복사해 보내세요', url); }
+});
 const shareBtn = date => `<button class="ghost sharebtn" data-date="${date}" style="margin:4px 0 10px">결과 카드 공유하기</button>`;
 
 function showHtml(html) {
