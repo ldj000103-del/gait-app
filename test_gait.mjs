@@ -42,6 +42,16 @@ assert.equal(short.error, 'noWalk');
 const r = analyzeWalk(fakeWalk({ cadence: 113, position: 'pocket' }));
 const d = withDistance(r, 28);
 assert.ok(Math.abs(d.speed - 1.4) < 0.1, `속도 ${d.speed}`);
+// 달리기: 케이던스 140~200, 주머니·허리 모두 2% 안
+for (const position of ['pocket', 'waist']) for (const cadence of [140, 160, 175, 190, 200]) {
+  const res = analyzeWalk(fakeWalk({ cadence, position, walkS: 30 }), { position, activity: 'run' });
+  assert.ok(!res.error, `run ${position} ${cadence}: ${res.error}`);
+  const err = Math.abs(res.cadence - cadence) / cadence;
+  console.log(`run ${position.padEnd(6)} 정답 ${cadence} → ${res.cadence.toFixed(1)}`);
+  assert.ok(err < 0.02, `달리기 케이던스 오차 ${(err * 100).toFixed(1)}%`);
+  assert.ok(!res.warnings.includes('running'), '러닝 모드에선 running 경고 없음');
+}
+
 // GPS: 1초마다 위치, 오차 약 5m(무작위), 앞뒤 3초 서 있기 포함
 function fakeGps({ walkS, speed = 1.3, acc = 5, seed = 7 }) {
   let r = seed;

@@ -90,7 +90,10 @@ function peakNear(ac, center, tol) {
 
 // position: 'pocket'(허벅지) | 'waist'(허리) | 'hand'(손) — 신호 모양이 위치마다 다름
 // 허리: 걸음마다 비슷한 봉우리(Perry 7장) / 허벅지: 같은 다리가 돌아오는 '한 보행 주기'마다 봉우리
-export function analyzeWalk(samples, { position = 'pocket' } = {}) {
+// activity: 'walk' | 'run' — 달리기는 케이던스 범위로 한 걸음/한 주기를 가름
+const RUN_MIN = 120, RUN_MAX = 230;   // 달리기 케이던스로 볼 범위 (걸음/분). 이 범위에선 한 걸음·한 주기 해석이 겹치지 않음
+export function analyzeWalk(samples, { position = 'pocket', activity = 'walk' } = {}) {
+  const run = activity === 'run';
   const warnings = [];
   const totalS = (samples[samples.length - 1].t - samples[0].t) / 1000;
   if (samples.length < 50 || totalS < 8) return { error: 'tooShort', totalS };
@@ -107,7 +110,7 @@ export function analyzeWalk(samples, { position = 'pocket' } = {}) {
   const ac = autocorr(seg, maxLag);
 
   const peaks = [];
-  for (let i = Math.round(0.3 * HZ); i < ac.length - 1; i++) if (ac[i] > ac[i - 1] && ac[i] >= ac[i + 1]) peaks.push(i);
+  for (let i = Math.round((run ? 0.25 : 0.3) * HZ); i < ac.length - 1; i++) if (ac[i] > ac[i - 1] && ac[i] >= ac[i + 1]) peaks.push(i);
   if (!peaks.length) return { error: 'irregular', totalS, activeS };
   const top = Math.max(...peaks.map(i => ac[i]));
   const S = peaks.find(i => ac[i] >= 0.85 * top) / HZ;    // 가장 짧은 '강한 반복' 주기
@@ -115,7 +118,8 @@ export function analyzeWalk(samples, { position = 'pocket' } = {}) {
   // S가 한 걸음인지 한 보행 주기(두 걸음)인지 판단
   let stride;
   const half = peakNear(ac, (S / 2) * HZ, 0.15);
-  if (S < 0.75) stride = 2 * S;                                   // 주기 0.75초 미만 = 한 걸음 (케이던스 160 넘는 보행 주기는 없음)
+  if (run) stride = 60 / S >= RUN_MIN && 60 / S <= RUN_MAX ? 2 * S : S;   // S가 한 걸음이면 60/S가 달리기 범위
+  else if (S < 0.75) stride = 2 * S;                                   // 주기 0.75초 미만 = 한 걸음 (케이던스 160 넘는 보행 주기는 없음)
   else if (half > 0 && ac[half] > 0.25) stride = S;               // 절반 지점에도 반복 → S는 보행 주기
   else if (S > 1.3) stride = S;                                   // 한 걸음 1.3초 초과는 비현실적
   // ponytail: 0.75~1.3초 사이는 위치 정보로만 판단. 허리에 차고 아주 느리게(케이던스 80 미만) 걸으면 틀릴 수 있음 → 실측 데이터로 보정 필요
@@ -129,7 +133,8 @@ export function analyzeWalk(samples, { position = 'pocket' } = {}) {
   const cadence = 120 / stride;
   const steps = Math.round((activeS * cadence) / 60);
   if (regularity < 0.4) warnings.push('irregular');
-  if (cadence >= 170) warnings.push('running');                   // Neumann 15장: 걷기→달리기 전환 약 180걸음/분
+  if (!run && cadence >= 170) warnings.push('running');
+  if (run && cadence < 140) warnings.push('walkLike');            // 달리기치고 낮음 → 걷기였거나 측정 오류 가능                   // Neumann 15장: 걷기→달리기 전환 약 180걸음/분
   if (cadence < 80) warnings.push('slow');                         // 느린 걸음은 기기 오차↑ (Mora-Gonzalez 2022, Simonsen 2020)
   if (position === 'hand') warnings.push('hand');
 

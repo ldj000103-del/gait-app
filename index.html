@@ -55,6 +55,9 @@
   .terms p { margin:4px 0; }
   button:disabled { opacity:.4; cursor:not-allowed; }
   a { color:var(--accent); }
+  .rec { border:1px solid var(--line); border-radius:12px; padding:12px; margin:10px 0; background:var(--bg); }
+  .calc { font-variant-numeric:tabular-nums; background:var(--card); border-radius:8px; padding:8px 10px; margin:8px 0; font-size:.95rem; }
+  ul.facts { margin:6px 0; padding-left:20px; font-size:.9rem; } ul.facts li { margin:4px 0; }
   /* 주머니 모드: 측정 중엔 검은 화면(배터리 절약, 꺼진 것처럼), 실제로는 켜져 있어 센서가 계속 돎 */
   body.recording { background:#000; }
   body.recording main > section:not(#rec) { display:none; }
@@ -114,12 +117,20 @@
 
   <section class="card" id="setup">
     <h2>측정하기</h2>
+    <label for="act">무엇을 할까요?</label>
+    <select id="act">
+      <option value="walk">걷기</option>
+      <option value="run">러닝</option>
+      <option value="slowrun">슬로우 러닝 (조깅 1분 + 걷기 1분)</option>
+    </select>
+    <div class="sub hidden" id="slowNote">조깅 1분, 걷기 1분을 번갈아 해요. 바뀔 때마다 진동이 와요(조깅 = 길게 1번, 걷기 = 짧게 2번). 조깅은 걷는 속도 정도로 아주 천천히. 근거: Ikenaga 2017 무작위 연구.</div>
     <label for="pos">휴대폰 위치</label>
     <select id="pos">
       <option value="pocket">바지 앞주머니 (허벅지에 밀착) — 권장</option>
       <option value="waist">허리 (벨트·밴드)</option>
       <option value="hand">손에 들고</option>
     </select>
+    <div id="dmodeBox">
     <label for="dmode">걸은 거리 재는 방법 (속도·걸음 길이 계산용)</label>
     <select id="dmode">
       <option value="gps">GPS 자동 (야외 1분 이상)</option>
@@ -132,6 +143,7 @@
     </div>
     <div class="sub" id="gpsNote">⚠️ 휴대폰 GPS는 위치 오차가 보통 몇 m라서 <b>짧은 거리는 오차가 크게 생길 수 있어요.</b> 그래서 1분·50m보다 짧으면 속도를 계산하지 않고, 길게 걸어도 "참고" 등급이에요. 실내에서는 GPS가 잘 안 잡혀요.<br>
       위치 권한을 물어봐요. 위치는 이 휴대폰 안에서 거리 계산에만 쓰고 저장하거나 보내지 않아요.</div>
+    </div>
     <ol class="guide sub">
       <li><b>시작</b>을 누르고 3초 안에 주머니에 넣어요. 화면이 까맣게 바뀌는 <b>주머니 모드</b>가 돼요. <b>전원 버튼은 누르지 마세요</b> — 누르면 휴대폰이 센서를 멈춰요.</li>
       <li><b>평소처럼</b> 걸어요. 케이던스만 볼 땐 20초 이상, GPS로 속도까지 볼 땐 <b>야외에서 1분 이상</b>. 특정 지점을 밟으려고 하지 마세요.</li>

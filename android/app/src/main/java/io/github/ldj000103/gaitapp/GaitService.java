@@ -17,9 +17,12 @@ import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
 import android.os.Build;
+import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
 import android.os.PowerManager;
+import android.os.VibrationEffect;
+import android.os.Vibrator;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.ServiceCompat;
 import androidx.core.content.ContextCompat;
@@ -35,6 +38,10 @@ public class GaitService extends Service implements SensorEventListener, Locatio
     private PowerManager.WakeLock wakeLock;
     private SensorManager sensors;
     private LocationManager location;
+    // 슬로우 러닝: intervalSec마다 조깅/걷기 전환 진동 (조깅 = 길게 1번, 걷기 = 짧게 2번) + 알림 문구 변경
+    private final Handler handler = new Handler(Looper.getMainLooper());
+    private Runnable tick;
+    private int phase = 0;
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
@@ -67,6 +74,27 @@ public class GaitService extends Service implements SensorEventListener, Locatio
             location = getSystemService(LocationManager.class);
             location.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000, 0, this, Looper.getMainLooper());
         }
+        int intervalSec = intent != null ? intent.getIntExtra("intervalSec", 0) : 0;
+        if (intervalSec > 0) {
+            phase = 0;
+            tick = () -> {
+                phase++;
+                boolean jog = phase % 2 == 0;
+                Vibrator v = getSystemService(Vibrator.class);
+                long[] pattern = jog ? new long[]{0, 600} : new long[]{0, 200, 150, 200};
+                if (v != null) {
+                    if (Build.VERSION.SDK_INT >= 26) v.vibrate(VibrationEffect.createWaveform(pattern, -1));
+                    else v.vibrate(pattern, -1);
+                }
+                nm.notify(1, new NotificationCompat.Builder(this, CHANNEL)
+                        .setContentTitle(jog ? "조깅 1분" : "걷기 1분")
+                        .setContentText("슬로우 러닝 측정 중 · 끝내려면 앱을 열고 끝을 누르세요")
+                        .setSmallIcon(android.R.drawable.ic_menu_directions)
+                        .setContentIntent(open).setOngoing(true).build());
+                handler.postDelayed(tick, intervalSec * 1000L);
+            };
+            handler.postDelayed(tick, intervalSec * 1000L);
+        }
         return START_NOT_STICKY;
     }
 
@@ -82,6 +110,7 @@ public class GaitService extends Service implements SensorEventListener, Locatio
 
     @Override
     public void onDestroy() {
+        if (tick != null) handler.removeCallbacks(tick);
         if (sensors != null) sensors.unregisterListener(this);
         if (location != null) location.removeUpdates(this);
         if (wakeLock != null && wakeLock.isHeld()) wakeLock.release();
