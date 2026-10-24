@@ -141,16 +141,20 @@ function render(r, prev) {
     refs: ['simonsen', 'mora'],
   });
   if (r.speed) {
-    const slow = r.speed < 1.0;
+    // 낙상 기준(JAMA 2024)과 사망 위험(JAMA 2011)은 65세 이상 연구라 그 나이에만 경고
+    const slow = r.speed < 1.0 && +age >= 65;
+    const short = r.distance < 20;                                         // 짧으면 출발·정지 구간 비중이 커져 느리게 나옴
+    const dGrade = short ? 'o' : 'y';
+    const shortNote = short ? '<br>20m보다 짧게 걸으면 출발·멈춤 구간이 섞여 실제보다 느리게 나와요. 20m 이상을 권장해요.' : '';
     html += metric({
-      title: '걷는 속도', value: r.speed.toFixed(2), unit: `m/s (${(r.speed * 60).toFixed(0)} m/분)`, grade: 'y',
-      body: `<div class="sub">정상 성인 평균 1.37 m/s(82 m/분)${slow ? `<br><b>1.0 m/s 미만:</b> 낙상 예방이 필요한지 전문가와 상담해 보세요.` : ''}</div>`,
-      why: ['입력한 거리 ÷ 센서가 찾은 걷는 시간. 출발·정지 구간이 포함돼 실제보다 약간 느리게 나올 수 있어요 → "참고"', '정상 82 m/분 (Perry 20장)', '지침: 걷는 속도가 0.8~1.0 m/s 미만이면 낙상 예방 대상', '걷는 속도 0.1 m/s 빠를 때마다 사망 위험 12% 낮음 (관찰 연구, 연관성)'],
+      title: '걷는 속도', value: r.speed.toFixed(2), unit: `m/s (${(r.speed * 60).toFixed(0)} m/분)`, grade: dGrade,
+      body: `<div class="sub">정상 성인 평균 1.37 m/s(82 m/분)${shortNote}${slow ? `<br><b>1.0 m/s 미만:</b> 낙상 예방이 필요한지 전문가와 상담해 보세요.` : ''}</div>`,
+      why: ['입력한 거리 ÷ 센서가 찾은 걷는 시간. 출발·정지 구간이 포함돼 실제보다 약간 느리게 나올 수 있어요 → "참고"', '정상 82 m/분 (Perry 20장)', '65세 이상 지침: 걷는 속도가 0.8~1.0 m/s 미만이면 낙상 예방 대상 (나이를 65 이상으로 입력하면 경고가 켜져요)', '65세 이상에서 걷는 속도 0.1 m/s 빠를 때마다 사망 위험 12% 낮음 (관찰 연구, 연관성)'],
       refs: ['perry20', 'jama2024', 'studenski'],
     });
     const ideal = sex === 'f' ? 0.0064 : sex === 'm' ? 0.0072 : null;
     html += metric({
-      title: '걸음 길이', value: (r.stepLength * 100).toFixed(0), unit: 'cm', grade: 'y',
+      title: '걸음 길이', value: (r.stepLength * 100).toFixed(0), unit: 'cm', grade: dGrade,
       body: ideal ? `<div class="sub">이 케이던스에서 에너지 효율이 가장 좋은 걸음 길이 약 ${(ideal * c * 100).toFixed(0)}cm</div>` : '',
       why: ['입력한 거리 ÷ 걸음 수', '걸음 길이 ÷ 케이던스가 남성 0.0072, 여성 0.0064일 때 걷기 효율이 가장 높음 (Neumann 15장)', '거리를 대충 입력하면 그만큼 오차가 생겨요.'],
       refs: ['neumann15', 'perry20'],
