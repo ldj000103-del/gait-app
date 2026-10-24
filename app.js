@@ -257,7 +257,7 @@ function send(r) {
 }
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v21';
+const APP_VERSION = 'v23';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -504,9 +504,93 @@ document.addEventListener('click', e => {
 });
 const ctxText = c => c ? Object.keys(CTX).map(k => c[k]).filter(Boolean).join(' · ') : '';
 
+// ── 결과 카드 공유: 내가 고른 결과만 이미지로 만들어 카톡·인스타 등으로 (서버 없음) ──
+const APP_URL = 'ldj000103-del.github.io/gait-app';
+function cardRows(h) {
+  const { sex } = store.get('profile', {});
+  const norm = sex === 'm' ? 111 : sex === 'f' ? 117 : 113;
+  const f = (x, d = 0) => x == null || Number.isNaN(x) ? null : x.toFixed(d);
+  const act = h.activity ?? 'walk', rows = [];
+  if (act === 'walk') {
+    rows.push(['케이던스', f(h.cadence), '걸음/분', `Perry 성인 평균 ${norm}`]);
+    if (h.speed) rows.push(['걷는 속도', f(h.speed, 2), 'm/s', 'Perry 성인 평균 1.37']);
+    rows.push(h.stepLength ? ['걸음 길이', f(h.stepLength * 100), 'cm', ''] : ['걸음 수', String(h.steps), '걸음', `걷는 시간 ${Math.round(h.activeS)}초`]);
+  } else if (act === 'run') {
+    rows.push(['러닝 케이던스', f(h.cadence), '걸음/분', '']);
+    if (h.speed) { const pace = 1000 / h.speed / 60; rows.push(['페이스', `${Math.floor(pace)}'${String(Math.round((pace % 1) * 60)).padStart(2, '0')}"`, '/km', `${f(h.speed, 2)} m/s`]); }
+    rows.push(['걸음 수', String(h.steps), '걸음', `달린 시간 ${Math.round(h.activeS)}초`]);
+  } else if (act === 'slowrun') {
+    rows.push(['조깅 케이던스', f(h.cadence), '걸음/분', '조깅 1분 + 걷기 1분']);
+    rows.push(['조깅한 시간', f(h.activeS / 60, 1), '분', '']);
+    rows.push(['이번 주 조깅', f(weekSlowJogMin(store.get('history', []))), '분', 'Ikenaga 2017 연구의 주간량 90분']);
+  } else if (h.view === 'side') {
+    const m = h.r.m;
+    rows.push(['유각기 무릎 굽힘', f(m.kneeSwingMax), '°', 'Perry 약 60°']);
+    rows.push(['넓적다리 뒤로', f(m.thighExt), '°', 'Perry 약 20°']);
+    rows.push(['영상 케이던스', f(h.r.cadence), '걸음/분', '']);
+  } else {
+    const m = h.r.m, lr = (a, b) => `${f(a) ?? '-'}° / ${f(b) ?? '-'}°`;
+    rows.push(['골반 내려감 (왼발/오른발)', lr(m.dropL, m.dropR), '', 'Perry 약 4°']);
+    rows.push(['무릎 안쪽 모임 (왼/오른)', lr(m.valgusL, m.valgusR), '', '좌우 비교용']);
+  }
+  return rows.filter(r => r[1] != null);
+}
+async function makeCard(h) {
+  await Promise.race([document.fonts?.ready, new Promise(r => setTimeout(r, 1500))]);
+  const W = 1080, H = 1350, c = document.createElement('canvas'); c.width = W; c.height = H;
+  const g = c.getContext('2d'), F = (w, px) => `${w} ${px}px "Pretendard Variable", Pretendard, sans-serif`;
+  const bg = g.createLinearGradient(0, 0, W, H); bg.addColorStop(0, '#2a9d84'); bg.addColorStop(1, '#1d6b5c');
+  g.fillStyle = bg; g.fillRect(0, 0, W, H);
+  // 아이콘 불러오기가 늦거나 실패해도 카드는 만들어지게 (최대 2초 기다림)
+  const icon = await new Promise(ok => { const im = new Image(); im.onload = () => ok(im); im.onerror = () => ok(null); im.src = 'icon-512.png'; setTimeout(() => ok(im.complete && im.naturalWidth ? im : null), 2000); });
+  if (icon) g.drawImage(icon, 72, 72, 112, 112);
+  g.fillStyle = '#fff'; g.font = F(700, 52); g.fillText('걸음 분석', 210, 128);
+  const act = h.activity ?? 'walk', label = act === 'video' ? `영상 분석 · ${VIEW[h.view]}모습` : ACT[act];
+  g.globalAlpha = .82; g.font = F(500, 32);
+  g.fillText(`${label} · ${new Date(h.date).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })}`, 210, 172); g.globalAlpha = 1;
+  // 흰 카드
+  const x0 = 64, y0 = 250, w0 = W - 128, h0 = 900;
+  g.fillStyle = '#fff'; g.beginPath(); g.roundRect(x0, y0, w0, h0, 48); g.fill();
+  const rows = cardRows(h), step = h0 / Math.max(rows.length, 1);
+  rows.forEach(([k, v, unit, ref], i) => {
+    const y = y0 + step * i;
+    if (i) { g.fillStyle = '#e6eae8'; g.fillRect(x0 + 56, y, w0 - 112, 2); }
+    g.fillStyle = '#69736f'; g.font = F(500, 34); g.fillText(k, x0 + 64, y + 76);
+    g.fillStyle = '#121816'; g.font = F(700, v.length > 8 ? 84 : 120); g.fillText(v, x0 + 60, y + step / 2 + 60);
+    const vw = g.measureText(v).width;
+    g.fillStyle = '#69736f'; g.font = F(500, 40); g.fillText(unit, x0 + 72 + vw, y + step / 2 + 60);
+    if (ref) { g.font = F(400, 30); g.fillText(ref, x0 + 64, y + step - 36); }
+  });
+  const ctx = ctxText(h.ctx);
+  g.fillStyle = '#fff'; g.font = F(500, 30);
+  if (ctx) g.fillText(ctx, 72, 1206);
+  g.globalAlpha = .82; g.font = F(400, 28);
+  g.fillText(`${APP_URL} · 의료 진단이 아니에요`, 72, 1262); g.globalAlpha = 1;
+  return c;
+}
+async function shareRecord(date) {
+  const h = store.get('history', []).find(x => x.date === date);
+  if (!h) return;
+  const canvas = await makeCard(h), text = `걸음 분석으로 잰 내 걸음 · https://${APP_URL}/`;
+  const dataUrl = canvas.toDataURL('image/png');
+  const P = window.Capacitor?.isNativePlatform?.() ? window.Capacitor.Plugins : null;
+  try {
+    if (P?.Share && P?.Filesystem) {                                    // 설치형 앱: 파일로 저장해서 안드로이드 공유 창
+      const { uri } = await P.Filesystem.writeFile({ path: `gait-card-${Date.now()}.png`, data: dataUrl.split(',')[1], directory: 'CACHE' });
+      await P.Share.share({ title: '걸음 분석 결과', text, files: [uri] });
+      return;
+    }
+    const blob = await (await fetch(dataUrl)).blob(), file = new File([blob], 'gait-card.png', { type: 'image/png' });
+    if (navigator.canShare?.({ files: [file] })) { await navigator.share({ files: [file], title: '걸음 분석 결과', text }); return; }
+  } catch (e) { if (e?.name === 'AbortError' || /cancel/i.test(e?.message || '')) return; }
+  const a = document.createElement('a'); a.href = dataUrl; a.download = 'gait-card.png'; a.click();   // 공유가 안 되면 이미지 내려받기
+}
+document.addEventListener('click', e => { const b = e.target.closest?.('.sharebtn'); if (b) shareRecord(b.dataset.date); });
+const shareBtn = date => `<button class="ghost sharebtn" data-date="${date}" style="margin:4px 0 10px">결과 카드 공유하기</button>`;
+
 function showHtml(html) {
   const el = $('result'); el.innerHTML = html;
-  if (shownDate) el.querySelector('h2')?.insertAdjacentHTML('afterend', ctxBox(shownDate));
+  if (shownDate) el.querySelector('h2')?.insertAdjacentHTML('afterend', shareBtn(shownDate) + ctxBox(shownDate));
   el.insertAdjacentHTML('beforeend', glossList(markTerms(el)));
   el.classList.remove('hidden'); el.scrollIntoView({ behavior: 'smooth' });
 }
@@ -794,7 +878,7 @@ async function runVideo(file) {
 
 function showV(html) {
   const el = $('vresult'); el.innerHTML = html;
-  if (shownDate) el.querySelector('h2')?.insertAdjacentHTML('afterend', ctxBox(shownDate));
+  if (shownDate) el.querySelector('h2')?.insertAdjacentHTML('afterend', shareBtn(shownDate) + ctxBox(shownDate));
   el.insertAdjacentHTML('beforeend', glossList(markTerms(el)));
   el.classList.remove('hidden'); el.scrollIntoView({ behavior: 'smooth' });
 }
@@ -898,7 +982,7 @@ function renderVideo(r, dur) {
 
 // ── 데모 (주소 끝에 ?demo=1): 휴대폰 없이 화면 확인용 가짜 신호 ──
 if (new URLSearchParams(location.search).has('demo')) {
-  window.__v = { renderVideo, analyzeSide, analyzeFrontal };   // 영상 결과 화면 점검용
+  window.__v = { renderVideo, analyzeSide, analyzeFrontal, makeCard };   // 영상 결과 화면 점검용
   $('demo').classList.remove('hidden');
   $('demo').addEventListener('click', () => {
     // 걷기 108, 러닝 165, 슬로우 러닝은 1분마다 조깅 165 / 걷기 110을 번갈아
