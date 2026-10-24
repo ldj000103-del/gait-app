@@ -140,6 +140,7 @@ export function analyzeFrontal(frames, W, H, view) {
 const TV = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14';
 const MODEL = 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_full/float16/1/pose_landmarker_full.task';
 let landmarker = null, delegate = 'GPU';
+let ts = 0;   // MediaPipe는 장면 시간 번호가 계속 커져야 해서, 영상을 여러 번 분석해도 처음으로 되돌리지 않음
 async function getLandmarker(force) {
   if (landmarker && !force) return landmarker;
   const { FilesetResolver, PoseLandmarker } = await import(TV);
@@ -159,7 +160,6 @@ export async function extractPose(file, onProgress, { fps = 30, maxSec = 20 } = 
   // 휴대폰 브라우저는 한 번도 재생 안 한 영상을 넘기면 검은 화면이 나오기도 해서 잠깐 재생해 깨움
   try { await video.play(); video.pause(); } catch {}
   const dur = Math.min(Number.isFinite(video.duration) ? video.duration : maxSec, maxSec);
-  let ts = 1;
   const run = async (from, to, step) => {
     const out = [];
     for (let t = from; t < to; t += step) {

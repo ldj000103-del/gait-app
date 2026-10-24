@@ -252,7 +252,7 @@ function send(r) {
 }
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v16';
+const APP_VERSION = 'v17';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -610,7 +610,10 @@ async function runVideo(file) {
     URL.revokeObjectURL(video.src);
     renderVideo(r, dur);
   } catch (err) {
-    showV(`<h2>다시 찍어 주세요</h2><div class="warn">${err.html || err.message || err}</div>`);
+    // 프로그램 내부 오류(영어)는 쉬운 안내 + 접은 칸에 원문
+    const msg = err.html || (err.message && /[가-힣]/.test(err.message) ? err.message
+      : `분석 중 오류가 났어요. 앱을 완전히 껐다 켜고 다시 해 주세요.<details><summary>오류 원문 (문제 찾기용)</summary><div class="sub">${String(err.message || err).slice(0, 300)}</div></details>`);
+    showV(`<h2>다시 찍어 주세요</h2><div class="warn">${msg}</div>`);
   } finally { $('vprog').classList.add('hidden'); }
 }
 
