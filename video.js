@@ -183,7 +183,7 @@ export async function extractPose(file, onProgress, { fps = 30, maxSec = 20 } = 
 const BONES = [[11, 12], [11, 23], [12, 24], [23, 24], [23, 25], [25, 27], [27, 29], [29, 31], [27, 31], [24, 26], [26, 28], [28, 30], [30, 32], [28, 32]];
 export async function drawSnapshot(canvas, video, frame) {
   video.currentTime = frame.t;
-  await new Promise(r => { video.onseeked = r; });
+  await new Promise(r => { video.onseeked = r; setTimeout(r, 1500); });   // 넘기기 신호가 안 와도 멈추지 않게
   const W = video.videoWidth, H = video.videoHeight, s = Math.min(1, 480 / Math.max(W, H));
   canvas.width = W * s; canvas.height = H * s;
   const c = canvas.getContext('2d');

@@ -105,8 +105,8 @@ $('start').addEventListener('click', async () => {
   }
   if (useGps) startGps(); else gpsPts = [];                                 // 위치 권한 창은 여기서 뜸 (카운트다운 동안 GPS가 잡힘)
   try { wakeLock = await navigator.wakeLock?.request('screen'); } catch { wakeLock = null; }
-  document.body.classList.toggle('recording', true);
   }
+  document.body.classList.add('recording');                                 // 측정 중엔 탭 막대를 숨겨 다른 화면으로 못 넘어가게 (앱도 같이)
   samples = []; $('setup').classList.add('hidden'); $('result').classList.add('hidden'); $('rec').classList.remove('hidden');
   let left = 3;
   $('recTitle').textContent = '3초 안에 주머니에 넣으세요';
@@ -151,14 +151,16 @@ for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) $('stop').addEv
 }
 $('stop').addEventListener('contextmenu', e => e.preventDefault());
 async function stopRec() {
-  clearInterval(timer); t0 = 0;
+  const ran = t0; clearInterval(timer); t0 = 0;
+  document.body.classList.remove('recording');
   if (Native) {
     $('rec').classList.add('hidden'); $('setup').classList.remove('hidden');
-    const r = await Native.stop();
+    if (!ran) return;                                                       // 카운트다운 중에 끝 → 측정이 시작 안 돼서 지난번 센서 값이 다시 나오지 않게
+    let r;
+    try { r = await Native.stop(); } catch { return alert('측정을 끝내지 못했어요. 앱을 껐다 켜고 다시 해 주세요.'); }
     if (r.samples.length < 20) return alert('센서 값이 거의 들어오지 않았어요. 다시 시도해 주세요.');
     return finish(r.samples, false, r.gps);
   }
-  document.body.classList.remove('recording');
   wakeLock?.release().catch(() => {}); wakeLock = null;
   window.removeEventListener('devicemotion', onMotion);
   stopGps();
@@ -257,7 +259,7 @@ function send(r) {
 }
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v27';
+const APP_VERSION = 'v28';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -617,8 +619,8 @@ $('invite').addEventListener('click', async () => {
   const url = `https://${APP_URL}/install.html`, text = `걸음 분석 앱: 걸음을 재고 결과마다 책·논문 근거를 보여 줘요. 설치 안내 👉 ${url}`;
   const P = window.Capacitor?.isNativePlatform?.() ? window.Capacitor.Plugins : null;
   try {
-    if (P?.Share) return await P.Share.share({ title: '걸음 분석', text, url });
-    if (navigator.share) return await navigator.share({ title: '걸음 분석', text, url });
+    if (P?.Share) return await P.Share.share({ title: '걸음 분석', text });     // 링크는 text 안에 있음 (url도 넘기면 카톡에 두 번 붙음)
+    if (navigator.share) return await navigator.share({ title: '걸음 분석', text });
   } catch (e) { if (e?.name === 'AbortError' || /cancel/i.test(e?.message || '')) return; }
   try { await navigator.clipboard.writeText(text); alert('설치 안내 링크를 복사했어요. 카톡에 붙여 넣어 보내세요.'); }
   catch { prompt('이 링크를 복사해 보내세요', url); }
