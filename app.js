@@ -51,7 +51,7 @@ const WARN = {
   slow: '아주 천천히 걸으면 휴대폰이 걸음 수를 적게 셀 수 있어요.',
   walkLike: '달리기치고 케이던스가 낮아요(140 미만). 걷기였거나 측정이 잘못됐을 수 있어요.',
   hand: '손에 들면 팔 흔들림이 섞여 정확도가 낮아요. 바지 앞주머니를 권장해요.',
-  paused: '측정 중에 화면이 꺼져 센서가 잠시 멈췄어요. 끊기지 않고 가장 길게 걸은 구간만으로 계산해서 걸음 수가 실제보다 적을 수 있어요. 다음엔 전원 버튼을 누르지 말고 주머니 모드 그대로 넣어 주세요.',
+  paused: '측정 중에 화면이 꺼지거나 다른 앱(카톡·전화)으로 가서 센서가 잠시 멈췄어요. 설치형 안드로이드 앱은 다른 앱을 써도 계속 측정돼요. 끊기지 않고 가장 길게 걸은 구간만으로 계산해서 걸음 수가 실제보다 적을 수 있어요. 다음엔 전원 버튼을 누르지 말고 주머니 모드 그대로 넣어 주세요.',
 };
 
 // ── 내 정보 ──
@@ -85,7 +85,18 @@ showDmode();
 const Native = window.Capacitor?.isNativePlatform?.() ? window.Capacitor.Plugins.GaitRecorder : null;
 let samples = [], t0 = 0, timer = null, gpsPts = [], gpsWatch = null, gpsDenied = false, wakeLock = null, hiddenDuringRec = false;
 // 휴대폰 브라우저는 화면이 꺼지면 센서·GPS를 멈춤 → 측정 중엔 화면 켜짐 유지, 그래도 꺼지면 기록해 두고 이유를 알려 줌
-document.addEventListener('visibilitychange', () => { if (document.hidden && t0) hiddenDuringRec = true; });
+// 웹앱은 다른 앱(카톡·전화)으로 가면 센서가 멈추고, 휴대폰이 브라우저를 정리하면 페이지가 닫혀 측정이 사라짐
+// → 나가는 순간 지금까지의 값을 저장해 두고, 돌아오면 지움. 페이지가 닫혔다 다시 열리면 저장본으로 분석 (resumeRec)
+function saveSnap() {
+  if (!t0 || Native) return;
+  try { localStorage.setItem('recSnap', JSON.stringify({ rec: store.get('rec', null), pos: $('pos').value, dmode: $('dmode').value, gpsDenied,
+    s: samples.map(p => [Math.round(p.t * 10) / 10, Math.round(Math.hypot(p.x, p.y, p.z) * 100) / 100]), g: gpsPts })); } catch {}   // 분석은 가속도 크기만 씀 → 크기만 저장해 용량 절약
+}
+document.addEventListener('visibilitychange', () => {
+  if (!t0) return;
+  if (document.hidden) { hiddenDuringRec = true; saveSnap(); } else store.set('recSnap', null);
+});
+addEventListener('pagehide', saveSnap);
 // 위치 좌표는 이 휴대폰 안에서 거리 계산에만 쓰고 저장·전송하지 않음
 function startGps() {
   gpsPts = []; gpsDenied = false;
@@ -124,13 +135,21 @@ $('start').addEventListener('click', async () => {
     if (--left > 0) return ($('recTime').textContent = left);
     clearInterval(timer);
     navigator.vibrate?.(200);
-    $('recTitle').textContent = act === 'walk' ? '걷는 중… 평소처럼 직선으로' : act === 'run' ? '달리는 중… 평소 페이스로' : act === 'cooper' ? '12분 동안 최대한 멀리' : '조깅 1분';
     if (Native) Native.start({ gps: useGps && !gpsDenied, intervalSec: act === 'slowrun' ? INTERVAL_S : 0, endSec: act === 'cooper' ? COOPER_S : 0 });   // endSec: 12분이 되면 서비스가 진동   // 앱: 화면 꺼져도 서비스가 진동
     else window.addEventListener('devicemotion', onMotion);
-    t0 = performance.now(); hiddenDuringRec = false;
-    let lastPhase = 0;
+    store.set('rec', { act, startWall: Date.now(), native: !!Native });   // 측정 중 표시: 전화·카톡 뒤 앱이 다시 열려도 이어서 보여 주려고
+    hiddenDuringRec = false;
+    runRec(act);
+  }, 1000);
+});
+// 측정 중 화면 (시간·안내). 시작 시각 기준이라 다시 열린 앱에서도 이어서 셈
+function runRec(act) {
+  const { startWall } = store.get('rec', {});
+  $('recTitle').textContent = act === 'walk' ? '걷는 중… 평소처럼 직선으로' : act === 'run' ? '달리는 중… 평소 페이스로' : act === 'cooper' ? '12분 동안 최대한 멀리' : '조깅 1분';
+  t0 = startWall;
+  let lastPhase = Math.floor((Date.now() - startWall) / 1000 / INTERVAL_S);
     timer = setInterval(() => {
-      const el = (performance.now() - t0) / 1000;
+      const el = (Date.now() - startWall) / 1000;
       $('recTime').textContent = Math.round(el) + '초';
       if (act === 'slowrun') {
         const ph = Math.floor(el / INTERVAL_S), jog = ph % 2 === 0;
@@ -148,8 +167,7 @@ $('start').addEventListener('click', async () => {
       else if ($('dmode').value === 'gps') $('recHint').textContent = gpsDenied ? '위치 권한이 없어 속도는 재지 않아요 (케이던스는 정상 측정)'
         : last ? `GPS 오차 약 ${Math.round(last.acc)}m · 속도를 재려면 야외에서 1분 이상 걸어 주세요` : 'GPS 신호 찾는 중… (실내에서는 잘 안 잡혀요)';
     }, 500);
-  }, 1000);
-});
+}
 // 웹앱은 화면이 켜진 채 주머니에 있으니 실수로 눌리지 않게 1초 길게 눌러야 끝
 let holdTimer = null;
 // 설치형 앱은 화면을 끄고 걸어서 실수로 눌릴 일이 없으니 한 번 누르면 끝
@@ -166,6 +184,7 @@ for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) $('stop').addEv
 $('stop').addEventListener('contextmenu', e => e.preventDefault());
 async function stopRec() {
   const ran = t0; clearInterval(timer); t0 = 0;
+  store.set('rec', null); store.set('recSnap', null);
   document.body.classList.remove('recording');
   if (Native) {
     $('rec').classList.add('hidden'); $('setup').classList.remove('hidden');
@@ -308,7 +327,7 @@ function send(r) {
 }
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v43';
+const APP_VERSION = 'v44';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -982,7 +1001,7 @@ function renderHome() {
     mcard({ label: '러닝 케이던스', color: 'var(--c-run)', date: md2(rn?.date), value: rn?.cadence.toFixed(0), unit: '걸음/분', i: ir, vals: trendVals('runCad'),
       sub: rn ? '기준선 없음 · 변화만' : '측정 탭 → 러닝' }) +
     mcard({ label: '유각기 무릎', color: 'var(--c-video)', date: md2(vd?.date), value: vd ? vd.r.m.kneeSwingMax.toFixed(0) : null, unit: '°', i: iv, vals: trendVals('knee'),
-      sub: vd ? 'Perry 약 60° · 영상' : '영상 탭 → 옆모습' });
+      sub: vd ? 'Perry 약 60° · 영상' : '보행분석 탭 → 옆모습' });
   // 링: 이번 주 슬로우 조깅 분 / 연구의 주간량 90분 (Ikenaga 2017)
   const wk = weekSlowJogMin(hist), frac = Math.min(1, wk / 90), C = 2 * Math.PI * 42;
   $('ring').innerHTML = `<svg viewBox="0 0 108 108" role="img" aria-label="이번 주 슬로우 조깅 ${wk.toFixed(0)}분, 90분 중 ${Math.round(frac * 100)}%">
@@ -1351,11 +1370,29 @@ $('remindSave').addEventListener('click', async () => {
 renderRemind();
 loadSteps();
 homeReady = true;
-setTab('home');
+// ── 측정 이어 하기: 측정 중에 전화·카톡 등으로 앱(페이지)이 다시 열린 경우 ──
+(function resumeRec() {
+  const rec = store.get('rec', null);
+  if (!rec?.startWall) return;
+  if (Date.now() - rec.startWall > 3 * 3600e3) { store.set('rec', null); store.set('recSnap', null); return; }   // 3시간 넘은 건 버림
+  $('act').value = rec.act; showAct(); setTab('measure');
+  if (Native && rec.native) {                                              // 설치형 앱: 측정 서비스는 계속 도는 중 → 측정 화면만 다시 띄움
+    document.body.classList.add('recording');
+    $('setup').classList.add('hidden'); $('result').classList.add('hidden'); $('rec').classList.remove('hidden');
+    return runRec(rec.act);
+  }
+  const snap = store.get('recSnap', null);                                 // 웹: 페이지가 닫혔음 → 나가기 직전까지 저장한 값으로 분석
+  store.set('rec', null); store.set('recSnap', null);
+  if (!snap?.s?.length) return;
+  $('pos').value = snap.pos; $('dmode').value = snap.dmode; gpsDenied = snap.gpsDenied; hiddenDuringRec = true;
+  finish(snap.s.map(([t, m]) => ({ t, x: m, y: 0, z: 0 })), false, snap.g || []);
+  $('result').insertAdjacentHTML('afterbegin', '<div class="warn">측정 중에 다른 앱으로 나가서 측정이 끊겼어요. 나가기 직전까지의 기록으로 분석했어요. 웹앱은 다른 앱으로 가면 측정이 멈춰요. 설치형 안드로이드 앱은 다른 앱을 써도 계속 측정돼요.</div>');
+})();
+if (document.body.dataset.tab === 'home') setTab('home');   // 측정 이어 하기로 이미 측정 탭을 열었으면 그대로
 // 새 화면 버전이 적용되면 한 번 새로고침 (옛 화면이 남지 않게)
 if ('serviceWorker' in navigator) {
   const had = !!navigator.serviceWorker.controller;
-  navigator.serviceWorker.addEventListener('controllerchange', () => { if (had && !window.__reloaded) { window.__reloaded = true; location.reload(); } });
+  navigator.serviceWorker.addEventListener('controllerchange', () => { if (had && !window.__reloaded && !t0) { window.__reloaded = true; location.reload(); } });
   navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(r => r.update()).catch(() => {});
 }
 $('appver').textContent = `화면 버전 ${APP_VERSION}`;
