@@ -263,7 +263,7 @@ function send(r) {
 }
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v30';
+const APP_VERSION = 'v31';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -553,8 +553,8 @@ function cardRows(h) {
   return rows;
 }
 
-// 1080×1350 카드 그리기
-async function makeCard(h) {
+// 1080×1350 카드 그리기: rows = [{k, v, u, n}], chart = { h, draw(g, x, y, w, h, F) } (선택)
+async function drawCard(title, label, rows, chart) {
   await Promise.race([document.fonts?.ready, new Promise(r => setTimeout(r, 1500))]);
   const W = 1080, H = 1350, c = document.createElement('canvas'); c.width = W; c.height = H;
   const g = c.getContext('2d'), F = (w, px) => `${w} ${px}px "Pretendard Variable", Pretendard, sans-serif`;
@@ -563,14 +563,11 @@ async function makeCard(h) {
   // 아이콘 불러오기가 늦거나 실패해도 카드는 만들어지게 (최대 2초 기다림)
   const icon = await new Promise(ok => { const im = new Image(); im.onload = () => ok(im); im.onerror = () => ok(null); im.src = 'icon-512.png'; setTimeout(() => ok(im.complete && im.naturalWidth ? im : null), 2000); });
   if (icon) g.drawImage(icon, 64, 56, 96, 96);
-  const act = h.activity ?? 'walk', label = act === 'video' ? `영상 분석 · ${VIEW[h.view]}모습` : ACT[act];
-  g.fillStyle = '#fff'; g.font = F(700, 44); g.fillText('걸음 분석 결과', 184, 104);
-  g.globalAlpha = .85; g.font = F(500, 28);
-  g.fillText(`${label} · ${new Date(h.date).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })}${h.ctx && ctxText(h.ctx) ? ' · ' + ctxText(h.ctx) : ''}`, 184, 144); g.globalAlpha = 1;
+  g.fillStyle = '#fff'; g.font = F(700, 44); g.fillText(title, 184, 104);
+  g.globalAlpha = .85; g.font = F(500, 28); g.fillText(label, 184, 144); g.globalAlpha = 1;
 
   // 흰 카드 + 줄마다 항목 / 큰 숫자 / 기준·풀이
-  const x0 = 56, y0 = 196, w0 = W - 112, chart = act === 'video' && h.view === 'side' && h.r?.curves?.knee;
-  const h0 = 1040, rows = cardRows(h), chartH = chart ? 250 : 0, rowH = (h0 - chartH - 40) / Math.max(rows.length, 1);
+  const x0 = 56, y0 = 196, w0 = W - 112, h0 = 1040, chartH = chart?.h ?? 0, rowH = (h0 - chartH - 40) / Math.max(rows.length, 1);
   g.fillStyle = '#fff'; g.beginPath(); g.roundRect(x0, y0, w0, h0, 40); g.fill();
   const wrap = (text, maxW) => {                                          // 기준·풀이 문장이 길면 두 줄로
     const words = text.split(' '), lines = ['']; for (const wd of words) { const t = lines[lines.length - 1] ? lines[lines.length - 1] + ' ' + wd : wd; if (g.measureText(t).width > maxW && lines[lines.length - 1]) lines.push(wd); else lines[lines.length - 1] = t; } return lines.slice(0, 2);
@@ -586,36 +583,42 @@ async function makeCard(h) {
     g.font = F(400, 25);
     wrap(r.n || '', w0 - 104).forEach((ln, j) => g.fillText(ln, x0 + 52, y + 46 + big + 46 + j * 32));
   });
-  if (chart) {                                                             // 무릎 굽힘 곡선: 이번 영상 vs Perry 기준점
-    const cx = x0 + 52, cy = y0 + h0 - chartH - 10, cw = w0 - 104, ch = chartH - 70;
-    const X = q => cx + cw * q / 100, Y = d => cy + 40 + ch * (1 - d / 70);
-    g.fillStyle = '#69736f'; g.font = F(500, 26); g.fillText('무릎 굽힘 곡선 (보행 주기 0~100%)', cx, cy + 22);
-    g.strokeStyle = '#e6eae8'; g.lineWidth = 2; for (const d of [0, 30, 60]) { g.beginPath(); g.moveTo(cx, Y(d)); g.lineTo(cx + cw, Y(d)); g.stroke(); }
-    g.setLineDash([12, 10]); g.strokeStyle = '#9aa5a1'; g.lineWidth = 4; g.beginPath();
-    [[0, 5], [15, 18], [40, 5], [62, 40], [73, 60], [85, 30], [97, 2], [100, 5]].forEach(([q, d], k) => k ? g.lineTo(X(q), Y(d)) : g.moveTo(X(q), Y(d))); g.stroke(); g.setLineDash([]);
-    g.strokeStyle = '#008a6e'; g.lineWidth = 6; g.beginPath(); chart.forEach((d, q) => q ? g.lineTo(X(q), Y(d)) : g.moveTo(X(q), Y(d))); g.stroke();
-    g.font = F(400, 22); g.fillStyle = '#008a6e'; g.fillText('이번 영상', cx + cw - 250, cy + 22); g.fillStyle = '#9aa5a1'; g.fillText('- - Perry 기준', cx + cw - 130, cy + 22);
-  }
+  if (chart) chart.draw(g, x0 + 52, y0 + h0 - chartH - 10, w0 - 104, chartH, F);
   g.fillStyle = '#fff'; g.globalAlpha = .85; g.font = F(400, 26);
   g.fillText(`${APP_URL} · 책·논문 기준과 비교한 참고값이에요 · 의료 진단이 아니에요`, 60, 1300); g.globalAlpha = 1;
   return c;
 }
-async function shareRecord(date) {
-  const h = store.get('history', []).find(x => x.date === date);
-  if (!h) return;
-  const canvas = await makeCard(h), text = `걸음 분석으로 잰 내 걸음 · https://${APP_URL}/`;
+function makeCard(h) {
+  const act = h.activity ?? 'walk', what = act === 'video' ? `영상 분석 · ${VIEW[h.view]}모습` : ACT[act];
+  const label = `${what} · ${new Date(h.date).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })}${h.ctx && ctxText(h.ctx) ? ' · ' + ctxText(h.ctx) : ''}`;
+  const knee = act === 'video' && h.view === 'side' && h.r?.curves?.knee;
+  return drawCard('걸음 분석 결과', label, cardRows(h), knee && { h: 250, draw: (g, cx, cy, cw, chartH, F) => {   // 무릎 굽힘 곡선: 이번 영상 vs Perry 기준점
+    const ch = chartH - 70, X = q => cx + cw * q / 100, Y = d => cy + 40 + ch * (1 - d / 70);
+    g.fillStyle = '#69736f'; g.font = F(500, 26); g.fillText('무릎 굽힘 곡선 (보행 주기 0~100%)', cx, cy + 22);
+    g.strokeStyle = '#e6eae8'; g.lineWidth = 2; for (const d of [0, 30, 60]) { g.beginPath(); g.moveTo(cx, Y(d)); g.lineTo(cx + cw, Y(d)); g.stroke(); }
+    g.setLineDash([12, 10]); g.strokeStyle = '#9aa5a1'; g.lineWidth = 4; g.beginPath();
+    [[0, 5], [15, 18], [40, 5], [62, 40], [73, 60], [85, 30], [97, 2], [100, 5]].forEach(([q, d], k) => k ? g.lineTo(X(q), Y(d)) : g.moveTo(X(q), Y(d))); g.stroke(); g.setLineDash([]);
+    g.strokeStyle = '#008a6e'; g.lineWidth = 6; g.beginPath(); knee.forEach((d, q) => q ? g.lineTo(X(q), Y(d)) : g.moveTo(X(q), Y(d))); g.stroke();
+    g.font = F(400, 22); g.fillStyle = '#008a6e'; g.fillText('이번 영상', cx + cw - 250, cy + 22); g.fillStyle = '#9aa5a1'; g.fillText('- - Perry 기준', cx + cw - 130, cy + 22);
+  } });
+}
+async function shareCanvas(canvas, text) {
   const dataUrl = canvas.toDataURL('image/png');
   const P = window.Capacitor?.isNativePlatform?.() ? window.Capacitor.Plugins : null;
   try {
     if (P?.Share && P?.Filesystem) {                                    // 설치형 앱: 파일로 저장해서 안드로이드 공유 창
       const { uri } = await P.Filesystem.writeFile({ path: `gait-card-${Date.now()}.png`, data: dataUrl.split(',')[1], directory: 'CACHE' });
-      await P.Share.share({ title: '걸음 분석 결과', text, files: [uri] });
+      await P.Share.share({ title: '걸음 분석', text, files: [uri] });
       return;
     }
     const blob = await (await fetch(dataUrl)).blob(), file = new File([blob], 'gait-card.png', { type: 'image/png' });
-    if (navigator.canShare?.({ files: [file] })) { await navigator.share({ files: [file], title: '걸음 분석 결과', text }); return; }
+    if (navigator.canShare?.({ files: [file] })) { await navigator.share({ files: [file], title: '걸음 분석', text }); return; }
   } catch (e) { if (e?.name === 'AbortError' || /cancel/i.test(e?.message || '')) return; }
   const a = document.createElement('a'); a.href = dataUrl; a.download = 'gait-card.png'; a.click();   // 공유가 안 되면 이미지 내려받기
+}
+async function shareRecord(date) {
+  const h = store.get('history', []).find(x => x.date === date);
+  if (h) shareCanvas(await makeCard(h), `걸음 분석으로 잰 내 걸음 · https://${APP_URL}/`);
 }
 document.addEventListener('click', e => { const b = e.target.closest?.('.sharebtn'); if (b) shareRecord(b.dataset.date); });
 // 친구에게 설치 안내 링크 보내기 (카톡은 apk 파일을 막아서 링크로)
@@ -756,19 +759,18 @@ function tile(label, value, unit, sub, i) {
 // 주간 통계: 고른 주(월~일) vs 그 전 주, 점수 없이 숫자와 차이만
 const dayKey = d => new Date(d).toLocaleDateString('sv-SE');                 // 2026-10-25 (휴대폰 시간 기준)
 const monOf = d => { const m = new Date(d); m.setHours(0, 0, 0, 0); m.setDate(m.getDate() - ((m.getDay() + 6) % 7)); return m; };
+const avgOf = xs => xs.length ? xs.reduce((s, x) => s + x, 0) / xs.length : null;
+const inRange = (hist, a, b) => hist.filter(h => { const t = new Date(h.date); return !h.practice && t >= a && t < b; });
+function statOf(list) {
+  const walk = list.filter(h => (h.activity ?? 'walk') === 'walk');
+  return { n: list.length, days: new Set(list.map(h => dayKey(h.date))).size, walkCad: avgOf(walk.map(h => h.cadence)), speed: avgOf(walk.filter(h => h.speed).map(h => h.speed)),
+    runCad: avgOf(list.filter(h => h.activity === 'run').map(h => h.cadence)),
+    jog: list.filter(h => h.activity === 'slowrun').reduce((s, h) => s + h.activeS / 60, 0), video: list.filter(h => h.activity === 'video').length };
+}
 function weekSummary(hist, mon = monOf(new Date())) {
   const next = new Date(mon); next.setDate(mon.getDate() + 7);
   const prevMon = new Date(mon); prevMon.setDate(mon.getDate() - 7);
-  const inW = (h, a, b) => { const t = new Date(h.date); return t >= a && t < b; };
-  const pick = (a, b) => hist.filter(h => !h.practice && inW(h, a, b));
-  const stat = list => {
-    const avg = xs => xs.length ? xs.reduce((s, x) => s + x, 0) / xs.length : null;
-    const walk = list.filter(h => (h.activity ?? 'walk') === 'walk');
-    return { n: list.length, walkCad: avg(walk.map(h => h.cadence)), speed: avg(walk.filter(h => h.speed).map(h => h.speed)),
-      runCad: avg(list.filter(h => h.activity === 'run').map(h => h.cadence)),
-      jog: list.filter(h => h.activity === 'slowrun').reduce((s, h) => s + h.activeS / 60, 0), video: list.filter(h => h.activity === 'video').length };
-  };
-  return { cur: stat(pick(mon, next)), prev: stat(pick(prevMon, mon)) };
+  return { cur: statOf(inRange(hist, mon, next)), prev: statOf(inRange(hist, prevMon, mon)) };
 }
 // 기록 달력: 날짜마다 활동 종류별 점, 누르면 그날 기록 + 그 주 통계
 const ACT_C = { walk: 'var(--c-walk)', run: 'var(--c-run)', slowrun: 'var(--c-slow)', video: 'var(--c-video)' };
@@ -807,14 +809,81 @@ function renderWeek() {
     <table class="wk"><tr class="sub"><td></td><td class="num">${thisWeek ? '이번 주' : '그 주'}</td><td class="num">전 주 대비</td></tr>
     ${row('측정 횟수', cur.n, prev.n, '회')}${row('걷기 케이던스 평균', cur.walkCad, prev.walkCad, '걸음/분')}${row('걷는 속도 평균', cur.speed, prev.speed, 'm/s', 2)}
     ${row('러닝 케이던스 평균', cur.runCad, prev.runCad, '걸음/분')}${row('슬로우 조깅', cur.jog, prev.jog, '분')}${row('영상 분석', cur.video, prev.video, '회')}</table>
+    <div class="row" style="margin-top:4px"><button class="ghost" data-card="week">이 주 카드 공유</button><button class="ghost" data-card="month">이 달 카드 공유</button></div>
+    <button class="ghost" data-card="best" style="margin-top:8px">최고 기록 카드 공유</button>
     <div class="sub" style="margin-top:6px">월요일~일요일 기록이에요(연습 측정 제외). 점수로 바꾸지 않고 잰 숫자만 모았어요. 날짜를 누르면 그날 기록과 그 주 통계가 보여요.</div>`;
 }
 $('week').addEventListener('click', e => {
-  const m = e.target.closest('button[data-m]'), d = e.target.closest('.cday'), r = e.target.closest('.dayrec');
-  if (m) { calMonth.setMonth(calMonth.getMonth() + +m.dataset.m); renderWeek(); }
+  const m = e.target.closest('button[data-m]'), d = e.target.closest('.cday'), r = e.target.closest('.dayrec'), c = e.target.closest('button[data-card]');
+  if (c) shareSummary(c.dataset.card);
+  else if (m) { calMonth.setMonth(calMonth.getMonth() + +m.dataset.m); renderWeek(); }
   else if (d) { calSel = d.dataset.d; const t = new Date(calSel + 'T00:00'); if (t.getMonth() !== calMonth.getMonth()) calMonth = new Date(t.getFullYear(), t.getMonth(), 1); renderWeek(); }
   else if (r) showRecord(+r.dataset.i);
 });
+// 요약 카드: 주간·월간(달력 점 그림) / 최고 기록 — 잰 숫자와 출처만, 점수·판정 없음
+const CARD_C = { walk: '#008a6e', run: '#2f6fd1', slowrun: '#c46f1c', video: '#8a5cd1' };   // 화면 달력과 같은 색 (밝은 배경 대비 검증 통과)
+const md = d => { d = new Date(d); return `${d.getMonth() + 1}/${d.getDate()}`; };
+const plusDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
+const paceText = sp => { const p = 1000 / sp / 60; return `${Math.floor(p)}'${String(Math.round((p % 1) * 60)).padStart(2, '0')}"`; };
+function sumRows(st, month) {
+  const rows = [{ k: '측정', v: `${st.n}회`, u: '', n: `측정한 날 ${st.days}일 · 연습 측정 제외` }];
+  if (st.walkCad != null) rows.push({ k: '걷기 케이던스 평균', v: st.walkCad.toFixed(0), u: '걸음/분', n: 'Perry 성인 평균 113 (남 111 / 여 117)' });
+  if (st.speed != null) rows.push({ k: '걷는 속도 평균', v: st.speed.toFixed(2), u: 'm/s', n: 'Perry 성인 평균 1.37' });
+  if (st.jog) rows.push({ k: month ? '슬로우 조깅 합계' : '슬로우 조깅', v: st.jog.toFixed(0), u: '분', n: 'Ikenaga 2017 연구의 주간 조깅량 90분' });
+  if (st.runCad != null) rows.push({ k: '러닝 케이던스 평균', v: st.runCad.toFixed(0), u: '걸음/분', n: '사람·속도마다 달라 기준선 없이 기록만' });
+  return rows;
+}
+function calChart(start, end, mo) {                                       // 카드 아래 달력: 날짜마다 활동 종류별 점 + 색 설명
+  const acts = {};
+  for (const h of store.get('history', [])) (acts[dayKey(h.date)] ??= new Set()).add(h.activity ?? 'walk');
+  const days = []; for (let d = new Date(start); d < end; d.setDate(d.getDate() + 1)) days.push(new Date(d));
+  const weeks = Math.ceil(days.length / 7);
+  return { h: 60 + weeks * 64 + 44, draw: (g, x, y, w, _h, F) => {
+    const cw = w / 7; g.textAlign = 'center';
+    g.font = F(500, 22); g.fillStyle = '#69736f'; [...'월화수목금토일'].forEach((t, i) => g.fillText(t, x + cw * (i + .5), y + 24));
+    days.forEach((d, i) => {
+      const cx = x + cw * (i % 7 + .5), cy = y + 66 + 64 * Math.floor(i / 7), a = [...(acts[dayKey(d)] ?? [])];
+      g.globalAlpha = mo == null || d.getMonth() === mo ? 1 : .3;
+      g.fillStyle = '#121816'; g.font = F(500, 26); g.fillText(String(d.getDate()), cx, cy);
+      a.forEach((k, j) => { g.fillStyle = CARD_C[k]; g.beginPath(); g.arc(cx + (j - (a.length - 1) / 2) * 16, cy + 18, 6, 0, 7); g.fill(); });
+    });
+    g.globalAlpha = 1; g.textAlign = 'left'; g.font = F(400, 22);
+    let lx = x; const ly = y + 60 + weeks * 64 + 28;
+    for (const [k, col] of Object.entries(CARD_C)) { g.fillStyle = col; g.beginPath(); g.arc(lx + 7, ly - 7, 7, 0, 7); g.fill(); g.fillStyle = '#69736f'; g.fillText(ACT[k], lx + 20, ly); lx += 40 + g.measureText(ACT[k]).width; }
+  } };
+}
+function bestRows() {
+  const hist = store.get('history', []).filter(h => !h.practice), rows = [];
+  const top = (list, key) => list.reduce((b, h) => !b || key(h) > key(b) ? h : b, null);
+  const walk = hist.filter(h => (h.activity ?? 'walk') === 'walk');
+  const sp = top(walk.filter(h => h.speed), h => h.speed);
+  if (sp) rows.push({ k: '가장 빠른 걷는 속도', v: sp.speed.toFixed(2), u: 'm/s', n: `${md(sp.date)} · Perry 성인 평균 1.37` });
+  const lg = top(walk, h => h.activeS);
+  if (lg) rows.push({ k: '가장 오래 걸은 측정', v: (lg.activeS / 60).toFixed(1), u: '분', n: `${md(lg.date)} · 케이던스 ${lg.cadence.toFixed(0)}걸음/분` });
+  const rn = top(hist.filter(h => h.activity === 'run' && h.speed), h => h.speed);
+  if (rn) rows.push({ k: '가장 빠른 러닝 페이스', v: paceText(rn.speed), u: '/km', n: `${md(rn.date)} · GPS로 잰 참고값` });
+  const wk = {}; for (const h of hist.filter(h => h.activity === 'slowrun')) { const k = dayKey(monOf(h.date)); wk[k] = (wk[k] ?? 0) + h.activeS / 60; }
+  const bw = Object.entries(wk).sort((a, b) => b[1] - a[1])[0];
+  if (bw) rows.push({ k: '한 주 슬로우 조깅 최다', v: bw[1].toFixed(0), u: '분', n: `${md(bw[0] + 'T00:00')} 주 · Ikenaga 2017 연구의 주간량 90분` });
+  if (hist.length) rows.push({ k: '지금까지 측정한 날', v: `${new Set(hist.map(h => dayKey(h.date))).size}일`, u: '', n: `측정 ${hist.length}회 · 연습 측정 제외` });
+  return rows;
+}
+async function shareSummary(kind) {
+  const hist = store.get('history', []);
+  let title = '걸음 분석 요약', label, rows, chart;
+  if (kind === 'best') { title = '걸음 분석 최고 기록'; label = '지금까지 내 기록'; rows = bestRows(); }
+  else if (kind === 'week') {
+    const mon = monOf(new Date(calSel + 'T00:00')), next = plusDays(mon, 7);
+    label = `${md(mon)}~${md(plusDays(mon, 6))} 한 주`; rows = sumRows(statOf(inRange(hist, mon, next))); chart = calChart(mon, next);
+  } else {
+    const y = calMonth.getFullYear(), mo = calMonth.getMonth(), a = new Date(y, mo, 1), b = new Date(y, mo + 1, 1), e = new Date(b);
+    while (e.getDay() !== 1) e.setDate(e.getDate() + 1);                  // 마지막 주는 일요일까지
+    label = `${y}년 ${mo + 1}월`; rows = sumRows(statOf(inRange(hist, a, b)), true); chart = calChart(monOf(a), e, mo);
+  }
+  if (!rows.length) return alert('아직 기록이 없어요.');
+  const max = !chart ? 5 : chart.h > 300 ? 3 : 4;                          // 달력이 크면 줄 수를 줄여 글자가 겹치지 않게
+  shareCanvas(await drawCard(title, label, rows.slice(0, max), chart), `걸음 분석으로 잰 내 기록 · https://${APP_URL}/`);
+}
 function renderHome() {
   const hist = store.get('history', []);
   const idx = f => hist.findIndex(f);
