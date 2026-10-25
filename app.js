@@ -1,5 +1,5 @@
 import { analyzeWalk, withDistance, gpsSpeed, gpsDistance, guessActivity, guessPosition, RUN_CAD } from './gait.js';
-import { analyzeSide, analyzeFrontal, extractPose, drawSnapshot } from './video.js';
+import { analyzeSide, analyzeFrontal, extractPose, drawSnapshot, PART_ICON } from './video.js';
 
 const $ = id => document.getElementById(id);
 
@@ -43,6 +43,7 @@ const VIEW = { side: '옆', front: '앞', back: '뒤' };
 const MET_NOTE = 'MET(대사당량) = 가만히 앉아 쉴 때 쓰는 에너지를 1로 본 운동 강도 단위예요. 3 MET는 쉴 때의 약 3배 에너지를 쓰는 강도예요(1 MET ≈ 몸무게 1kg당 1분에 산소 3.5mL).';
 const INTERVAL_S = 60;   // 슬로우 러닝: 조깅 1분 + 걷기 1분 반복 (Ikenaga 2017)
 const COOPER_S = 720;    // 12분 달리기 테스트 (Cooper 1968)
+const LEAD_S = 3;        // 시작 후 주머니에 넣는 시간 (계산에서 뺌)
 const GRADE = {
   g: ['b-g', '정확'], y: ['b-y', '참고'], o: ['b-o', '부정확할 수 있음'], n: ['b-n', '검증 안 됨'],
 };
@@ -137,19 +138,26 @@ $('start').addEventListener('click', async () => {
   }
   document.body.classList.add('recording');                                 // 측정 중엔 탭 막대를 숨겨 다른 화면으로 못 넘어가게 (앱도 같이)
   samples = []; $('setup').classList.add('hidden'); $('result').classList.add('hidden'); $('rec').classList.remove('hidden');
-  let left = 3;
   $('recTitle').textContent = '3초 안에 주머니에 넣으세요';
-  $('recTime').textContent = left;
-  timer = setInterval(() => {
-    if (--left > 0) return ($('recTime').textContent = left);
+  $('recTime').textContent = LEAD_S;
+  // 앱: 카운트다운 전에 측정 서비스부터 켬. 카운트다운 중에 화면을 꺼도 화면 타이머만 멈추고 측정은 계속됨 (예전엔 서비스가 안 켜져 결과가 안 나왔음)
+  // 처음 3초(주머니에 넣는 시간)는 끝낼 때 빼고 계산. 슬로우 러닝은 서비스 진동이 켠 순간부터 1분마다라 그 시각을 기준으로 둠(첫 조깅 57초)
+  const cdEnd = Date.now() + LEAD_S * 1000, lead = Native && act === 'slowrun' ? 0 : LEAD_S;
+  const startWall = cdEnd - (LEAD_S - lead) * 1000;
+  if (Native) {
+    Native.start({ gps: useGps && !gpsDenied, intervalSec: act === 'slowrun' ? INTERVAL_S : 0, endSec: act === 'cooper' ? COOPER_S + LEAD_S : 0 });   // endSec: 달리기 12분이 되면 서비스가 진동
+    store.set('rec', { act, startWall, native: true, lead });               // 측정 중 표시: 전화·카톡 뒤 앱이 다시 열려도 이어서 보여 주려고
+    t0 = startWall;                                                         // 카운트다운 중에 끝을 눌러도 서비스를 멈추고 안내하게
+  }
+  timer = setInterval(() => {                                               // 시계 기준이라 화면이 잠깐 멈췄다 돌아와도 맞게 셈
+    const left = Math.ceil((cdEnd - Date.now()) / 1000);
+    if (left > 0) return ($('recTime').textContent = left);
     clearInterval(timer);
     navigator.vibrate?.(200);
-    if (Native) Native.start({ gps: useGps && !gpsDenied, intervalSec: act === 'slowrun' ? INTERVAL_S : 0, endSec: act === 'cooper' ? COOPER_S : 0 });   // endSec: 12분이 되면 서비스가 진동   // 앱: 화면 꺼져도 서비스가 진동
-    else window.addEventListener('devicemotion', onMotion);
-    store.set('rec', { act, startWall: Date.now(), native: !!Native });   // 측정 중 표시: 전화·카톡 뒤 앱이 다시 열려도 이어서 보여 주려고
+    if (!Native) { window.addEventListener('devicemotion', onMotion); store.set('rec', { act, startWall, native: false }); }
     hiddenDuringRec = false;
     runRec(act);
-  }, 1000);
+  }, 250);
 });
 // 측정 중 화면 (시간·안내). 시작 시각 기준이라 다시 열린 앱에서도 이어서 셈
 function runRec(act) {
@@ -160,7 +168,7 @@ function runRec(act) {
   $('recMap').classList.add('hidden'); $('recMap').innerHTML = ''; $('recMapBtn').textContent = '지금까지 경로 지도 보기';
   let lastPhase = Math.floor((Date.now() - startWall) / 1000 / INTERVAL_S), tick = 0;
     timer = setInterval(() => {
-      const el = (Date.now() - startWall) / 1000;
+      const el = Math.max(0, (Date.now() - startWall) / 1000);
       if (++tick % 6 === 0) updateLive(act, el);
       $('recTime').textContent = Math.round(el) + '초';
       if (act === 'slowrun') {
@@ -216,16 +224,18 @@ for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) $('stop').addEv
 }
 $('stop').addEventListener('contextmenu', e => e.preventDefault());
 async function stopRec() {
-  const ran = t0; clearInterval(timer); t0 = 0;
+  const ran = t0, lead = store.get('rec', null)?.lead ?? 0; clearInterval(timer); t0 = 0;
   store.set('rec', null); store.set('recSnap', null);
   document.body.classList.remove('recording');
   if (Native) {
     $('rec').classList.add('hidden'); $('setup').classList.remove('hidden');
-    if (!ran) return;                                                       // 카운트다운 중에 끝 → 측정이 시작 안 돼서 지난번 센서 값이 다시 나오지 않게
+    if (!ran) return;
     let r;
     try { r = await Native.stop(); } catch { return alert('측정을 끝내지 못했어요. 앱을 껐다 켜고 다시 해 주세요.'); }
-    if (r.samples.length < 20) return alert('센서 값이 거의 들어오지 않았어요. 다시 시도해 주세요.');
-    return finish(r.samples, false, r.gps);
+    const cut = (r.samples[0]?.t ?? 0) + lead * 1000;                       // 주머니에 넣던 처음 3초는 뺌 (센서·GPS 시각은 같은 시계)
+    const s = r.samples.filter(p => p.t >= cut), g = r.gps.filter(p => p.t >= cut);
+    if (s.length < 20) return alert('측정 시간이 너무 짧아요. 시작 후 3초 동안은 주머니에 넣는 시간이라 빼고, 그 뒤부터 재요. 걷고 나서 끝을 눌러 주세요.');
+    return finish(s, false, g);
   }
   wakeLock?.release().catch(() => {}); wakeLock = null;
   window.removeEventListener('devicemotion', onMotion);
@@ -384,7 +394,7 @@ function send(r) {
 }
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v52';
+const APP_VERSION = 'v55';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -1205,7 +1215,8 @@ function showRecord(i) {
   const banner = `<div class="sub" style="margin-bottom:6px">지난 기록 다시 보기 · ${when}</div>`;
   const act = h.activity ?? 'walk';
   shownDate = h.date; route = h.route ?? null;
-  if (act === 'video') { setTab('video'); renderVideo(h.r); $('vresult').insertAdjacentHTML('afterbegin', banner); return; }
+  // 지난 영상 기록엔 영상이 없어 사진도 숨김 (다른 영상 사진이 남지 않게)
+  if (act === 'video') { setTab('video'); $('vcanvas').classList.add('hidden'); renderVideo(h.r); $('vresult').insertAdjacentHTML('afterbegin', banner); return; }
   setTab('measure');
   const prev = hist.slice(i + 1).find(x => !x.practice && (x.activity ?? 'walk') === act);
   if (act === 'slowrun') renderSlow(h, hist); else if (act === 'cooper') renderCooper(h); else if (act === 'walk') render(h, prev); else renderRun(h, prev);
@@ -1246,7 +1257,7 @@ async function runVideo(file) {
     if (r.error) throw { html: { noPerson: '다리가 또렷하게 잡힌 장면이 너무 적어요. 다리 전체가 보이게, 밝은 곳에서 다시 찍어 주세요.',
       noCycle: '한 걸음 주기(같은 발이 두 번 닿기)를 찾지 못했어요. 옆에서 화면 끝에서 끝까지 3걸음 이상 지나가게 찍어 주세요.' }[r.error] + info(extra) };
     $('vcanvas').classList.remove('hidden');
-    await drawSnapshot($('vcanvas'), video, frames[Math.floor(frames.length / 2)]);
+    await drawSnapshot($('vcanvas'), video, frames[Math.floor(frames.length / 2)], videoMarks(r));
     URL.revokeObjectURL(video.src);
     const hist = store.get('history', []);
     const vrec = { date: new Date().toISOString(), activity: 'video', view, r };   // 영상은 저장 안 하고 계산된 숫자만
@@ -1349,11 +1360,61 @@ function videoRecs(r) {
   ];
 }
 
+// ── 한눈에 보기: 부위마다 색 점(영상 사진의 같은 색 동그라미) + Perry 기준과의 차이를 숫자로 (판정 없이 사실만) ──
+const PART = { pelvis: ['골반', 'var(--c-video)', '#8a5cd1'], thigh: ['넓적다리', 'var(--c-slow)', '#c46f1c'], knee: ['무릎', 'var(--c-walk)', '#008a6e'], ankle: ['발목', 'var(--c-run)', '#2f6fd1'], body: ['몸통', 'var(--sub)', '#69736f'], step: ['걸음', 'var(--sub)', '#69736f'] };
+const partIcon = k => `<svg class="picon" viewBox="-2 -2 28 28" aria-hidden="true"><circle cx="12" cy="12" r="13" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="${PART_ICON[k]}" fill="${PART[k][1]}" fill-rule="${k === 'pelvis' ? 'evenodd' : 'nonzero'}"/></svg>`;
+// d = 이번 − 기준, more/less = 기준보다 클 때/작을 때 말 (예: '더 굽혀짐' / '덜 굽혀짐')
+const gapTxt = (d, more, less, unit = '°') => d == null || Number.isNaN(d) ? '-' : Math.round(d) === 0 ? 'Perry 기준과 같음' : `${Math.abs(Math.round(d))}${unit} ${d > 0 ? more : less}`;
+function glance(rows, photo) {
+  return `<div class="glance"><div class="ghead"><b>한눈에 보기</b><span class="sub">Perry 기준과 차이</span></div>
+    ${rows.map(({ part, what, big, now }) => `<div class="grow"><div class="gpart">${partIcon(part)}${PART[part][0]} · ${what}</div><div class="gbig">${big}</div><div class="sub">${now}</div></div>`).join('')}
+    <div class="sub" style="font-size:.75rem;margin-top:8px">${photo ? '그림 속 색칠한 곳이 그 부위예요. 위 사진에도 같은 그림 이름표를 붙였어요. ' : '그림 속 색칠한 곳이 그 부위예요. '}차이는 사실만 적었어요. 영상 각도는 약 3~5° 오차가 있고(Russo 2026), 원인 판단은 전문가에게.</div></div>`;
+}
+function lastSpeedRow() {                                                  // 영상엔 거리 기준(cm)이 없어 속도를 못 잼 → 센서·GPS로 잰 가장 최근 값을 같이 보여 줌
+  const h = store.get('history', []).find(x => (x.activity ?? 'walk') === 'walk' && x.speed);
+  const d = h && h.speed - 1.37;
+  return h ? { part: 'step', what: '걷는 속도 (측정 탭 GPS)', big: Math.abs(d) < 0.005 ? 'Perry 기준과 같음' : `${Math.abs(d).toFixed(2)} m/s ${d > 0 ? '빠름' : '느림'}`, now: `${md(h.date)} 측정 ${h.speed.toFixed(2)} m/s · Perry 성인 평균 1.37 m/s` }
+    : { part: 'step', what: '걷는 속도', big: '-', now: '영상에는 거리 기준이 없어 속도를 못 재요. 측정 탭에서 GPS로 걸으면 여기 같이 보여요.' };
+}
+function glanceSide(r, photo) {
+  const m = r.m, { sex } = store.get('profile', {}), norm = sex === 'm' ? 111 : sex === 'f' ? 117 : 113;
+  return glance([
+    { part: 'knee', what: '디딜 때 가장 펴진 각도', big: gapTxt(5 - m.kneeStanceMin, '더 펴짐', '덜 펴짐'), now: `이번 ${f0(m.kneeStanceMin)} · Perry 약 5°${m.kneeStanceMin < -4 ? ` · 0°보다 ${Math.round(-m.kneeStanceMin)}° 더 펴져 뒤로 젖혀짐` : ''}` },
+    { part: 'knee', what: '발 디딜 때 굽힘(충격 흡수)', big: gapTxt(m.kneeLoad - 16, '더 굽혀짐', '덜 굽혀짐'), now: `이번 ${f0(m.kneeLoad)} · Perry 15~18°(가운데 16°와 비교)` },
+    { part: 'knee', what: '발 들 때 굽힘', big: gapTxt(m.kneeSwingMax - 60, '더 굽혀짐', '덜 굽혀짐'), now: `이번 ${f0(m.kneeSwingMax)} · Perry 약 60°` },
+    { part: 'thigh', what: '뒤로 젖혀진 각도', big: gapTxt(m.thighExt - 20, '더 젖혀짐', '덜 젖혀짐'), now: `이번 ${f0(m.thighExt)} · Perry 약 20° · 정확도 낮음` },
+    { part: 'ankle', what: '발등 쪽 굽힘', big: gapTxt(m.ankleDF - 10, '더 굽혀짐', '덜 굽혀짐'), now: `이번 ${f0(m.ankleDF)} · Perry 약 10° · 정확도 낮음` },
+    { part: 'step', what: '케이던스 (영상)', big: gapTxt(r.cadence - norm, '걸음/분 많음', '걸음/분 적음', ''), now: `이번 ${r.cadence.toFixed(0)}걸음/분 · Perry 성인 평균 ${norm}` },
+    lastSpeedRow()], photo);
+}
+function glanceFront(r, photo) {
+  const m = r.m, t = m.tilt;
+  const lr = (a, b, word) => a == null || b == null ? '-' : Math.round(a - b) === 0 ? '좌우 같음' : `${a > b ? '왼쪽' : '오른쪽'}이 ${Math.abs(Math.round(a - b))}° 더 ${word}`;
+  return glance([
+    { part: 'pelvis', what: '어느 쪽 골반이 높은지', big: t == null ? '-' : Math.round(t) === 0 ? '좌우 높이 같음' : `${t > 0 ? '오른쪽' : '왼쪽'}이 ${Math.abs(Math.round(t))}° 높음`, now: '걷는 동안 양쪽 엉덩이 점을 이은 선의 기울기(중앙값). 휴대폰이 기울게 찍히면 같이 기울어요' },
+    { part: 'pelvis', what: '왼발 디딜 때 오른쪽 골반 내려감', big: gapTxt(m.dropL - 4, '더 내려감', '덜 내려감'), now: `이번 ${f0(m.dropL)} · Perry 약 4°` },
+    { part: 'pelvis', what: '오른발 디딜 때 왼쪽 골반 내려감', big: gapTxt(m.dropR - 4, '더 내려감', '덜 내려감'), now: `이번 ${f0(m.dropR)} · Perry 약 4°` },
+    { part: 'knee', what: '무릎 안쪽 모임', big: lr(m.valgusL, m.valgusR, '안쪽'), now: `왼 ${f0(m.valgusL)} · 오른 ${f0(m.valgusR)} · Perry 기준값 없음` },
+    { part: 'body', what: '몸통 옆 기울기', big: lr(m.leanL, m.leanR, '기욺').replace(/쪽이 (\d+)° 더/, '쪽으로 $1° 더'), now: `왼쪽으로 ${f0(m.leanL)} · 오른쪽으로 ${f0(m.leanR)}` },
+    lastSpeedRow()], photo);
+}
+// 영상 사진 위 이름표: 옆 = 카메라 쪽 다리의 엉덩이(넓적다리)·무릎·발목, 앞·뒤 = 양쪽 골반·무릎
+function videoMarks(r) {
+  if (r.view === 'side') {
+    const [hip, knee, ankle] = r.side === 'l' ? [23, 25, 27] : [24, 26, 28];
+    return [[hip, 'thigh'], [knee, 'knee'], [ankle, 'ankle']].map(([i, part]) => ({ i, part, text: PART[part][0], color: PART[part][2] }));
+  }
+  const leftOnScreenLeft = r.view === 'back';                              // 뒤에서 찍으면 사람 왼쪽이 화면 왼쪽
+  return [[23, '왼 골반', 'pelvis', leftOnScreenLeft], [24, '오른 골반', 'pelvis', !leftOnScreenLeft],
+    [25, '왼 무릎', 'knee', leftOnScreenLeft], [26, '오른 무릎', 'knee', !leftOnScreenLeft]].map(([i, text, part, left]) => ({ i, text, part, color: PART[part][2], left }));
+}
+
 function renderVideo(r, dur) {
   let html = '';
   if (r.view === 'side') {
     const m = r.m;
     html += `<h2>영상 분석 결과 · 옆모습</h2><div class="sub">${r.side === 'l' ? '왼' : '오른'}쪽 다리(카메라 쪽) · 보행 주기 ${r.nCycles}개 평균 · 다리가 잡힌 장면 ${Math.round(r.validFrac * 100)}%</div>`;
+    html += glanceSide(r, dur != null);
     html += metric({ title: '무릎 각도', value: f0(m.kneeSwingMax), unit: `유각기 최대 굽힘 (보행 주기 ${m.kneeSwingAt}%)`, grade: 'y',
       body: `${kneeChart(r.curves.knee)}${phaseFigures(r.curves.knee)}<div class="calc">이번 값 / Perry 9장 기준<br>첫 닿기 ${f0(m.kneeIC)} / 0~5°<br>체중 받기 최대 ${f0(m.kneeLoad)} / 15~18°<br>입각기 최소 ${f0(m.kneeStanceMin)} / 약 5° ${extTxt(m.kneeStanceMin)}<br>유각기 최대 ${f0(m.kneeSwingMax)} / 약 60°(초기 유각)</div>`,
       why: ['무릎 각도 = 180° − (엉덩이·무릎·발목 세 점이 이루는 각). Perry 17장: 영상에서 가장 잘 잡히는 관절',
@@ -1377,6 +1438,7 @@ function renderVideo(r, dur) {
     const m = r.m, side = r.view === 'front' ? '앞모습' : '뒷모습';
     const diff = (a, b) => a != null && b != null ? `좌우 차이 ${Math.abs(a - b).toFixed(0)}°` : '';
     html += `<h2>영상 분석 결과 · ${side}</h2><div class="sub">몸이 잡힌 장면 ${Math.round(r.validFrac * 100)}% · 앞·뒤 각도는 휴대폰 영상으로 검증된 연구를 찾지 못해 모두 "검증 안 됨"이에요. 같은 조건으로 찍어 좌우 비교·변화 추적에 쓰세요.</div>`;
+    html += glanceFront(r, dur != null);
     html += metric({ title: '골반 내려감 (반대쪽)', value: `왼발 ${f0(m.dropL)} · 오른발 ${f0(m.dropR)}`, unit: '', grade: 'n',
       body: `<div class="calc">한 발로 디딜 때 반대쪽 골반이 내려간 각도 (상위 10% 값)<br>${diff(m.dropL, m.dropR)}<br>Perry 4·9장: 체중 받기 때 반대쪽 골반 약 4°, 엉덩이 벌림근이 5° 이하로 제한</div>`,
       why: ['양쪽 엉덩이 점을 잇는 선이 수평에서 기운 각도', '디딤 다리는 "발목이 화면에서 더 아래에 있는 다리"로 근사', '휴대폰 2D 영상의 정확도 연구는 찾지 못함'], refs: ['perry9'] });

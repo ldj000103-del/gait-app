@@ -104,7 +104,7 @@ export function analyzeSide(frames, W, H) {
 // ── 앞·뒤: 골반 좌우 기울기, 몸통 옆 기울기, 무릎 안쪽·바깥쪽, 걸음 폭 (좌우 비교) ──
 export function analyzeFrontal(frames, W, H, view) {
   const need = [P.lShoulder, P.rShoulder, P.lHip, P.rHip, P.lKnee, P.rKnee, P.lAnkle, P.rAnkle];
-  const S = { l: { valgus: [], drop: [] }, r: { valgus: [], drop: [] } }, lean = { l: [], r: [] }, widths = [];
+  const S = { l: { valgus: [], drop: [] }, r: { valgus: [], drop: [] } }, lean = { l: [], r: [] }, widths = [], tilts = [];
   let n = 0;
   for (const f of frames) {
     const p = px(f, W, H);
@@ -114,6 +114,7 @@ export function analyzeFrontal(frames, W, H, view) {
     if (hipW < 1) continue;
     const toLeft = Math.sign(L.x - R.x);                                // 화면에서 사람의 왼쪽이 있는 방향 (+1 = 화면 오른쪽)
     const pelvis = deg(Math.atan2(L.y - R.y, hipW));                    // + = 왼쪽 골반이 더 낮음
+    tilts.push(pelvis);
     const mH = { x: (L.x + R.x) / 2, y: (L.y + R.y) / 2 };
     const mS = { x: (p[P.lShoulder].x + p[P.rShoulder].x) / 2, y: (p[P.lShoulder].y + p[P.rShoulder].y) / 2 };
     const leanL = deg(Math.atan2(toLeft * (mS.x - mH.x), mH.y - mS.y));  // + = 몸통이 왼쪽으로
@@ -141,6 +142,7 @@ export function analyzeFrontal(frames, W, H, view) {
       valgusL: q90(S.l.valgus), valgusR: q90(S.r.valgus),
       leanL: q90(lean.l), leanR: q90(lean.r),
       width: widths.length ? pct(widths, 0.5) : null,                   // 걸음 폭 ÷ 골반 너비 (중앙값)
+      tilt: tilts.length >= 5 ? pct(tilts, 0.5) : null,                 // 골반 좌우 높이 (중앙값, + = 왼쪽이 낮음 = 오른쪽이 높음)
     },
   };
 }
@@ -190,7 +192,18 @@ export async function extractPose(file, onProgress, { fps = 30, maxSec = 20 } = 
 
 // 결과 확인용: 가운데 장면에 인식된 뼈대를 그려 보여 줌
 const BONES = [[11, 12], [11, 23], [12, 24], [23, 24], [23, 25], [25, 27], [27, 29], [29, 31], [27, 31], [24, 26], [26, 28], [28, 30], [30, 32], [28, 32]];
-export async function drawSnapshot(canvas, video, frame) {
+// 부위 아이콘: 동그라미 안 뼈 그림 (24×24, 앱이 직접 그린 모양). 결과 표(SVG)와 사진(캔버스)이 같은 모양을 씀. 골반만 구멍이 있어 evenodd로 칠함
+const ring = (x, y, r) => `M${x - r} ${y}a${r} ${r} 0 1 0 ${2 * r} 0a${r} ${r} 0 1 0 ${-2 * r} 0z`;
+export const PART_ICON = {
+  knee: 'M3.2 2.6L7.4 1l3.9 5.6a3.7 3.7 0 1 1-3.9 4.9z M6.8 14.6q4.4-1.2 8.6 0q-.2 2-2.6 3.2l-.2 5.2h-3l-.2-5.2q-2.4-1.2-2.6-3.2z M13.4 17.8h1.3l-.2 5h-1.2z M15.8 7.4a1.4 2.2 0 1 0 0 4.4a1.4 2.2 0 1 0 0-4.4z',   // 넓적다리뼈 끝·정강이뼈·종아리뼈·무릎뼈
+  pelvis: 'M3.5 6.5c2.4-2 5.6-1.2 7 1.6l1.5 1 1.5-1c1.4-2.8 4.6-3.6 7-1.6.6 3.6-.9 6.6-3.4 8.2l-1.3 3.3-2-1.6h-3.6l-2 1.6-1.3-3.3c-2.5-1.6-4-4.6-3.4-8.2z' + ring(9, 14.8, 1.4) + ring(15, 14.8, 1.4),
+  thigh: ring(10, 3.8, 2.3) + ring(14, 3.8, 2.3) + 'M10.5 4.5h3v15h-3z' + ring(10, 20.2, 2.3) + ring(14, 20.2, 2.3),   // 넓적다리뼈
+  ankle: 'M8 2h3.6v10.6c1 1.6 3.4 3 6.8 3.6 1.6.3 2.4 1.4 2.2 2.6-.2.9-.9 1.4-1.8 1.4H6.2c-1.3 0-2-1-1.6-2.3l1.6-4.6c.6-.6 1.2-.8 1.8-.8z',   // 정강이와 발
+  body: 'M9 2.5h6a1.2 1.2 0 0 1 0 2.4H9a1.2 1.2 0 0 1 0-2.4zM8.6 7.3h6.8a1.3 1.3 0 0 1 0 2.6H8.6a1.3 1.3 0 0 1 0-2.6zM8.2 12.3h7.6a1.4 1.4 0 0 1 0 2.8H8.2a1.4 1.4 0 0 1 0-2.8zM7.8 17.5h8.4a1.5 1.5 0 0 1 0 3H7.8a1.5 1.5 0 0 1 0-3z',   // 척추뼈
+  step: 'M7.5 3c1.7 0 2.7 2 2.6 5-.1 2.2-.6 3.8-2.6 3.8S5 10.2 4.9 8C4.8 5 5.8 3 7.5 3zM5.4 13.3h4.3c.1 2-.6 3.3-2.1 3.3s-2.2-1.3-2.2-3.3zM16.5 7c1.7 0 2.7 2 2.6 5-.1 2.2-.6 3.8-2.6 3.8s-2.5-1.6-2.6-3.8c-.1-3 .9-5 2.6-5zM14.4 17.3h4.3c.1 2-.6 3.3-2.1 3.3s-2.2-1.3-2.2-3.3z',   // 발자국
+};
+// marks: [{i: 점 번호, text, color, part, left}] → 그 점에 색 동그라미 + 부위 그림 이름표 (결과 표의 같은 그림)
+export async function drawSnapshot(canvas, video, frame, marks = []) {
   video.currentTime = frame.t;
   await new Promise(r => { video.onseeked = r; setTimeout(r, 1500); });   // 넘기기 신호가 안 와도 멈추지 않게
   const W = video.videoWidth, H = video.videoHeight, s = Math.min(1, 480 / Math.max(W, H));
@@ -200,4 +213,15 @@ export async function drawSnapshot(canvas, video, frame) {
   c.lineWidth = 3; c.strokeStyle = '#5fc2ab'; c.fillStyle = '#ffd34d';
   for (const [a, b] of BONES) { const p = frame.lm[a], q = frame.lm[b]; c.beginPath(); c.moveTo(p.x * canvas.width, p.y * canvas.height); c.lineTo(q.x * canvas.width, q.y * canvas.height); c.stroke(); }
   for (const i of [11, 12, 23, 24, 25, 26, 27, 28]) { const p = frame.lm[i]; c.beginPath(); c.arc(p.x * canvas.width, p.y * canvas.height, 4, 0, 7); c.fill(); }
+  c.font = 'bold 14px "Pretendard Variable", Pretendard, sans-serif'; c.textBaseline = 'middle';
+  for (const { i, text, color, part, left } of marks) {
+    const x = frame.lm[i].x * canvas.width, y = frame.lm[i].y * canvas.height, w = c.measureText(text).width + 40;
+    c.lineWidth = 3; c.strokeStyle = color; c.beginPath(); c.arc(x, y, 9, 0, 7); c.stroke();
+    const bx = left ? x - 14 - w : x + 14;
+    c.fillStyle = 'rgba(255,255,255,.94)'; c.beginPath(); c.roundRect(bx, y - 15, w, 30, 15); c.fill();
+    c.save(); c.translate(bx + 4, y - 12); c.scale(24 / 28, 24 / 28); c.translate(2, 2);   // 아이콘 칸 −2~26 (동그라미 포함)
+    c.lineWidth = 1.6; c.strokeStyle = '#121816'; c.beginPath(); c.arc(12, 12, 13, 0, 7); c.stroke();
+    c.fillStyle = color; c.fill(new Path2D(PART_ICON[part]), part === 'pelvis' ? 'evenodd' : 'nonzero'); c.restore();
+    c.fillStyle = color; c.fillText(text, bx + 32, y + 1);
+  }
 }

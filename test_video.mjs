@@ -65,6 +65,13 @@ for (const view of ['front', 'back']) {
   assert.ok(Math.abs(m.dropR - 5) < 0.6 && Math.abs(m.dropL) < 0.6, '골반');
   assert.ok(Math.abs(m.valgusL - 8) < 0.8 && Math.abs(m.valgusR) < 0.8, '무릎');
 }
+// 골반 높이: 왼쪽 엉덩이가 늘 3° 낮게 → tilt +3 (= 오른쪽이 3° 높음)
+for (const view of ['front', 'back']) {
+  const fr = frontFrames(view).map(f => { const lm = f.lm.map(q => ({ ...q })), hw = Math.abs(lm[23].x - lm[24].x) * W; lm[23].y = lm[24].y + Math.tan(3 * R) * hw / H; return { t: f.t, lm }; });
+  const t = analyzeFrontal(fr, W, H, view).m.tilt;
+  console.log(`${view} 골반 높이: ${t.toFixed(1)}°(정답 +3, 오른쪽이 높음)`);
+  assert.ok(Math.abs(t - 3) < 0.3, '골반 높이');
+}
 assert.equal(analyzeSide(sideFrames({}).slice(0, 10), W, H).error, 'noPerson');
 // 카메라가 사람보다 빠르게 따라가며 찍어 화면 속 엉덩이가 반대로 움직이는 영상: 방향을 거꾸로 짐작해도 바로잡아야 함
 {

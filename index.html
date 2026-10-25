@@ -77,6 +77,12 @@
   .mnum { font-size:2rem; font-weight:700; letter-spacing:-.035em; line-height:1; } .mnum small { font-size:.8125rem; font-weight:500; color:var(--sub); letter-spacing:0; margin-left:3px; }
   .mcard.empty .mnum { font-size:1rem; color:var(--sub); font-weight:500; letter-spacing:-.01em; }
   .msub { font-size:.75rem; color:var(--sub); margin-top:8px; line-height:1.5; }
+  /* 영상 결과 한눈에 보기: 부위 색 점 + 기준과 차이(크게) + 이번 값·기준(작게) */
+  .glance { background:var(--card); border-radius:var(--radius); padding:14px 16px; margin:10px 0; box-shadow:var(--shadow); }
+  .ghead { display:flex; justify-content:space-between; align-items:baseline; gap:8px; }
+  .grow { padding:10px 0; border-top:1px solid var(--line); } .ghead + .grow { margin-top:8px; }
+  .gpart { font-size:.8125rem; font-weight:600; display:flex; align-items:center; gap:6px; } .picon { width:28px; height:28px; flex:none; color:var(--ink); }
+  .gbig { font-size:1.25rem; font-weight:700; letter-spacing:-.02em; margin:4px 0 2px; }
   /* 시안 B: 걸음 수·수면은 한 줄 크게, 나머지 4개는 2칸 격자 */
   #steps .mnum { font-size:2.5rem; }
   #tiles { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:10px; }
