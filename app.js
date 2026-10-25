@@ -309,7 +309,7 @@ function send(r) {
 }
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v32';
+const APP_VERSION = 'v33';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -447,7 +447,7 @@ function recsWalk(r, { sex, age }) {
   cards.push(recCard({ title: '하루 7,000걸음',
     calc: [`7,000 ÷ 케이던스 ${c} = 이 속도로 약 <b>${Math.ceil(7000 / r.cadence)}분</b> 걷기`],
     facts: ['Ding 2025 메타분석(57개 연구): 하루 2,000걸음 대비 7,000걸음에서 전체 사망 위험 47% 낮음, 낙상 28%·치매 38% 낮음', '사망·낙상 등은 약 5,000~7,000걸음 이후 이득이 완만해짐'],
-    limit: '관찰 연구라 인과관계는 아님. 하루 걸음 수는 이 앱이 아직 재지 않음', refs: ['ding2025'] }));
+    limit: '관찰 연구라 인과관계는 아님. 하루 걸음 수는 설치형 앱 홈에서 볼 수 있음(헬스 커넥트)', refs: ['ding2025'] }));
   return cards;
 }
 
@@ -783,6 +783,7 @@ for (const id of ['setup', 'vsetup', 'about', 'consent', 'profile']) markTerms($
 
 function renderHistory() {
   const hist = store.get('history', []);
+  if (homeReady) scheduleReminders();                                     // 알림 속 이번 주 숫자를 새 기록으로
   if (homeReady && document.body.dataset.tab === 'home') renderHome();   // 홈 코드가 다 읽힌 뒤에만
   if (!hist.length) return;
   $('histBody').innerHTML = `<div class="sub">줄을 누르면 그때 결과를 다시 볼 수 있어요.</div><table class="hist"><tr><td>날짜</td><td>활동</td><td>케이던스</td><td>걸음</td><td>속도</td></tr>` +
@@ -856,7 +857,7 @@ function renderWeek() {
   $('week').innerHTML = `<div class="calhead"><button data-m="-1" aria-label="지난달">‹</button><span>${y}년 ${mo + 1}월</span><button data-m="1" aria-label="다음 달">›</button></div>
     <div class="cal">${['월', '화', '수', '목', '금', '토', '일'].map(w => `<div class="dow">${w}</div>`).join('')}${cells}</div>
     <div class="legend">${Object.entries(ACT_C).map(([a, c]) => `<span><b style="background:${c}"></b>${ACT[a]}</span>`).join('')}</div>
-    <div class="calsec">${sel.getMonth() + 1}월 ${sel.getDate()}일 기록</div>${recs}
+    <div class="calsec">${sel.getMonth() + 1}월 ${sel.getDate()}일 기록</div>${stepsByDay[calSel] != null ? `<div class="sub">이날 걸음 수 <b>${stepsByDay[calSel].toLocaleString()}</b>걸음 (헬스 커넥트)</div>` : ''}${recs}
     <div class="calsec">${thisWeek ? '이번 주' : `${shortDate(mon)}~${shortDate(sun)} 주`} 통계</div>
     <table class="wk"><tr class="sub"><td></td><td class="num">${thisWeek ? '이번 주' : '그 주'}</td><td class="num">전 주 대비</td></tr>
     ${row('측정 횟수', cur.n, prev.n, '회')}${row('걷기 케이던스 평균', cur.walkCad, prev.walkCad, '걸음/분')}${row('걷는 속도 평균', cur.speed, prev.speed, 'm/s', 2)}
@@ -868,7 +869,7 @@ function renderWeek() {
 $('week').addEventListener('click', e => {
   const m = e.target.closest('button[data-m]'), d = e.target.closest('.cday'), r = e.target.closest('.dayrec'), c = e.target.closest('button[data-card]');
   if (c) shareSummary(c.dataset.card);
-  else if (m) { calMonth.setMonth(calMonth.getMonth() + +m.dataset.m); renderWeek(); }
+  else if (m) { calMonth.setMonth(calMonth.getMonth() + +m.dataset.m); renderWeek(); loadSteps(); }
   else if (d) { calSel = d.dataset.d; const t = new Date(calSel + 'T00:00'); if (t.getMonth() !== calMonth.getMonth()) calMonth = new Date(t.getFullYear(), t.getMonth(), 1); renderWeek(); }
   else if (r) showRecord(+r.dataset.i);
 });
@@ -1206,6 +1207,70 @@ if (new URLSearchParams(location.search).has('demo')) {
   });
 }
 
+// ── 하루 걸음 수: 설치형 앱에서 헬스 커넥트(삼성헬스 등이 저장한 걸음 수)를 읽음, 휴대폰 밖으로 안 보냄 ──
+const HS = window.Capacitor?.isNativePlatform?.() ? window.Capacitor.Plugins.HealthSteps : null;
+var stepsByDay = {}, stepsState = null;   // var: 달력이 먼저 그려져도 오류 없이 빈 값으로 보임
+async function loadSteps() {
+  if (!HS) return;
+  try {
+    stepsState = await HS.status();
+    if (stepsState.granted) {
+      const today = new Date(), last = new Date(calMonth.getFullYear(), calMonth.getMonth() + 1, 7);   // 달력에 보이는 다음 달 첫 주까지
+      const { days } = await HS.daily({ from: dayKey(monOf(new Date(calMonth.getFullYear(), calMonth.getMonth(), 1))), to: dayKey(last < today ? last : today) });
+      for (const d of days) stepsByDay[d.date] = d.steps;
+    }
+  } catch (e) { stepsState = { error: String(e?.message || e) }; }
+  renderSteps();
+  if (document.body.dataset.tab === 'home') renderWeek();
+}
+function renderSteps() {
+  if (!HS) return;                                                         // 웹앱(아이폰 포함)은 카드를 숨김
+  $('stepsCard').hidden = false;
+  const s = stepsState;
+  if (!s) return ($('steps').innerHTML = '<div class="sub">불러오는 중…</div>');
+  if (s.error) return ($('steps').innerHTML = `<div class="sub">걸음 수를 읽지 못했어요. (${s.error})</div>`);
+  if (!s.available) return ($('steps').innerHTML = `<div class="sub">${s.needsUpdate ? '헬스 커넥트 앱을 플레이스토어에서 업데이트하면' : '이 휴대폰에서는 헬스 커넥트를 쓸 수 없어서'} 걸음 수를 가져올 수 없어요.</div>`);
+  if (!s.granted) return ($('steps').innerHTML = `<div class="sub">삼성헬스 등이 헬스 커넥트(안드로이드의 건강 데이터 창구)에 저장한 걸음 수를 읽어 와요. 휴대폰 안에서만 쓰고 운영자에게 보내지 않아요.</div><button id="stepsOk">걸음 수 연결하기</button>`);
+  const n = stepsByDay[dayKey(new Date())] ?? 0;
+  $('steps').innerHTML = `<div class="mval">${n.toLocaleString()}<span class="sub"> 걸음</span></div><div class="bar"><i style="width:${Math.min(100, n / 70)}%"></i></div>
+    <div class="sub">7,000걸음 대비 ${Math.round(n / 70)}% · Ding 2025 메타분석: 하루 2,000걸음 대비 7,000걸음에서 전체 사망 위험 47% 낮음 (관찰 연구라 인과관계는 아니에요, 목표 처방도 아니에요)</div>
+    <div class="sub" style="margin-top:4px">헬스 커넥트에서 가져온 값이에요. 계속 0이면 삼성헬스 → 설정 → 헬스 커넥트에서 걸음 수 공유를 켜 주세요.</div>`;
+}
+$('steps').addEventListener('click', async e => { if (e.target.id === 'stepsOk') { try { await HS.request(); } catch {} loadSteps(); } });
+document.addEventListener('visibilitychange', () => { if (!document.hidden) { loadSteps(); scheduleReminders(); } });
+
+// ── 측정 알림: 고른 요일·시간에 이번 주 기록 알림 (설치형 앱, 앱을 열거나 기록할 때마다 숫자를 새로 넣어 다시 예약) ──
+const LN = window.Capacitor?.isNativePlatform?.() ? window.Capacitor.Plugins.LocalNotifications : null;
+const WDAYS = ['일', '월', '화', '수', '목', '금', '토'];                     // 알림 요일 번호: 1 = 일요일 … 7 = 토요일
+async function scheduleReminders() {
+  if (!LN) return;
+  const r = store.get('remind', { days: [], time: '19:00' });
+  try {
+    const pending = await LN.getPending();
+    if (pending.notifications.length) await LN.cancel({ notifications: pending.notifications.map(n => ({ id: n.id })) });
+    if (!r.days.length) return;
+    const { cur } = weekSummary(store.get('history', [])), [hour, minute] = r.time.split(':').map(Number);
+    const body = `이번 주 측정 ${cur.n}회 · 슬로우 조깅 ${weekSlowJogMin(store.get('history', [])).toFixed(0)}/90분 (앱을 마지막으로 연 때 기준)`;
+    await LN.schedule({ notifications: r.days.map(d => ({ id: 100 + d, title: '걸음 분석', body, schedule: { on: { weekday: d, hour, minute }, allowWhileIdle: true } })) });
+  } catch (e) { $('remindNote').textContent = `알림을 예약하지 못했어요. (${e?.message || e})`; }
+}
+function renderRemind() {
+  if (!LN) return;
+  $('remindCard').hidden = false;
+  const r = store.get('remind', { days: [], time: '19:00' });
+  $('remindDays').innerHTML = [2, 3, 4, 5, 6, 7, 1].map(d => `<button class="chip" data-d="${d}" aria-pressed="${r.days.includes(d)}">${WDAYS[d - 1]}</button>`).join('');
+  $('remindTime').value = r.time;
+  $('remindNote').textContent = r.days.length ? `${[2, 3, 4, 5, 6, 7, 1].filter(d => r.days.includes(d)).map(d => WDAYS[d - 1]).join('·')}요일 ${r.time}에 알려 줘요.` : '알림이 꺼져 있어요. 요일을 고르고 저장하세요.';
+}
+$('remindDays').addEventListener('click', e => { const b = e.target.closest('.chip'); if (b) b.setAttribute('aria-pressed', b.getAttribute('aria-pressed') !== 'true'); });
+$('remindSave').addEventListener('click', async () => {
+  const days = [...$('remindDays').querySelectorAll('.chip[aria-pressed="true"]')].map(b => +b.dataset.d);
+  if (days.length) { const p = await LN.requestPermissions().catch(() => ({})); if (p.display !== 'granted') return alert('알림 권한을 허용해야 알림을 보낼 수 있어요.'); }
+  store.set('remind', { days, time: $('remindTime').value || '19:00' });
+  renderRemind(); scheduleReminders();
+});
+renderRemind();
+loadSteps();
 homeReady = true;
 setTab('home');
 // 새 화면 버전이 적용되면 한 번 새로고침 (옛 화면이 남지 않게)

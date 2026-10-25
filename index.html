@@ -98,6 +98,7 @@
   .ctx { background:var(--bg); border-radius:12px; padding:10px 12px; margin:6px 0 12px; }
   .ctxrow { display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin:6px 0; } .ctxk { font-size:.75rem; color:var(--sub); width:44px; flex:none; }
   .chip { width:auto; margin:0; padding:6px 11px; border-radius:999px; font-size:.8125rem; font-weight:500; background:var(--card); color:var(--ink); border:1px solid var(--line); }
+  .bar { height:8px; background:var(--line); border-radius:4px; margin:8px 0; overflow:hidden; } .bar i { display:block; height:100%; background:var(--series); border-radius:4px; }
   .chip[aria-pressed="true"] { background:var(--accent); color:#fff; border-color:var(--accent); }
   .calhead { display:flex; align-items:center; justify-content:space-between; font-weight:700; }
   .calhead button { width:auto; margin:0; padding:6px 14px; background:none; color:var(--accent); font-size:1.1rem; }
@@ -169,6 +170,10 @@
 
   <section id="home" data-tab="home">
     <div class="tiles" id="tiles"></div>
+    <div class="card" id="stepsCard" hidden>
+      <h2>오늘 걸음 수</h2>
+      <div id="steps"></div>
+    </div>
     <div class="card">
       <h2>기록 달력</h2>
       <div id="week"></div>
@@ -186,6 +191,13 @@
         <option value="knee">영상: 유각기 무릎 굽힘</option>
       </select>
       <div id="tchart"></div>
+    </div>
+    <div class="card" id="remindCard" hidden>
+      <h2>측정 알림</h2>
+      <div class="sub">고른 요일·시간에 이번 주 기록을 알림으로 보여 줘요.</div>
+      <div id="remindDays" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px"></div>
+      <div class="row" style="margin-top:10px;align-items:center"><input type="time" id="remindTime" value="19:00"><button id="remindSave" style="margin-top:0">저장</button></div>
+      <div class="sub" id="remindNote" style="margin-top:6px"></div>
     </div>
   </section>
 

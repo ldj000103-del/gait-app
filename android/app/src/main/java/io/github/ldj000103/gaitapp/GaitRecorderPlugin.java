@@ -13,7 +13,7 @@ import com.getcapacitor.annotation.Permission;
 import org.json.JSONArray;
 import java.util.List;
 
-// JS에서 Capacitor.Plugins.GaitRecorder.start({gps, intervalSec}) / stop() → {samples:[{t,x,y,z}], gps:[{t,lat,lon,acc}]}
+// JS에서 Capacitor.Plugins.GaitRecorder.start({gps, intervalSec, endSec}) / stop() → {samples:[{t,x,y,z}], gps:[{t,lat,lon,acc}]}
 // 권한은 기본 제공 requestPermissions({permissions:['location','notifications']})로 요청
 @CapacitorPlugin(name = "GaitRecorder", permissions = {
         @Permission(alias = "location", strings = {Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION}),
@@ -24,7 +24,8 @@ public class GaitRecorderPlugin extends Plugin {
     public void start(PluginCall call) {
         Intent i = new Intent(getContext(), GaitService.class)
                 .putExtra("gps", call.getBoolean("gps", false))
-                .putExtra("intervalSec", call.getInt("intervalSec", 0));
+                .putExtra("intervalSec", call.getInt("intervalSec", 0))
+                .putExtra("endSec", call.getInt("endSec", 0));
         ContextCompat.startForegroundService(getContext(), i);
         call.resolve();
     }

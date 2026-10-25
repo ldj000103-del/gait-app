@@ -40,7 +40,7 @@ public class GaitService extends Service implements SensorEventListener, Locatio
     private LocationManager location;
     // 슬로우 러닝: intervalSec마다 조깅/걷기 전환 진동 (조깅 = 길게 1번, 걷기 = 짧게 2번) + 알림 문구 변경
     private final Handler handler = new Handler(Looper.getMainLooper());
-    private Runnable tick;
+    private Runnable tick, endTick;
     private int phase = 0;
 
     @Override
@@ -95,6 +95,24 @@ public class GaitService extends Service implements SensorEventListener, Locatio
             };
             handler.postDelayed(tick, intervalSec * 1000L);
         }
+        // 12분 달리기 테스트: endSec가 되면 길게 2번 진동 + 알림 (기록은 앱에서 끝을 누를 때까지 계속, 앱이 앞 12분만 씀)
+        int endSec = intent != null ? intent.getIntExtra("endSec", 0) : 0;
+        if (endSec > 0) {
+            endTick = () -> {
+                Vibrator v = getSystemService(Vibrator.class);
+                long[] pattern = {0, 600, 200, 600};
+                if (v != null) {
+                    if (Build.VERSION.SDK_INT >= 26) v.vibrate(VibrationEffect.createWaveform(pattern, -1));
+                    else v.vibrate(pattern, -1);
+                }
+                nm.notify(1, new NotificationCompat.Builder(this, CHANNEL)
+                        .setContentTitle("12분 끝")
+                        .setContentText("멈추고 앱을 열어 끝을 누르세요")
+                        .setSmallIcon(android.R.drawable.ic_menu_directions)
+                        .setContentIntent(open).setOngoing(true).build());
+            };
+            handler.postDelayed(endTick, endSec * 1000L);
+        }
         return START_NOT_STICKY;
     }
 
@@ -111,6 +129,7 @@ public class GaitService extends Service implements SensorEventListener, Locatio
     @Override
     public void onDestroy() {
         if (tick != null) handler.removeCallbacks(tick);
+        if (endTick != null) handler.removeCallbacks(endTick);
         if (sensors != null) sensors.unregisterListener(this);
         if (location != null) location.removeUpdates(this);
         if (wakeLock != null && wakeLock.isHeld()) wakeLock.release();

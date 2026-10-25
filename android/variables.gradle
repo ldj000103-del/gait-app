@@ -1,6 +1,6 @@
 ext {
-    minSdkVersion = 23
-    compileSdkVersion = 35
+    minSdkVersion = 26   // 헬스 커넥트가 안드로이드 8 이상 필요
+    compileSdkVersion = 36
     targetSdkVersion = 35
     androidxActivityVersion = '1.9.2'
     androidxAppCompatVersion = '1.7.0'
