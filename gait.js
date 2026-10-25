@@ -129,18 +129,41 @@ export function analyzeWalk(samples, { position = 'pocket', activity = 'walk' } 
   const sp = peakNear(ac, stride * HZ, 0.12);
   if (sp > 0) stride = refinePeak(ac, sp) / HZ;
   const regularity = sp > 0 ? ac[sp] : 0;
+  const hp = peakNear(ac, (stride * HZ) / 2, 0.15), stepReg = hp > 0 ? ac[hp] : 0;   // 한 걸음 간격의 반복 (위치 짐작용)
+  let sd = 0; { let m = 0; for (const v of seg) m += v; m /= seg.length; for (const v of seg) sd += (v - m) ** 2; sd = Math.sqrt(sd / seg.length); }   // 흔들림 세기 (자동 구분용)
 
   const cadence = 120 / stride;
   const steps = Math.round((activeS * cadence) / 60);
   if (regularity < 0.4) warnings.push('irregular');
   if (!run && cadence >= 170) warnings.push('running');
-  if (run && cadence < 140) warnings.push('walkLike');            // 달리기치고 낮음 → 걷기였거나 측정 오류 가능                   // Neumann 15장: 걷기→달리기 전환 약 180걸음/분
+  if (run && cadence < RUN_CAD) warnings.push('walkLike');            // 달리기치고 낮음 → 걷기였거나 측정 오류 가능                   // Neumann 15장: 걷기→달리기 전환 약 180걸음/분
   if (cadence < 80) warnings.push('slow');                         // 느린 걸음은 기기 오차↑ (Mora-Gonzalez 2022, Simonsen 2020)
   if (position === 'hand') warnings.push('hand');
 
   // 꾸준히 걸은 구간의 시각 (samples의 t 기준, ms) → GPS 거리 계산에 씀
   const steadyFrom = samples[0].t + (s * 1000) / HZ, steadyTo = samples[0].t + (e * 1000) / HZ;
-  return { cadence, steps, strideS: stride, activeS, totalS, regularity, warnings, steadyFrom, steadyTo };
+  return { cadence, steps, strideS: stride, activeS, totalS, regularity, stepReg, sd, warnings, steadyFrom, steadyTo };
+}
+
+// ── 자동 구분 (검증 안 된 규칙 → 결과에 '참고'·'검증 안 됨'으로 표시) ──
+// 걷기/달리기: 달리기 방식 케이던스가 140 이상(walkLike 경고와 같은 선)이고 흔들림도 커야 달리기.
+// 케이던스만으로는 '허벅지 달리기'와 '허리 걷기'의 반복 간격이 같아서 흔들림 세기를 함께 봄.
+// ponytail: RUN_SD는 가짜 신호로만 맞춘 값 → 실제 기록(시트의 sd 값)으로 보정 필요
+export const RUN_CAD = 140, RUN_SD = 3;   // 걸음/분, m/s²
+export function guessActivity(samples) {
+  const r = analyzeWalk(samples, { activity: 'run' });
+  if (r.error) return null;
+  return r.cadence >= RUN_CAD && r.sd > RUN_SD ? 'run' : 'walk';
+}
+// 휴대폰 위치: 화면이 하늘을 보면 손, 아니면 허벅지(같은 다리 주기만 강함) / 허리(걸음마다 비슷, Perry 7장)
+// ponytail: 0.7·0.5 기준은 검증 안 됨. 손을 옆에 늘어뜨리고 걸으면 손으로 못 알아봄
+export function guessPosition(samples, activity) {
+  let x = 0, y = 0, z = 0;
+  for (const p of samples) { x += p.x; y += p.y; z += p.z; }
+  if (Math.abs(z) / (Math.hypot(x, y, z) || 1) > 0.7) return 'hand';
+  const r = analyzeWalk(samples, { position: 'pocket', activity });
+  if (r.error || !r.regularity) return 'pocket';
+  return r.stepReg / r.regularity > 0.5 ? 'waist' : 'pocket';
 }
 
 const GPS_MIN_S = 60, GPS_MIN_M = 50, GPS_MAX_ACC = 20;

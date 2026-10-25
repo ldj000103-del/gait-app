@@ -1,4 +1,4 @@
-import { analyzeWalk, withDistance, gpsSpeed, gpsDistance } from './gait.js';
+import { analyzeWalk, withDistance, gpsSpeed, gpsDistance, guessActivity, guessPosition, RUN_CAD } from './gait.js';
 import { analyzeSide, analyzeFrontal, extractPose, drawSnapshot } from './video.js';
 
 const $ = id => document.getElementById(id);
@@ -36,7 +36,8 @@ const REF = {
   cooper1968: 'Cooper KH. A means of assessing maximal oxygen intake: correlation between field and treadmill testing. JAMA 1968;203(3):201-4. PMID 5694044',
   ikenaga2017: 'Ikenaga M 외. Short-interval, intermittent, low-intensity, slow-jogging program in older adults: RCT. Eur J Appl Physiol 2017. doi:10.1007/s00421-016-3493-9',
 };
-const ACT = { walk: '걷기', run: '러닝', slowrun: '슬로우 러닝', cooper: '12분 달리기', video: '영상' };
+const ACT = { walk: '걷기', run: '러닝', slowrun: '슬로우 러닝', easyrun: '천천히 달리기', cooper: '12분 달리기', video: '영상', auto: '자동' };
+const POS = { pocket: '바지 앞주머니', waist: '허리', hand: '손' };
 const VIEW = { side: '옆', front: '앞', back: '뒤' };
 const MET_NOTE = 'MET(대사당량) = 가만히 앉아 쉴 때 쓰는 에너지를 1로 본 운동 강도 단위예요. 3 MET는 쉴 때의 약 3배 에너지를 쓰는 강도예요(1 MET ≈ 몸무게 1kg당 1분에 산소 3.5mL).';
 const INTERVAL_S = 60;   // 슬로우 러닝: 조깅 1분 + 걷기 1분 반복 (Ikenaga 2017)
@@ -69,10 +70,11 @@ for (const id of ['sex', 'age']) $(id).addEventListener('change', () => {
 ageNote();
 
 // ── 활동 종류 (선택은 이 휴대폰에 기억) ──
-$('act').value = store.get('act', 'walk');
-function showAct() { const a = $('act').value; $('slowNote').classList.toggle('hidden', a !== 'slowrun'); $('cooperNote').classList.toggle('hidden', a !== 'cooper'); $('dmodeBox').classList.toggle('hidden', a === 'slowrun' || a === 'cooper'); }
+$('act').value = store.get('act', 'auto');
+function showAct() { const a = $('act').value; $('autoNote').classList.toggle('hidden', a !== 'auto'); $('easyNote').classList.toggle('hidden', a !== 'easyrun'); $('slowNote').classList.toggle('hidden', a !== 'slowrun'); $('cooperNote').classList.toggle('hidden', a !== 'cooper'); $('dmodeBox').classList.toggle('hidden', a === 'slowrun' || a === 'cooper'); }
 $('act').addEventListener('change', () => { store.set('act', $('act').value); showAct(); });
 showAct();
+if (!store.get('history', []).length) $('firstGuide').open = true;   // 처음 쓰는 사람에겐 사용법을 펼쳐 둠
 
 // ── 거리 재는 방법 (선택은 이 휴대폰에 기억) ──
 $('dmode').value = store.get('dmode', 'gps');
@@ -145,7 +147,7 @@ $('start').addEventListener('click', async () => {
 // 측정 중 화면 (시간·안내). 시작 시각 기준이라 다시 열린 앱에서도 이어서 셈
 function runRec(act) {
   const { startWall } = store.get('rec', {});
-  $('recTitle').textContent = act === 'walk' ? '걷는 중… 평소처럼 직선으로' : act === 'run' ? '달리는 중… 평소 페이스로' : act === 'cooper' ? '12분 동안 최대한 멀리' : '조깅 1분';
+  $('recTitle').textContent = { walk: '걷는 중… 평소처럼 직선으로', run: '달리는 중… 평소 페이스로', easyrun: '천천히 달리는 중… 걷는 속도 정도로 쭉', cooper: '12분 동안 최대한 멀리', auto: '측정 중… 걷거나 달려요' }[act] ?? '조깅 1분';
   t0 = startWall; liveSteps = 0; $('recLive').textContent = '';
   let lastPhase = Math.floor((Date.now() - startWall) / 1000 / INTERVAL_S), tick = 0;
     timer = setInterval(() => {
@@ -176,9 +178,10 @@ async function updateLive(act, el) {
   if (Native) { try { ({ samples: s, gps: g } = await Native.peek({ sec: 20 })); } catch { return; } }   // 0.10 이하 앱엔 peek가 없음 → 조용히 넘어감
   else { const cut = (samples[samples.length - 1]?.t ?? 0) - 20000; s = samples.filter(p => p.t >= cut); g = gpsPts; }
   if (!t0) return;
-  const jog = act === 'slowrun' ? Math.floor(el / INTERVAL_S) % 2 === 0 : act !== 'walk';
-  const r = s?.length > 50 ? analyzeWalk(s, { position: $('pos').value, activity: jog ? 'run' : 'walk' }) : { error: 'tooShort' };
-  const parts = [];
+  const ok = s?.length > 50, pos = $('pos').value === 'auto' ? 'pocket' : $('pos').value;
+  const mode = !ok ? null : act === 'slowrun' ? (Math.floor(el / INTERVAL_S) % 2 === 0 ? 'run' : 'walk') : act === 'auto' ? guessActivity(s) ?? 'walk' : act === 'walk' ? 'walk' : 'run';
+  const r = ok ? analyzeWalk(s, { position: pos, activity: mode }) : { error: 'tooShort' };
+  const parts = act === 'auto' && !r.error ? [`지금 ${mode === 'run' ? '달리기' : '걷기'}로 보여요`] : [];
   if (!r.error) { liveSteps += r.cadence * 3 / 60; parts.push(`지금 케이던스 약 ${Math.round(r.cadence)}걸음/분`, `걸음 약 ${Math.round(liveSteps).toLocaleString()}`); }
   else parts.push('걸음 신호 찾는 중…');
   const d = g?.length > 1 ? gpsDistance(g) : null;
@@ -225,18 +228,20 @@ async function stopRec() {
 
 function finish(data, demo = false, gps = []) {
   shownDate = null;
-  const position = $('pos').value;
-  const act = $('act').value;
-  if (act === 'slowrun') return finishSlow(data, demo);
-  if (act === 'cooper') return finishCooper(data, gps, demo);
-  const res = analyzeWalk(data, { position, activity: act });
+  let act = $('act').value, position = $('pos').value;
+  const auto = {};                                                         // 자동으로 고른 것 → 결과에 '참고'·'검증 안 됨'으로 표시
+  if (act === 'auto') act = auto.act = autoAct(data);
+  if (position === 'auto') position = auto.pos = guessPosition(data, act === 'walk' ? 'walk' : 'run');
+  if (act === 'slowrun') return finishSlow(data, demo, position, auto);
+  if (act === 'cooper') return finishCooper(data, gps, demo, position);
+  const res = analyzeWalk(data, { position, activity: act === 'walk' ? 'walk' : 'run' });   // 천천히 달리기도 러닝 방식으로 분석
   const mode = $('dmode').value;
   let maxGap = 0;
   for (let i = 1; i < data.length; i++) maxGap = Math.max(maxGap, data[i].t - data[i - 1].t);
   const paused = !demo && ((!Native && hiddenDuringRec) || maxGap > 2000);
   // 측정 정보: 문제가 생겼을 때 원인(센서 끊김, GPS 없음, 웹/앱 방식)을 찾기 위한 값
   const durS = data.length > 1 ? (data[data.length - 1].t - data[0].t) / 1000 : 0;
-  const diag = { src: Native ? 'app' : 'web', n: data.length, durS, hz: durS ? data.length / durS : 0, gapS: maxGap / 1000,
+  const diag = { src: Native ? 'app' : 'web', n: data.length, durS, hz: durS ? data.length / durS : 0, gapS: maxGap / 1000, sd: res.sd,
     gpsN: gps.length, gpsGood: gps.filter(p => p.acc <= 20).length, hidden: !Native && hiddenDuringRec };
   const diagHtml = `<details><summary>측정 정보 (문제 찾기용)</summary><div class="sub">${diag.src === 'app' ? '설치형 앱' : '웹'} 방식 · 센서 값 ${diag.n}개 · 기록 시간 ${durS.toFixed(0)}초 · 초당 ${diag.hz.toFixed(0)}회 · 가장 길게 끊긴 시간 ${diag.gapS.toFixed(1)}초 · GPS 점 ${diag.gpsN}개(오차 20m 이내 ${diag.gpsGood}개)${diag.hidden ? ' · 화면 꺼짐 감지' : ''}</div></details>`;              // 2초 넘게 센서 값이 끊김 = 화면 꺼짐·다른 앱
   if (paused && !res.error) res.warnings.push('paused');
@@ -254,31 +259,47 @@ function finish(data, demo = false, gps = []) {
   const practice = act === 'walk' && !hist.some(h => (h.activity ?? 'walk') === 'walk' && new Date(h.date).toLocaleDateString('sv-SE') === today);   // 그날 첫 걷기 측정 = 연습 (Perry 20장)
   const dist = mode === 'manual' ? parseFloat($('dist').value) || null : null;
   const d = mode === 'gps' ? (gpsDenied && !demo ? { gpsError: 'denied' } : gpsSpeed(res, gps)) : withDistance(res, dist);
-  const rec = { date: new Date().toISOString(), start: Date.now() - durS * 1000, activity: act, position, practice, ...res, distance: dist, ...d, distSource: d.speed ? mode : null, diag, diagHtml };
+  const rec = { date: new Date().toISOString(), start: Date.now() - durS * 1000, activity: act, position, auto, practice, ...res, distance: dist, ...d, distSource: d.speed ? mode : null, diag, diagHtml };
   saveRec(rec, hist, demo);
   shownDate = rec.date;
   const prev = hist.find(h => !h.practice && h !== rec && (h.activity ?? 'walk') === act);
-  act === 'run' ? renderRun(rec, prev) : render(rec, prev);
+  act === 'walk' ? render(rec, prev) : renderRun(rec, prev);
   renderHistory();
 }
 
-// ── 슬로우 러닝: 1분 단위로 잘라 조깅 구간은 러닝, 걷기 구간은 걷기로 분석 ──
-function finishSlow(data, demo) {
-  shownDate = null;
-  const position = $('pos').value, t0s = data[0].t, segs = [];
+// sec초씩 자른 조각 [{k, s}] (20초 미만 조각은 버림)
+function chunks(data, sec) {
+  const out = [], t0s = data[0].t;
   for (let k = 0; ; k++) {
-    const a = t0s + k * INTERVAL_S * 1000, b = a + INTERVAL_S * 1000;
+    const a = t0s + k * sec * 1000, b = a + sec * 1000;
     if (a > data[data.length - 1].t) break;
-    const slice = data.filter(p => p.t >= a && p.t < b);
-    if (slice.length < 50 || (slice[slice.length - 1].t - slice[0].t) < 20000) continue;   // 20초 미만 조각은 버림
-    const jog = k % 2 === 0, r = analyzeWalk(slice, { position, activity: jog ? 'run' : 'walk' });
+    const s = data.filter(p => p.t >= a && p.t < b);
+    if (s.length >= 50 && s[s.length - 1].t - s[0].t >= 20000) out.push({ k, s });
+  }
+  return out;
+}
+// 자동 구분: 30초씩 걷기·달리기를 고르고, 둘 다 1분(2조각) 이상 섞이면 슬로우 러닝
+// ponytail: 신호등에서 1분 넘게 걸은 러닝도 슬로우 러닝으로 봄 → 실제 기록으로 보정 필요
+function autoAct(data) {
+  const w = chunks(data, 30).map(c => guessActivity(c.s)).filter(Boolean), nRun = w.filter(a => a === 'run').length, nWalk = w.length - nRun;
+  if (Math.min(nRun, nWalk) >= 2) return 'slowrun';
+  return w.length ? (nRun > nWalk ? 'run' : 'walk') : guessActivity(data) ?? 'walk';
+}
+
+// ── 슬로우 러닝: 1분 단위로 잘라 조깅 구간은 러닝, 걷기 구간은 걷기로 분석 (자동 구분이면 30초씩 신호로 가름) ──
+function finishSlow(data, demo, position, auto = {}) {
+  shownDate = null;
+  const t0s = data[0].t, segs = [];
+  const parts = auto.act ? chunks(data, 30).map(({ s }) => ({ s, jog: guessActivity(s) === 'run' })) : chunks(data, INTERVAL_S).map(({ k, s }) => ({ s, jog: k % 2 === 0 }));
+  for (const { s: slice, jog } of parts) {
+    const r = analyzeWalk(slice, { position, activity: jog ? 'run' : 'walk' });
     if (!r.error) segs.push({ jog, cadence: r.cadence, steps: r.steps, activeS: r.activeS, regularity: r.regularity });
   }
   const jogs = segs.filter(x => x.jog), walks = segs.filter(x => !x.jog);
   if (!jogs.length) return showHtml(`<h2>다시 측정해 주세요</h2><div class="warn">조깅 구간을 찾지 못했어요. 첫 1분은 조깅, 다음 1분은 걷기로 번갈아 해 주세요. 조깅 구간이 20초 이상 있어야 분석해요.</div>`);
   const avg = (xs, k) => xs.reduce((s, x) => s + x[k], 0) / xs.length, sum = (xs, k) => xs.reduce((s, x) => s + x[k], 0);
   const hist = store.get('history', []);
-  const rec = { date: new Date().toISOString(), start: Date.now() - (data[data.length - 1].t - t0s), activity: 'slowrun', position, practice: false,
+  const rec = { date: new Date().toISOString(), start: Date.now() - (data[data.length - 1].t - t0s), activity: 'slowrun', position, auto, practice: false,
     cadence: avg(jogs, 'cadence'), walkCadence: walks.length ? avg(walks, 'cadence') : null,
     steps: sum(segs, 'steps'), activeS: sum(jogs, 'activeS'), walkS: sum(walks, 'activeS'),
     regularity: avg(jogs, 'regularity'), jogCount: jogs.length, warnings: [],
@@ -290,9 +311,9 @@ function finishSlow(data, demo) {
 }
 
 // ── 12분 달리기 테스트: 처음 12분의 GPS 거리·페이스 기록 (체력 추정은 의료기기 위험이 있어 하지 않음) ──
-function finishCooper(data, gps, demo) {
+function finishCooper(data, gps, demo, position) {
   shownDate = null;
-  const t0s = data[0].t, end = t0s + COOPER_S * 1000, position = $('pos').value;
+  const t0s = data[0].t, end = t0s + COOPER_S * 1000;
   const run = data.filter(p => p.t <= end);                                // 앱은 화면이 꺼져 있어 12분 뒤에 끝을 눌러도 앞 12분만 씀
   const durS = (run[run.length - 1].t - t0s) / 1000;
   const g = gpsDenied && !demo ? null : gpsDistance(gps.filter(p => p.t >= t0s && p.t <= end));
@@ -315,7 +336,7 @@ function renderCooper(r) {
     why: ['휴대폰 GPS는 보통 수 m 오차가 있고, 굽은 길에서는 거리가 조금 짧게 나올 수 있어 "참고"예요. 거리가 표시된 트랙이면 바퀴 수로 확인해 보세요.'], refs: [] });
   if (r.cadence) html += metric({ title: '러닝 케이던스', value: r.cadence.toFixed(0), unit: '걸음/분', grade: 'y', why: ['주머니 스마트폰의 달리기 케이던스 검증 연구는 아직 못 찾아 "참고"'], refs: ['neumann16'] });
   if (r.receipt) html += `<div class="sub" style="margin-top:12px">익명 결과를 보냈어요. 접수번호 <b>${r.receipt}</b></div>`;
-  html += `<div class="sub" style="margin-top:12px">이 결과는 의료 진단이 아니에요. 힘껏 달리는 테스트라 심장·폐·관절 질환이 있거나 평소 운동을 안 했다면 먼저 전문가와 상의하세요. 가슴 통증·어지럼이 있으면 바로 멈추세요.</div>`;
+  html += READ_GUIDE + `<div class="sub" style="margin-top:12px">이 결과는 의료 진단이 아니에요. 힘껏 달리는 테스트라 심장·폐·관절 질환이 있거나 평소 운동을 안 했다면 먼저 전문가와 상의하세요. 가슴 통증·어지럼이 있으면 바로 멈추세요.</div>`;
   showHtml(html);
 }
 
@@ -350,7 +371,7 @@ function send(r) {
 }
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v45';
+const APP_VERSION = 'v46';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -372,6 +393,23 @@ if (!consent) showConsent();
 else $('consentState').textContent = consent.share ? '익명 결과 보내기: 동의함' : '익명 결과 보내기: 동의 안 함';
 
 // ── 결과 화면 ──
+// 자동으로 고른 활동·휴대폰 위치 표시 (검증 안 된 규칙이라 등급을 함께)
+const ro = w => { const c = (w.charCodeAt(w.length - 1) - 0xac00) % 28; return w + (c > 0 && c !== 8 ? '으로' : '로'); };   // 받침 있으면 '으로' (ㄹ 받침은 '로')
+function autoNote(r) {
+  const a = r.auto ?? {};
+  if (!a.act && !a.pos) return '';
+  return `<div class="metric"><div class="sub">${a.act ? `활동: <b>${ro(ACT[a.act])}</b> 자동 구분 <span class="badge b-y">참고</span><br>` : ''}${a.pos ? `휴대폰 위치: <b>${ro(POS[a.pos])}</b> 짐작 <span class="badge b-n">검증 안 됨</span><br>` : ''}다르면 다음엔 측정 탭에서 직접 골라 주세요.</div>
+    <details><summary>어떻게 골랐나요?</summary><ul>
+    ${a.act ? `<li>달리기 방식으로 센 케이던스가 ${RUN_CAD}걸음/분 이상이고 흔들림도 크면 달리기, 아니면 걷기로 봐요. 이 선은 이 앱이 정한 것이고 연구로 확인하지 않았어요.</li><li>30초씩 나눠 보고 걷기와 달리기가 각각 1분 넘게 섞여 있으면 슬로우 러닝으로 봐요.</li>` : ''}
+    ${a.pos ? '<li>화면이 하늘을 보고 있으면 손, 같은 다리가 돌아올 때만 신호가 크게 반복되면 바지 앞주머니(허벅지), 걸음마다 비슷하면 허리로 짐작해요(Perry 7장: 몸통 움직임은 걸음마다 반복). 정확도를 확인한 연구가 없어요.</li>' : ''}</ul></details></div>`;
+}
+const READ_GUIDE = `<details class="howto"><summary>이 숫자 읽는 법</summary><ul>
+  <li>큰 숫자가 <b>이번에 잰 값</b>이고, 그 아래 작은 글씨가 책·연구에 나온 <b>기준값</b>이에요.</li>
+  <li>기준값은 여러 사람의 평균이에요. 내 값이 기준값과 달라도 그것만으로 좋다·나쁘다를 뜻하지 않아요.</li>
+  <li>오른쪽 색 표시는 이 값을 얼마나 믿을 수 있는지예요.<br><span class="badge b-g">정확</span> 기준 장비와 거의 같게 나온 연구가 있어요 · <span class="badge b-y">참고</span> 경향은 맞지만 오차가 있어요 · <span class="badge b-o">부정확할 수 있음</span> 이번 조건에선 오차가 클 수 있어요 · <span class="badge b-n">검증 안 됨</span> 확인한 연구가 없어요</li>
+  <li><b>근거 보기</b>를 누르면 어느 책·논문의 숫자인지 나와요.</li>
+  <li>한 번보다 여러 번 재서 <b>변화</b>를 보세요. 같은 길·같은 신발·같은 휴대폰 위치로 재야 비교가 돼요. 지난 기록은 홈 달력에 있어요.</li>
+  <li>궁금한 점은 이 화면을 전문가에게 보여 주고 물어보세요.</li></ul></details>`;
 function metric({ title, value, unit, grade, body = '', why = [], refs = [] }) {
   const [cls, label] = GRADE[grade];
   return `<div class="metric"><div class="mhead"><div><b>${title}</b></div><span class="badge ${cls}">${label}</span></div>
@@ -395,7 +433,7 @@ function render(r, prev) {
 
   let html = `<h2>결과 ${r.practice ? '<span class="badge b-n">연습</span>' : ''}</h2>`;
   if (r.practice) html += `<div class="warn">오늘 첫 측정은 연습으로 저장했어요. 처음 걸을 때는 보통 7% 느리게 나와요(Perry 20장). 한 번 더 걸어 주세요.</div>`;
-  html += r.warnings.map(w => `<div class="warn">${WARN[w]}</div>`).join('');
+  html += autoNote(r) + r.warnings.map(w => `<div class="warn">${WARN[w]}</div>`).join('');
 
   html += metric({
     title: '케이던스 (분당 걸음 수)', value: c.toFixed(0), unit: '걸음/분', grade: cadGrade,
@@ -451,7 +489,7 @@ function render(r, prev) {
   }
   html += recSection(recsWalk(r, { sex, age }));
   if (r.receipt) html += `<div class="sub" style="margin-top:12px">익명 결과를 보냈어요. 접수번호 <b>${r.receipt}</b> (삭제 요청할 때 필요해요, 지난 기록에도 남아요)</div>`;
-  html += r.diagHtml || '';
+  html += (r.diagHtml || '') + READ_GUIDE;
   html += `<div class="sub" style="margin-top:12px">이 결과는 의료 진단이 아니에요. 걸음이 걱정되면 전문가와 상담하세요.</div>`;
   showHtml(html);
 }
@@ -492,8 +530,8 @@ function recsWalk(r, { sex, age }) {
   return cards;
 }
 
-function healthRunCard() {
-  return recCard({ title: '달리기와 건강 (얼마나 해야 하나)',
+function healthRunCard(speed) {
+  return recCard({ title: '달리기와 건강 (얼마나 해야 하나)', calc: speed ? [`이번 속도 ${speed.toFixed(2)} m/s × 3.6 = <b>시속 ${(speed * 3.6).toFixed(1)}km</b> (Lee 2014 연구의 느린 달리기: 시속 9.7km 미만)`] : [],
     facts: ['Lee 2014(55,137명, 평균 15년): 하루 5~10분, 시속 9.7km 미만으로 달려도 달리지 않는 사람보다 전체 사망 30%, 심혈관 사망 45% 낮음',
       'Pedisic 2020 메타분석(232,149명): 달리기 참여 시 전체 사망 27% 낮음. 빈도·시간·속도·총량이 늘어도 추가 이득은 확인되지 않음 → 주 1회도 안 하는 것보다 나음'],
     limit: '관찰 연구라 인과관계는 아님', refs: ['lee2014', 'pedisic2019'] });
@@ -517,7 +555,7 @@ function recsRun(r, { age }) {
   if (+age >= 55) cards.push(recCard({ title: '55세 이상 러너가 알아 둘 점',
     facts: ['Neumann 16장(p.792): 55~65세 러너는 20~35세보다 한발짝이 짧고 케이던스가 높음. 충격정점·부하율이 더 크고, 발목 밀어내는 힘이 줄며, 종아리·아킬레스힘줄 손상이 흔함'],
     refs: ['neumann16'] }));
-  cards.push(healthRunCard());
+  cards.push(healthRunCard(r.speed));
   return cards;
 }
 
@@ -529,7 +567,8 @@ function weekSlowJogMin(hist) {
 function renderRun(r, prev) {
   const { age } = store.get('profile', {});
   const c = r.cadence;
-  let html = `<h2>러닝 결과</h2>` + r.warnings.map(w => `<div class="warn">${WARN[w]}</div>`).join('');
+  const easy = r.activity === 'easyrun';
+  let html = `<h2>${easy ? '천천히 달리기' : '러닝'} 결과</h2>` + autoNote(r) + r.warnings.map(w => `<div class="warn">${WARN[w]}</div>`).join('');
   html += metric({ title: '케이던스 (분당 걸음 수)', value: c.toFixed(0), unit: '걸음/분', grade: r.warnings.includes('hand') || r.warnings.includes('irregular') ? 'o' : 'y',
     body: `<div class="sub">${prev ? `지난 러닝 ${prev.cadence.toFixed(0)} → ${c >= prev.cadence ? '+' : ''}${(c - prev.cadence).toFixed(0)}` : '러닝 케이던스는 사람·속도마다 달라 기준값 하나로 비교하지 않아요.'}</div>`,
     why: ['걷기 케이던스는 스마트폰 정확도 연구가 있지만(상관 0.997), 주머니 스마트폰의 달리기 케이던스 검증 연구는 아직 찾지 못해 "참고" 등급이에요.',
@@ -541,8 +580,8 @@ function renderRun(r, prev) {
       body: `<div class="sub">GPS 거리 약 ${r.distance.toFixed(0)}m · 위치 오차 약 ${Math.round(r.medAcc)}m</div>`,
       why: ['GPS로 꾸준히 달린 구간의 이동 거리 ÷ 시간. 휴대폰 GPS 오차(보통 수 m) 때문에 "참고"', 'Neumann 16장: 걷기는 보통 2.5 m/s 이하, 달리기는 2.5~10 m/s 이상'], refs: ['neumann16'] });
   } else if (r.gpsError && r.gpsError !== 'noWalk') html += `<div class="sub" style="margin-top:12px">속도는 GPS 조건(야외, 1분·50m 이상)이 안 돼 계산하지 않았어요.</div>`;
-  html += recSection(recsRun(r, { age }));
-  html += r.diagHtml || '';
+  html += recSection(easy ? [healthRunCard(r.speed)] : recsRun(r, { age }));   // 천천히 달리기는 Lee 2014·Pedisic 2020만
+  html += (r.diagHtml || '') + READ_GUIDE;
   if (r.receipt) html += `<div class="sub" style="margin-top:12px">익명 결과를 보냈어요. 접수번호 <b>${r.receipt}</b></div>`;
   html += `<div class="sub" style="margin-top:12px">이 결과는 의료 진단이 아니에요. 통증이 있으면 전문가와 상담하세요.</div>`;
   showHtml(html);
@@ -550,7 +589,7 @@ function renderRun(r, prev) {
 
 function renderSlow(r, hist) {
   const wk = weekSlowJogMin(hist);
-  let html = `<h2>슬로우 러닝 결과</h2>`;
+  let html = `<h2>슬로우 러닝 결과</h2>` + autoNote(r);
   html += metric({ title: '조깅 구간 케이던스', value: r.cadence.toFixed(0), unit: `걸음/분 (조깅 ${r.jogCount}구간 평균)`, grade: 'y',
     body: r.walkCadence ? `<div class="sub">걷기 구간 케이던스 ${r.walkCadence.toFixed(0)}걸음/분</div>` : '',
     why: ['1분씩 잘라 조깅 구간은 러닝 방식, 걷기 구간은 걷기 방식으로 계산했어요. 구간마다 앞뒤 2초는 뺐어요.', '달리기 케이던스의 스마트폰 정확도 검증 연구는 아직 못 찾아 "참고"'], refs: ['neumann16'] });
@@ -561,7 +600,7 @@ function renderSlow(r, hist) {
       facts: ['Ikenaga 2017 무작위 연구(평균 70.8세, 81명): 걷기 속도의 조깅 1분 + 걷기 1분 반복, 주 90분 조깅 + 90분 걷기를 12주',
         '결과: 무산소역치(지구력) +15.7%(대조군 +4.9%), 앉았다 일어서기 +12.9%(대조군 +4.5%), 허벅지 근육 속 지방 감소'],
       limit: '노인 대상 12주 소규모 연구', refs: ['ikenaga2017'] }),
-    healthRunCard()]);
+    healthRunCard()]) + READ_GUIDE;
   if (r.receipt) html += `<div class="sub" style="margin-top:12px">익명 결과를 보냈어요. 접수번호 <b>${r.receipt}</b></div>`;
   html += `<div class="sub" style="margin-top:12px">이 결과는 의료 진단이 아니에요. 가슴 통증·어지럼이 있으면 멈추고 전문가와 상담하세요.</div>`;
   showHtml(html);
@@ -613,8 +652,8 @@ function cardRows(h) {
     if (h.speed) push('걷는 속도', f(h.speed, 2), 'm/s', `Perry 성인 평균 1.37 · 차이 ${h.speed - 1.37 >= 0 ? '+' : ''}${(h.speed - 1.37).toFixed(2)}`);
     if (h.stepLength && sex) { const ideal = (sex === 'f' ? 0.0064 : 0.0072) * c * 100; push('걸음 길이', f(h.stepLength * 100), 'cm', `Neumann 효율 최적 약 ${ideal.toFixed(0)}cm (${vs(h.stepLength * 100, ideal, ['더 길게 디뎌도 됨', '더 짧게 디뎌도 됨'])})`); }
     push('걸음 수', String(h.steps), '걸음', `걷는 시간 ${Math.round(h.activeS)}초`);
-  } else if (act === 'run') {
-    push('러닝 케이던스', f(h.cadence), '걸음/분', `+5% = ${Math.round(h.cadence * 1.05)}, +10% = ${Math.round(h.cadence * 1.1)} (Heiderscheit 2011·Neumann 16장 연구 범위)`);
+  } else if (act === 'run' || act === 'easyrun') {
+    push('러닝 케이던스', f(h.cadence), '걸음/분', act === 'easyrun' ? '걷기 없이 쭉 천천히 달린 기록' : `+5% = ${Math.round(h.cadence * 1.05)}, +10% = ${Math.round(h.cadence * 1.1)} (Heiderscheit 2011·Neumann 16장 연구 범위)`);
     if (h.speed) { push('페이스', paceText(h.speed), '/km', `속도 ${f(h.speed, 2)} m/s · GPS로 잰 참고값`); }
     push('걸음 수', String(h.steps), '걸음', `달린 시간 ${Math.round(h.activeS)}초`);
   } else if (act === 'slowrun') {
@@ -734,7 +773,7 @@ function showHtml(html) {
 async function heartBox(date) {
   if (typeof HS === 'undefined' || !HS || !stepsState?.heart) return;
   const hist = store.get('history', []), h = hist.find(x => x.date === date);
-  if (!h || !['walk', 'run', 'slowrun', 'cooper'].includes(h.activity ?? 'walk')) return;
+  if (!h || !['walk', 'run', 'slowrun', 'easyrun', 'cooper'].includes(h.activity ?? 'walk')) return;
   const start = h.start ?? new Date(h.date).getTime() - (h.totalS ?? h.diag?.durS ?? h.durS ?? 0) * 1000;   // 예전 기록은 끝 시각에서 거꾸로
   const end = h.activity === 'cooper' ? start + h.durS * 1000 : new Date(h.date).getTime();
   if (!(end > start)) return;
@@ -897,7 +936,7 @@ let calMonth = new Date(); calMonth.setDate(1); let calSel = dayKey(new Date());
 function renderWeek() {
   const hist = store.get('history', []), byDay = {};
   hist.forEach((h, i) => (byDay[dayKey(h.date)] ??= []).push(i));
-  const dot = a => a === 'cooper' ? 'run' : a;                               // 12분 테스트는 러닝 색 점
+  const dot = a => a === 'cooper' || a === 'easyrun' ? 'run' : a;            // 12분 테스트·천천히 달리기는 러닝 색 점
   const y = calMonth.getFullYear(), mo = calMonth.getMonth(), end = new Date(y, mo + 1, 1), today = dayKey(new Date());
   let cells = '';
   for (let d = monOf(new Date(y, mo, 1)); d < end || d.getDay() !== 1; d.setDate(d.getDate() + 1)) {   // 월요일부터, 마지막 주는 일요일까지 채움
@@ -956,7 +995,7 @@ function sumRows(st, month) {
 }
 function calChart(start, end, mo) {                                       // 카드 아래 달력: 날짜마다 활동 종류별 점 + 색 설명
   const acts = {};
-  for (const h of store.get('history', [])) { const a = h.activity ?? 'walk'; (acts[dayKey(h.date)] ??= new Set()).add(a === 'cooper' ? 'run' : a); }
+  for (const h of store.get('history', [])) { const a = h.activity ?? 'walk'; (acts[dayKey(h.date)] ??= new Set()).add(a === 'cooper' || a === 'easyrun' ? 'run' : a); }
   const days = []; for (let d = new Date(start); d < end; d.setDate(d.getDate() + 1)) days.push(new Date(d));
   const weeks = Math.ceil(days.length / 7);
   return { h: 60 + weeks * 64 + 44, draw: (g, x, y, w, _h, F) => {
@@ -1095,7 +1134,7 @@ function showRecord(i) {
   if (act === 'video') { setTab('video'); renderVideo(h.r); $('vresult').insertAdjacentHTML('afterbegin', banner); return; }
   setTab('measure');
   const prev = hist.slice(i + 1).find(x => !x.practice && (x.activity ?? 'walk') === act);
-  if (act === 'slowrun') renderSlow(h, hist); else if (act === 'cooper') renderCooper(h); else if (act === 'run') renderRun(h, prev); else render(h, prev);
+  if (act === 'slowrun') renderSlow(h, hist); else if (act === 'cooper') renderCooper(h); else if (act === 'walk') render(h, prev); else renderRun(h, prev);
   $('result').insertAdjacentHTML('afterbegin', banner);
 }
 
@@ -1276,7 +1315,7 @@ function renderVideo(r, dur) {
       body: `<div class="sub">두 발목 사이 가로 거리 ÷ 양쪽 엉덩이 점 사이 거리 (중앙값). 참고: Neumann 15장 성인 걸음 폭 8~10cm</div>`,
       why: ['영상에는 cm 기준이 없어서 골반 너비에 대한 비율로만 보여 줘요'], refs: ['neumann15'] });
   }
-  html += recSection(videoRecs(r), '레퍼런스로 본 걷는 법');
+  html += recSection(videoRecs(r), '레퍼런스로 본 걷는 법') + READ_GUIDE;
   html += `<div class="sub" style="margin-top:12px">이 결과는 의료 진단이 아니에요. 걸음이 걱정되면 전문가와 상담하세요. 영상은 저장되지 않았어요(계산된 숫자만 지난 기록에 남아요).</div>`;
   showV(html);
 }
@@ -1286,16 +1325,19 @@ if (new URLSearchParams(location.search).has('demo')) {
   window.__v = { renderVideo, analyzeSide, analyzeFrontal, makeCard };   // 영상 결과 화면 점검용
   $('demo').classList.remove('hidden');
   $('demo').addEventListener('click', () => {
-    // 걷기 108, 러닝 165, 슬로우 러닝은 1분마다 조깅 165 / 걷기 110을 번갈아
-    const act = $('act').value, walkS = act === 'slowrun' ? 240 : 75, s = [], g = [];
-    const cadAt = t => act === 'walk' ? 108 : act === 'run' ? 165 : (Math.floor(t / 60) % 2 ? 110 : 165);
+    // 걷기 108, 러닝 165, 슬로우 러닝은 1분마다 조깅 165 / 걷기 110을 번갈아. 자동은 주소의 ?demo=walk|run (없으면 슬로우 러닝 신호)
+    const sel = $('act').value, want = new URLSearchParams(location.search).get('demo');
+    const act = sel === 'auto' ? (['walk', 'run'].includes(want) ? want : 'slowrun') : sel;
+    const walkS = act === 'slowrun' ? 240 : 75, s = [], g = [];
+    const cadAt = t => act === 'walk' ? 108 : act === 'slowrun' ? (Math.floor(t / 60) % 2 ? 110 : 165) : 165;
     let kk = 0;
     for (let i = 0; i < (walkS + 6) * 60; i++) {
       const t = i / 60, walking = t > 3 && t < 3 + walkS;
       if (walking) kk += cadAt(t - 3) / 60 / 60;
       const k = kk;
       const ph = k - Math.floor(k);
-      const a = 9.81 + (walking ? (Math.floor(k) % 2 ? 0.4 : 3.2) * Math.exp(-(((ph - .15) / .07) ** 2)) + 2 * Math.sin(Math.PI * k) : 0) + (Math.random() - .5) * .3;
+      const amp = walking && cadAt(t - 3) >= RUN_CAD ? 4 : 1;                // 달리기는 흔들림이 큼 (자동 구분 확인용)
+      const a = 9.81 + (walking ? amp * ((Math.floor(k) % 2 ? 0.4 : 3.2) * Math.exp(-(((ph - .15) / .07) ** 2)) + 2 * Math.sin(Math.PI * k)) : 0) + (Math.random() - .5) * .3;
       s.push({ t: t * 1000, x: 0, y: a, z: 0 });
     }
     for (let t = 0; t <= walkS + 6; t++) {                                  // 1.3 m/s로 북쪽, 오차 ±5m
