@@ -81,7 +81,7 @@
   #tiles { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:10px; }
   #tiles .mcard { margin:0; min-width:0; }
   #tiles .mrow { flex-direction:column; align-items:flex-start; gap:8px; }
-  #tiles .mtop { font-size:.75rem; gap:4px; white-space:nowrap; }
+  #tiles .mtop { font-size:.75rem; gap:2px 4px; white-space:nowrap; flex-wrap:wrap; }   /* 좁은 폰(320px)에선 날짜가 아랫줄로 */
   #tiles .msub { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .tiles { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
   .tile { background:var(--card); border:1px solid var(--line); border-radius:var(--radius); padding:12px; box-shadow:var(--shadow); text-align:left; color:var(--ink); margin:0; font-weight:400; cursor:pointer; }
