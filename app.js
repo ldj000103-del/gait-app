@@ -72,14 +72,19 @@ ageNote();
 
 // ── 활동 종류 (선택은 이 휴대폰에 기억) ──
 $('act').value = store.get('act', 'auto');
-function showAct() { const a = $('act').value; $('autoNote').classList.toggle('hidden', a !== 'auto'); $('easyNote').classList.toggle('hidden', a !== 'easyrun'); $('slowNote').classList.toggle('hidden', a !== 'slowrun'); $('cooperNote').classList.toggle('hidden', a !== 'cooper'); $('dmodeBox').classList.toggle('hidden', a === 'slowrun' || a === 'cooper'); }
+// 위치기반서비스 이용 동의 (위치정보법 제19조): GPS를 쓰는 측정에만 필요, 체크를 풀면 철회
+$('locOk').checked = !!store.get('locConsent', null);
+$('locOk').addEventListener('change', () => store.set('locConsent', $('locOk').checked ? { date: new Date().toISOString(), version: 1 } : null));
+const usesGps = a => a === 'cooper' || (a !== 'slowrun' && $('dmode').value === 'gps');
+function showLoc() { $('locBox').classList.toggle('hidden', !usesGps($('act').value)); }
+function showAct() { showLoc(); const a = $('act').value; $('autoNote').classList.toggle('hidden', a !== 'auto'); $('easyNote').classList.toggle('hidden', a !== 'easyrun'); $('slowNote').classList.toggle('hidden', a !== 'slowrun'); $('cooperNote').classList.toggle('hidden', a !== 'cooper'); $('dmodeBox').classList.toggle('hidden', a === 'slowrun' || a === 'cooper'); }
 $('act').addEventListener('change', () => { store.set('act', $('act').value); showAct(); });
 showAct();
 if (!store.get('history', []).length) $('firstGuide').open = true;   // 처음 쓰는 사람에겐 사용법을 펼쳐 둠
 
 // ── 거리 재는 방법 (선택은 이 휴대폰에 기억) ──
 $('dmode').value = store.get('dmode', 'gps');
-function showDmode() { $('distBox').classList.toggle('hidden', $('dmode').value !== 'manual'); $('gpsNote').classList.toggle('hidden', $('dmode').value !== 'gps'); }
+function showDmode() { showLoc(); $('distBox').classList.toggle('hidden', $('dmode').value !== 'manual'); $('gpsNote').classList.toggle('hidden', $('dmode').value !== 'gps'); }
 $('dmode').addEventListener('change', () => { store.set('dmode', $('dmode').value); showDmode(); });
 showDmode();
 
@@ -116,7 +121,8 @@ function onMotion(e) {
 }
 $('start').addEventListener('click', async () => {
   const act = $('act').value;
-  const useGps = act === 'cooper' || (act !== 'slowrun' && $('dmode').value === 'gps');
+  const useGps = usesGps(act);
+  if (useGps && !store.get('locConsent', null)) return alert('GPS로 거리·경로를 재려면 위치기반서비스 이용약관에 동의해 주세요(시작 버튼 위 체크). 동의하지 않으려면 거리 재는 방법을 "재지 않음"으로 바꿔 주세요.');
   if (Native) {
     const st = await Native.requestPermissions({ permissions: useGps ? ['location', 'notifications'] : ['notifications'] }).catch(() => ({}));
     gpsDenied = useGps && st.location !== 'granted';
@@ -150,7 +156,7 @@ function runRec(act) {
   const { startWall } = store.get('rec', {});
   $('recTitle').textContent = { walk: '걷는 중… 평소처럼 직선으로', run: '달리는 중… 평소 페이스로', easyrun: '천천히 달리는 중… 걷는 속도 정도로 쭉', cooper: '12분 동안 최대한 멀리', auto: '측정 중… 걷거나 달려요' }[act] ?? '조깅 1분';
   t0 = startWall; liveSteps = 0; $('recLive').textContent = '';
-  $('recMapBox').classList.toggle('hidden', !KAKAO_KEY || !(act === 'cooper' || (act !== 'slowrun' && $('dmode').value === 'gps')));
+  $('recMapBox').classList.toggle('hidden', !KAKAO_KEY || !usesGps(act));
   $('recMap').classList.add('hidden'); $('recMap').innerHTML = ''; $('recMapBtn').textContent = '지금까지 경로 지도 보기';
   let lastPhase = Math.floor((Date.now() - startWall) / 1000 / INTERVAL_S), tick = 0;
     timer = setInterval(() => {
@@ -378,7 +384,7 @@ function send(r) {
 }
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v51';
+const APP_VERSION = 'v52';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
