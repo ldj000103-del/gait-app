@@ -144,7 +144,8 @@
   body.recording #rec { position:fixed; inset:0; margin:0; border:0; border-radius:0; background:#000; color:#555;
                         display:flex; flex-direction:column; justify-content:center; padding:24px; }
   body.recording #rec .sub { color:#444; } body.recording #recLive { color:#8a918e; }
-  body.recording #stop { background:#111; color:#666; border:1px solid #222; margin-top:40vh; }
+  body.recording #recMapBtn { background:#111; color:#888; border:1px solid #222; margin-top:16px; }
+  body.recording #stop { background:#111; color:#666; border:1px solid #222; margin-top:24vh; }
   ol.guide { padding-left:20px; margin:6px 0; } ol.guide li { margin:3px 0; }
 </style>
 </head>
@@ -312,6 +313,9 @@
     <div class="big" id="recTime">0초</div>
     <div id="recLive" style="font-size:1.0625rem;font-weight:600;margin:4px 0 8px"></div>
     <div class="sub" id="recHint">휴대폰을 주머니에 넣고 걸으세요.</div>
+    <div id="recMapBox" class="hidden"><button class="ghost" id="recMapBtn">지금까지 경로 지도 보기</button>
+      <div class="sub" style="margin-top:4px">누를 때만 카카오 지도를 불러와요(대략 위치가 카카오에 전달돼요). 측정은 계속돼요.</div>
+      <div id="recMap" class="hidden" style="height:260px;border-radius:10px;margin-top:8px"></div></div>
     <button id="stop" style="touch-action:none;user-select:none">끝 (1초 길게 누르기)</button>
   </section>
 

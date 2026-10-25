@@ -149,6 +149,8 @@ function runRec(act) {
   const { startWall } = store.get('rec', {});
   $('recTitle').textContent = { walk: '걷는 중… 평소처럼 직선으로', run: '달리는 중… 평소 페이스로', easyrun: '천천히 달리는 중… 걷는 속도 정도로 쭉', cooper: '12분 동안 최대한 멀리', auto: '측정 중… 걷거나 달려요' }[act] ?? '조깅 1분';
   t0 = startWall; liveSteps = 0; $('recLive').textContent = '';
+  $('recMapBox').classList.toggle('hidden', !KAKAO_KEY || !(act === 'cooper' || (act !== 'slowrun' && $('dmode').value === 'gps')));
+  $('recMap').classList.add('hidden'); $('recMap').innerHTML = ''; $('recMapBtn').textContent = '지금까지 경로 지도 보기';
   let lastPhase = Math.floor((Date.now() - startWall) / 1000 / INTERVAL_S), tick = 0;
     timer = setInterval(() => {
       const el = (Date.now() - startWall) / 1000;
@@ -375,7 +377,7 @@ function send(r) {
 }
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v49';
+const APP_VERSION = 'v50';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -799,17 +801,31 @@ document.addEventListener('click', e => {
   if (h) { delete h.route; store.set('history', hist); }
   route = null; $('routeBox')?.remove();
 });
-document.addEventListener('click', async e => {
-  const btn = e.target.closest?.('#routeBtn');
-  if (!btn) return;
-  const pts = route;
-  btn.disabled = true; btn.textContent = '지도 불러오는 중…';
-  try { await loadKakao(); } catch { kakaoLoad = null; btn.disabled = false; btn.textContent = '지도를 못 불러왔어요 · 다시 누르기'; return; }
-  const box = $('routeMap'), K = kakao.maps, path = pts.map(([lat, lon]) => new K.LatLng(lat, lon));
-  box.classList.remove('hidden'); btn.remove();
+async function drawRoute(box, pts) {
+  try { await loadKakao(); } catch { kakaoLoad = null; return false; }
+  const K = kakao.maps, path = pts.map(([lat, lon]) => new K.LatLng(lat, lon));
+  box.innerHTML = ''; box.classList.remove('hidden');
   const map = new K.Map(box, { center: path[0], level: 4 }), b = new K.LatLngBounds();
   new K.Polyline({ path, strokeWeight: 5, strokeColor: '#1d6b5c', strokeOpacity: 0.9 }).setMap(map);
   path.forEach(p => b.extend(p)); map.setBounds(b);
+  return true;
+}
+document.addEventListener('click', async e => {
+  const btn = e.target.closest?.('#routeBtn');
+  if (!btn) return;
+  btn.disabled = true; btn.textContent = '지도 불러오는 중…';
+  if (await drawRoute($('routeMap'), route)) btn.remove();
+  else { btn.disabled = false; btn.textContent = '지도를 못 불러왔어요 · 다시 누르기'; }
+});
+// 측정 중: 누를 때만 그 순간까지의 경로를 한 번 그림 (따라가며 계속 그리지 않음 → 배터리·카카오 전달은 누를 때만)
+$('recMapBtn').addEventListener('click', async () => {
+  const btn = $('recMapBtn');
+  let g = gpsPts;
+  if (Native) { try { ({ gps: g } = await Native.peek({ sec: 1 })); } catch { g = []; } }
+  const pts = packRoute(g ?? []);
+  if (!pts) return (btn.textContent = '아직 경로가 없어요 · 야외에서 조금 더 간 뒤 다시 눌러요');
+  btn.textContent = '지도 불러오는 중…';
+  btn.textContent = await drawRoute($('recMap'), pts) ? '경로 새로 보기' : '지도를 못 불러왔어요 · 다시 누르기';
 });
 
 function showHtml(html) {
