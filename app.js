@@ -394,7 +394,7 @@ function send(r) {
 }
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v55';
+const APP_VERSION = 'v56';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
