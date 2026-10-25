@@ -28,23 +28,30 @@ export function analyzeSide(frames, W, H) {
   const side = visOf([P.lKnee, P.lAnkle]) >= visOf([P.rKnee, P.rAnkle]) ? 'l' : 'r';
   const ix = k => P[side + k];
   const midHipX = f => (f.p[P.lHip].x + f.p[P.rHip].x) / 2;
-  const dir = pts.length > 1 && midHipX(pts[pts.length - 1]) >= midHipX(pts[0]) ? 1 : -1;   // 오른쪽으로 걸으면 +1
+  let dir = pts.length > 1 && midHipX(pts[pts.length - 1]) >= midHipX(pts[0]) ? 1 : -1;   // 오른쪽으로 걸으면 +1 (첫·끝 장면으로 짐작)
 
-  const rows = [];
   // 무릎이 엉덩이–발목 선보다 걷는 방향 쪽에 있으면 굽힘(+), 반대쪽이면 뒤로 젖혀짐(−, Perry 12장 과신전)
   const kneeSign = (hip, knee, ankle) => dir * (knee.x - (hip.x + (ankle.x - hip.x) * (knee.y - hip.y) / ((ankle.y - hip.y) || 1))) >= 0 ? 1 : -1;
-  for (const f of pts) {
-    const [hip, knee, ankle, heel, toe] = ['Hip', 'Knee', 'Ankle', 'Heel', 'Toe'].map(k => f.p[ix(k)]);
-    if ([hip, knee, ankle].some(q => q.v < VIS)) continue;
-    const footOk = heel.v >= VIS && toe.v >= VIS;
-    rows.push({
-      t: f.t,
-      knee: kneeSign(hip, knee, ankle) * (180 - angleAt(hip, knee, ankle)),       // 무릎 굽힘 (뒤로 젖혀지면 −)
-      thigh: deg(Math.atan2(dir * (knee.x - hip.x), knee.y - hip.y)),              // 넓적다리: 수직 기준, 앞으로 = +
-      ankle: footOk ? 90 - between([knee.x - ankle.x, knee.y - ankle.y], [toe.x - heel.x, toe.y - heel.y]) : NaN,   // 발등굽힘 = +, 발이 안 잡히면 빈칸
-      fwd: dir * (ankle.x - hip.x) / Math.hypot(knee.x - hip.x, knee.y - hip.y),  // 발이 엉덩이보다 얼마나 앞에 (넓적다리 길이 단위)
-    });
-  }
+  const build = () => {
+    const out = [];
+    for (const f of pts) {
+      const [hip, knee, ankle, heel, toe] = ['Hip', 'Knee', 'Ankle', 'Heel', 'Toe'].map(k => f.p[ix(k)]);
+      if ([hip, knee, ankle].some(q => q.v < VIS)) continue;
+      const footOk = heel.v >= VIS && toe.v >= VIS;
+      out.push({
+        t: f.t,
+        knee: kneeSign(hip, knee, ankle) * (180 - angleAt(hip, knee, ankle)),       // 무릎 굽힘 (뒤로 젖혀지면 −)
+        thigh: deg(Math.atan2(dir * (knee.x - hip.x), knee.y - hip.y)),              // 넓적다리: 수직 기준, 앞으로 = +
+        ankle: footOk ? 90 - between([knee.x - ankle.x, knee.y - ankle.y], [toe.x - heel.x, toe.y - heel.y]) : NaN,   // 발등굽힘 = +, 발이 안 잡히면 빈칸
+        fwd: dir * (ankle.x - hip.x) / Math.hypot(knee.x - hip.x, knee.y - hip.y),  // 발이 엉덩이보다 얼마나 앞에 (넓적다리 길이 단위)
+      });
+    }
+    return out;
+  };
+  let rows = build();
+  // 방향 확인: 유각기 굽힘(20° 넘게)은 늘 앞쪽이라, 큰 굽힘이 대부분 음수면 방향을 거꾸로 짐작한 것 → 뒤집어 다시 계산
+  // (돌아오는 장면이 섞이거나 카메라가 따라가며 찍은 영상 대비. 실제 과신전은 −20°까지 가지 않음)
+  if (rows.filter(r => r.knee < -20).length > rows.filter(r => r.knee > 20).length) { dir = -dir; rows = build(); }
   const diag = { frames: frames.length, legFrames: rows.length, side, dir };
   if (rows.length < frames.length * 0.4 || rows.length < 20) return { error: 'noPerson', validFrac: rows.length / Math.max(1, frames.length), diag };
 

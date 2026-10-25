@@ -66,6 +66,14 @@ for (const view of ['front', 'back']) {
   assert.ok(Math.abs(m.valgusL - 8) < 0.8 && Math.abs(m.valgusR) < 0.8, '무릎');
 }
 assert.equal(analyzeSide(sideFrames({}).slice(0, 10), W, H).error, 'noPerson');
+// 카메라가 사람보다 빠르게 따라가며 찍어 화면 속 엉덩이가 반대로 움직이는 영상: 방향을 거꾸로 짐작해도 바로잡아야 함
+{
+  const fr = sideFrames({ dir: 1 }).map(f => ({ t: f.t, lm: f.lm.map(q => ({ ...q, x: q.x - (250 * f.t) / W })) }));
+  const r = analyzeSide(fr, W, H);
+  console.log(`따라 찍은 영상: 방향 ${r.dir}, 유각 무릎 최대 ${r.m.kneeSwingMax.toFixed(1)}°(60), 넓적다리 굽힘 ${r.m.thighFlex.toFixed(1)}°(20)`);
+  assert.equal(r.dir, 1, '방향 바로잡기');
+  assert.ok(Math.abs(r.m.kneeSwingMax - 60) < 3, '방향을 바로잡은 뒤 무릎 최대');
+}
 // 무릎이 뒤로 젖혀지는 걸음(입각기 −10°): 방향을 구분해 음수로 잡아야 함 (예전 방식은 +10°로 나왔음)
 for (const dir of [1, -1]) {
   const m = analyzeSide(sideFrames({ dir, kneeBase: -10 }), W, H).m;
