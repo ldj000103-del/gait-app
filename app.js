@@ -210,7 +210,7 @@ function finish(data, demo = false, gps = []) {
   const practice = act === 'walk' && !hist.some(h => (h.activity ?? 'walk') === 'walk' && new Date(h.date).toLocaleDateString('sv-SE') === today);   // 그날 첫 걷기 측정 = 연습 (Perry 20장)
   const dist = mode === 'manual' ? parseFloat($('dist').value) || null : null;
   const d = mode === 'gps' ? (gpsDenied && !demo ? { gpsError: 'denied' } : gpsSpeed(res, gps)) : withDistance(res, dist);
-  const rec = { date: new Date().toISOString(), activity: act, position, practice, ...res, distance: dist, ...d, distSource: d.speed ? mode : null, diag, diagHtml };
+  const rec = { date: new Date().toISOString(), start: Date.now() - durS * 1000, activity: act, position, practice, ...res, distance: dist, ...d, distSource: d.speed ? mode : null, diag, diagHtml };
   if (!demo && consent?.share && ENDPOINT) rec.receipt = send(rec);
   hist.unshift(rec); store.set('history', hist.slice(0, 200));
   shownDate = rec.date;
@@ -235,7 +235,7 @@ function finishSlow(data, demo) {
   if (!jogs.length) return showHtml(`<h2>다시 측정해 주세요</h2><div class="warn">조깅 구간을 찾지 못했어요. 첫 1분은 조깅, 다음 1분은 걷기로 번갈아 해 주세요. 조깅 구간이 20초 이상 있어야 분석해요.</div>`);
   const avg = (xs, k) => xs.reduce((s, x) => s + x[k], 0) / xs.length, sum = (xs, k) => xs.reduce((s, x) => s + x[k], 0);
   const hist = store.get('history', []);
-  const rec = { date: new Date().toISOString(), activity: 'slowrun', position, practice: false,
+  const rec = { date: new Date().toISOString(), start: Date.now() - (data[data.length - 1].t - t0s), activity: 'slowrun', position, practice: false,
     cadence: avg(jogs, 'cadence'), walkCadence: walks.length ? avg(walks, 'cadence') : null,
     steps: sum(segs, 'steps'), activeS: sum(jogs, 'activeS'), walkS: sum(walks, 'activeS'),
     regularity: avg(jogs, 'regularity'), jogCount: jogs.length, warnings: [],
@@ -255,8 +255,9 @@ function finishCooper(data, gps, demo) {
   const durS = (run[run.length - 1].t - t0s) / 1000;
   const g = gpsDenied && !demo ? null : gpsDistance(gps.filter(p => p.t >= t0s && p.t <= end));
   if (!g) return showHtml(`<h2>다시 측정해 주세요</h2><div class="warn">GPS로 거리를 재지 못했어요. 위치 권한을 허용하고, 하늘이 트인 운동장이나 트랙에서 해 주세요.</div>`);
+  if (g.dist < 100) return showHtml(`<h2>다시 측정해 주세요</h2><div class="warn">GPS 거리가 ${Math.round(g.dist)}m로 너무 짧게 잡혔어요. 하늘이 트인 곳에서 GPS가 잡힌 뒤 달려 주세요.</div>`);
   const res = analyzeWalk(run, { position, activity: 'run' }), full = durS >= COOPER_S - 15;   // 15초쯤 일찍 끝난 건 12분으로 봄
-  const rec = { date: new Date().toISOString(), activity: 'cooper', position, practice: false, distance: g.dist, durS, medAcc: g.medAcc,
+  const rec = { date: new Date().toISOString(), start: Date.now() - (data[data.length - 1].t - t0s), activity: 'cooper', position, practice: false, distance: g.dist, durS, medAcc: g.medAcc,
     speed: g.dist / durS, full,
     cadence: res.error ? null : res.cadence, steps: res.error ? null : res.steps, activeS: res.error ? durS : res.activeS, warnings: [] };
   if (!demo && consent?.share && ENDPOINT) rec.receipt = send(rec);
@@ -302,7 +303,7 @@ function send(r) {
 }
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v36';
+const APP_VERSION = 'v37';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -688,10 +689,11 @@ async function heartBox(date) {
   if (typeof HS === 'undefined' || !HS || !stepsState?.heart) return;
   const hist = store.get('history', []), h = hist.find(x => x.date === date);
   if (!h || !['walk', 'run', 'slowrun', 'cooper'].includes(h.activity ?? 'walk')) return;
-  const end = new Date(h.date).getTime(), dur = (h.totalS ?? h.diag?.durS ?? h.durS ?? 0) * 1000;
-  if (!dur) return;
+  const start = h.start ?? new Date(h.date).getTime() - (h.totalS ?? h.diag?.durS ?? h.durS ?? 0) * 1000;   // 예전 기록은 끝 시각에서 거꾸로
+  const end = h.activity === 'cooper' ? start + h.durS * 1000 : new Date(h.date).getTime();
+  if (!(end > start)) return;
   try {
-    const r = h.hr ?? await HS.heartRate({ from: end - dur, to: end });
+    const r = h.hr ?? await HS.heartRate({ from: start, to: end });
     if (!r?.avg || shownDate !== date) return;
     if (!h.hr) { h.hr = { avg: r.avg, max: r.max }; store.set('history', hist); }
     const html = metric({ title: '워치 심박수 (측정하는 동안)', value: r.avg, unit: `bpm 평균 · 최고 ${r.max ?? '-'}`, grade: 'y',
@@ -1226,17 +1228,13 @@ async function loadSteps() {
   if (!HS) return;
   try {
     stepsState = await HS.status();
-    if (stepsState.granted) {
-      const today = new Date(), last = new Date(calMonth.getFullYear(), calMonth.getMonth() + 1, 7);   // 달력에 보이는 다음 달 첫 주까지
-      const { days } = await HS.daily({ from: dayKey(monOf(new Date(calMonth.getFullYear(), calMonth.getMonth(), 1))), to: dayKey(last < today ? last : today) });
-      for (const d of days) stepsByDay[d.date] = d.steps;
+    const y = calMonth.getFullYear(), mo = calMonth.getMonth(), today = new Date(), last = new Date(y, mo + 1, 7);   // 달력에 보이는 다음 달 첫 주까지
+    const from = dayKey(monOf(new Date(y, mo, 1))), to = dayKey(last < today ? last : today);
+    if (from <= to) {                                                       // 다음 달처럼 아직 안 온 날만 보이면 묻지 않음
+      if (stepsState.granted) for (const d of (await HS.daily({ from, to })).days) stepsByDay[d.date] = d.steps;
+      if (stepsState.sleep) for (const d of (await HS.sleepDaily({ from, to })).days) sleepByDay[d.date] = d.min;
     }
-    if (stepsState.sleep) {
-      const today = new Date(), last = new Date(calMonth.getFullYear(), calMonth.getMonth() + 1, 7);
-      const { days } = await HS.sleepDaily({ from: dayKey(monOf(new Date(calMonth.getFullYear(), calMonth.getMonth(), 1))), to: dayKey(last < today ? last : today) });
-      for (const d of days) sleepByDay[d.date] = d.min;
-    }
-  } catch (e) { stepsState = { error: String(e?.message || e) }; }
+  } catch (e) { stepsState = { ...stepsState, error: String(e?.message || e) }; }
   renderSteps();
   if (document.body.dataset.tab === 'home') renderWeek();
 }
