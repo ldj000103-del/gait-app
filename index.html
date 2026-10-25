@@ -76,6 +76,13 @@
   .mnum { font-size:2rem; font-weight:700; letter-spacing:-.035em; line-height:1; } .mnum small { font-size:.8125rem; font-weight:500; color:var(--sub); letter-spacing:0; margin-left:3px; }
   .mcard.empty .mnum { font-size:1rem; color:var(--sub); font-weight:500; letter-spacing:-.01em; }
   .msub { font-size:.75rem; color:var(--sub); margin-top:8px; line-height:1.5; }
+  /* 시안 B: 걸음 수·수면은 한 줄 크게, 나머지 4개는 2칸 격자 */
+  #steps .mnum { font-size:2.5rem; }
+  #tiles { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:10px; }
+  #tiles .mcard { margin:0; min-width:0; }
+  #tiles .mrow { flex-direction:column; align-items:flex-start; gap:8px; }
+  #tiles .mtop { font-size:.75rem; gap:4px; white-space:nowrap; }
+  #tiles .msub { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .tiles { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
   .tile { background:var(--card); border:1px solid var(--line); border-radius:var(--radius); padding:12px; box-shadow:var(--shadow); text-align:left; color:var(--ink); margin:0; font-weight:400; cursor:pointer; }
   .tile .k { font-size:.75rem; color:var(--sub); font-weight:500; } .tile .v { font-size:1.75rem; font-weight:700; letter-spacing:-.03em; line-height:1.2; margin-top:6px; }

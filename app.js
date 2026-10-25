@@ -308,7 +308,7 @@ function send(r) {
 }
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v41';
+const APP_VERSION = 'v42';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -972,17 +972,17 @@ function renderHome() {
   const is = idx(h => isWalk(h) && h.speed), sp = hist[is];
   const ir = idx(h => h.activity === 'run'), rn = hist[ir];
   const iv = idx(h => h.activity === 'video' && h.view === 'side' && h.r?.m), vd = hist[iv];
-  const delta = (a, b) => b ? ` · 지난번보다 ${a - b >= 0 ? '+' : ''}${(a - b).toFixed(0)}` : '';
+  const delta = (a, b) => b ? ` · ${a - b >= 0 ? '+' : ''}${(a - b).toFixed(0)}` : '';
   const md2 = d => d ? md(d) : '';
   $('tiles').innerHTML =
     mcard({ label: '걷기 케이던스', color: 'var(--c-walk)', date: md2(w?.date), value: w?.cadence.toFixed(0), unit: '걸음/분', i: iw, vals: trendVals('walkCad'),
-      sub: w ? `Perry 성인 평균 113${delta(w.cadence, wPrev?.cadence)}` : '측정 탭에서 걸어 보세요' }) +
-    mcard({ label: '걷는 속도', color: 'var(--c-walk)', date: md2(sp?.date), value: sp?.speed.toFixed(2), unit: 'm/s', i: is, vals: trendVals('walkSpeed'),
-      sub: sp ? 'Perry 성인 평균 1.37' : 'GPS나 거리 입력이 필요해요' }) +
+      sub: w ? `Perry 평균 113${delta(w.cadence, wPrev?.cadence)}` : '측정 탭에서 걸어요' }) +
+    mcard({ label: '걷기 속도', color: 'var(--c-walk)', date: md2(sp?.date), value: sp?.speed.toFixed(2), unit: 'm/s', i: is, vals: trendVals('walkSpeed'),
+      sub: sp ? 'Perry 평균 1.37' : 'GPS·거리 입력 필요' }) +
     mcard({ label: '러닝 케이던스', color: 'var(--c-run)', date: md2(rn?.date), value: rn?.cadence.toFixed(0), unit: '걸음/분', i: ir, vals: trendVals('runCad'),
-      sub: rn ? '사람·속도마다 달라 기준선 없이 변화만' : '측정 탭에서 러닝을 골라요' }) +
-    mcard({ label: '영상 · 유각기 무릎', color: 'var(--c-video)', date: md2(vd?.date), value: vd ? vd.r.m.kneeSwingMax.toFixed(0) : null, unit: '°', i: iv, vals: trendVals('knee'),
-      sub: vd ? 'Perry 약 60°' : '영상 탭에서 옆모습을 찍어요' });
+      sub: rn ? '기준선 없음 · 변화만' : '측정 탭 → 러닝' }) +
+    mcard({ label: '유각기 무릎', color: 'var(--c-video)', date: md2(vd?.date), value: vd ? vd.r.m.kneeSwingMax.toFixed(0) : null, unit: '°', i: iv, vals: trendVals('knee'),
+      sub: vd ? 'Perry 약 60° · 영상' : '영상 탭 → 옆모습' });
   // 링: 이번 주 슬로우 조깅 분 / 연구의 주간량 90분 (Ikenaga 2017)
   const wk = weekSlowJogMin(hist), frac = Math.min(1, wk / 90), C = 2 * Math.PI * 42;
   $('ring').innerHTML = `<svg viewBox="0 0 108 108" role="img" aria-label="이번 주 슬로우 조깅 ${wk.toFixed(0)}분, 90분 중 ${Math.round(frac * 100)}%">
