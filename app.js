@@ -309,7 +309,7 @@ function send(r) {
 }
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v34';
+const APP_VERSION = 'v35';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -682,7 +682,7 @@ $('invite').addEventListener('click', async () => {
   try { await navigator.clipboard.writeText(text); alert('설치 안내 링크를 복사했어요. 카톡에 붙여 넣어 보내세요.'); }
   catch { prompt('이 링크를 복사해 보내세요', url); }
 });
-const shareBtn = date => `<button class="ghost sharebtn" data-date="${date}" style="margin:4px 0 10px">결과 카드 공유하기</button>`;
+const shareBtn = date => `<button class="ghost sharebtn" data-date="${date}" style="margin:4px 0 10px">결과 카드 공유하기</button><div class="sub" style="font-size:.75rem;margin:-4px 0 10px">카드에는 걸음·건강 숫자가 담겨요. 공유하면 받는 사람이 그 숫자를 보게 돼요.</div>`;   // 민감정보가 남에게 보일 수 있음을 공유 전에 알림 (개인정보 보호법 제23조 3항 취지)
 
 function showHtml(html) {
   const el = $('result'); el.innerHTML = html;
@@ -884,6 +884,7 @@ function renderWeek() {
     ${row('러닝 케이던스 평균', cur.runCad, prev.runCad, '걸음/분')}${row('슬로우 조깅', cur.jog, prev.jog, '분')}${row('영상 분석', cur.video, prev.video, '회')}</table>
     <div class="row" style="margin-top:4px"><button class="ghost" data-card="week">이 주 카드 공유</button><button class="ghost" data-card="month">이 달 카드 공유</button></div>
     <button class="ghost" data-card="best" style="margin-top:8px">최고 기록 카드 공유</button>
+    <div class="sub" style="font-size:.75rem;margin-top:6px">카드에는 걸음·건강 숫자가 담겨요. 공유하면 받는 사람이 그 숫자를 보게 돼요.</div>
     <div class="sub" style="margin-top:6px">월요일~일요일 기록이에요(연습 측정 제외). 점수로 바꾸지 않고 잰 숫자만 모았어요. 날짜를 누르면 그날 기록과 그 주 통계가 보여요.</div>`;
 }
 $('week').addEventListener('click', e => {
