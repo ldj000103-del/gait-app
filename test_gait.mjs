@@ -1,7 +1,7 @@
 // 걸음 분석 자체 점검: node test_gait.mjs
 // 가짜 걷기 신호(앞뒤 3초 서 있기 포함)를 만들어 케이던스를 2% 안으로 맞히는지 확인
 import assert from 'node:assert/strict';
-import { analyzeWalk, withDistance, gpsSpeed } from './gait.js';
+import { analyzeWalk, withDistance, gpsSpeed, gpsDistance } from './gait.js';
 
 function fakeWalk({ cadence, walkS = 20, position, hz = 60, seed = 1 }) {
   let r = seed;
@@ -71,4 +71,9 @@ console.log(`GPS 90초: 정답 1.30 → ${g.speed.toFixed(2)} m/s, 걸음 길이
 assert.ok(Math.abs(g.speed - 1.3) / 1.3 < 0.1, `GPS 속도 ${g.speed}`);
 assert.equal(gpsSpeed(r, fakeGps({ walkS: 20 })).gpsError, 'tooShort');      // 20초는 속도 안 냄
 assert.equal(gpsSpeed(long, fakeGps({ walkS: 90, acc: 30 })).gpsError, 'noFix'); // 실내처럼 오차 큼
+// 12분 달리기: 3 m/s로 720초 = 2160m (앞뒤 3초 서 있기 포함), 쿠퍼 식 (2160 − 504.9) ÷ 44.73 ≈ 37.0
+const cd = gpsDistance(fakeGps({ walkS: 720, speed: 3 }));
+console.log(`12분 GPS 거리: 정답 2160 → ${cd.dist.toFixed(0)}m`);
+assert.ok(Math.abs(cd.dist - 2160) / 2160 < 0.03, `12분 거리 ${cd.dist}`);
+assert.equal(gpsDistance(fakeGps({ walkS: 720, acc: 30 })), null);           // 오차 큰 점만 있으면 계산 안 함
 console.log('모든 점검 통과');

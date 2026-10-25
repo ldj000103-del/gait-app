@@ -1,4 +1,4 @@
-import { analyzeWalk, withDistance, gpsSpeed } from './gait.js';
+import { analyzeWalk, withDistance, gpsSpeed, gpsDistance } from './gait.js';
 import { analyzeSide, analyzeFrontal, extractPose, drawSnapshot } from './video.js';
 
 const $ = id => document.getElementById(id);
@@ -29,12 +29,15 @@ const REF = {
   russo2026: 'Russo M 외. Estimation of the Knee Joint with Single-Camera Smartphone. Sensors 2026. doi:10.3390/s26072148',
   cheng2025: 'Cheng X 외. Reliability and validity of computer vision based motion capture systems in gait analysis: systematic review. Gait Posture 2025. doi:10.1016/j.gaitpost.2025.04.016',
   wegner2026: 'Wegner M 외. 2D video-based pose estimation app vs markerless 3D motion capture in knee osteoarthritis. Front Bioeng Biotechnol 2026. doi:10.3389/fbioe.2026.1869878',
+  cooper1968: 'Cooper KH. A means of assessing maximal oxygen intake: correlation between field and treadmill testing. JAMA 1968;203(3):201-4. PMID 5694044',
+  mcnaughton1998: 'McNaughton L 외. Validation of several methods of estimating maximal oxygen uptake in young men. Percept Mot Skills 1998. doi:10.2466/pms.1998.87.2.575',
   ikenaga2017: 'Ikenaga M 외. Short-interval, intermittent, low-intensity, slow-jogging program in older adults: RCT. Eur J Appl Physiol 2017. doi:10.1007/s00421-016-3493-9',
 };
-const ACT = { walk: '걷기', run: '러닝', slowrun: '슬로우 러닝', video: '영상' };
+const ACT = { walk: '걷기', run: '러닝', slowrun: '슬로우 러닝', cooper: '12분 달리기', video: '영상' };
 const VIEW = { side: '옆', front: '앞', back: '뒤' };
 const MET_NOTE = 'MET(대사당량) = 가만히 앉아 쉴 때 쓰는 에너지를 1로 본 운동 강도 단위예요. 3 MET는 쉴 때의 약 3배 에너지를 쓰는 강도예요(1 MET ≈ 몸무게 1kg당 1분에 산소 3.5mL).';
 const INTERVAL_S = 60;   // 슬로우 러닝: 조깅 1분 + 걷기 1분 반복 (Ikenaga 2017)
+const COOPER_S = 720;    // 12분 달리기 테스트 (Cooper 1968)
 const GRADE = {
   g: ['b-g', '정확'], y: ['b-y', '참고'], o: ['b-o', '부정확할 수 있음'], n: ['b-n', '검증 안 됨'],
 };
@@ -64,7 +67,7 @@ ageNote();
 
 // ── 활동 종류 (선택은 이 휴대폰에 기억) ──
 $('act').value = store.get('act', 'walk');
-function showAct() { $('slowNote').classList.toggle('hidden', $('act').value !== 'slowrun'); $('dmodeBox').classList.toggle('hidden', $('act').value === 'slowrun'); }
+function showAct() { const a = $('act').value; $('slowNote').classList.toggle('hidden', a !== 'slowrun'); $('cooperNote').classList.toggle('hidden', a !== 'cooper'); $('dmodeBox').classList.toggle('hidden', a === 'slowrun' || a === 'cooper'); }
 $('act').addEventListener('change', () => { store.set('act', $('act').value); showAct(); });
 showAct();
 
@@ -83,7 +86,7 @@ document.addEventListener('visibilitychange', () => { if (document.hidden && t0)
 // 위치 좌표는 이 휴대폰 안에서 거리 계산에만 쓰고 저장·전송하지 않음
 function startGps() {
   gpsPts = []; gpsDenied = false;
-  if ($('dmode').value !== 'gps' || !navigator.geolocation) return;
+  if (($('dmode').value !== 'gps' && $('act').value !== 'cooper') || !navigator.geolocation) return;   // 12분 테스트는 늘 GPS
   gpsWatch = navigator.geolocation.watchPosition(
     p => gpsPts.push({ t: performance.now(), lat: p.coords.latitude, lon: p.coords.longitude, acc: p.coords.accuracy }),
     e => { if (e.code === 1) gpsDenied = true; },
@@ -96,7 +99,7 @@ function onMotion(e) {
 }
 $('start').addEventListener('click', async () => {
   const act = $('act').value;
-  const useGps = act !== 'slowrun' && $('dmode').value === 'gps';
+  const useGps = act === 'cooper' || (act !== 'slowrun' && $('dmode').value === 'gps');
   if (Native) {
     const st = await Native.requestPermissions({ permissions: useGps ? ['location', 'notifications'] : ['notifications'] }).catch(() => ({}));
     gpsDenied = useGps && st.location !== 'granted';
@@ -118,8 +121,8 @@ $('start').addEventListener('click', async () => {
     if (--left > 0) return ($('recTime').textContent = left);
     clearInterval(timer);
     navigator.vibrate?.(200);
-    $('recTitle').textContent = act === 'walk' ? '걷는 중… 평소처럼 직선으로' : act === 'run' ? '달리는 중… 평소 페이스로' : '조깅 1분';
-    if (Native) Native.start({ gps: useGps && !gpsDenied, intervalSec: act === 'slowrun' ? INTERVAL_S : 0 });   // 앱: 화면 꺼져도 서비스가 진동
+    $('recTitle').textContent = act === 'walk' ? '걷는 중… 평소처럼 직선으로' : act === 'run' ? '달리는 중… 평소 페이스로' : act === 'cooper' ? '12분 동안 최대한 멀리' : '조깅 1분';
+    if (Native) Native.start({ gps: useGps && !gpsDenied, intervalSec: act === 'slowrun' ? INTERVAL_S : 0, endSec: act === 'cooper' ? COOPER_S : 0 });   // endSec: 12분이 되면 서비스가 진동   // 앱: 화면 꺼져도 서비스가 진동
     else window.addEventListener('devicemotion', onMotion);
     t0 = performance.now(); hiddenDuringRec = false;
     let lastPhase = 0;
@@ -131,6 +134,11 @@ $('start').addEventListener('click', async () => {
         $('recTitle').textContent = `${jog ? '조깅' : '걷기'} 1분 · ${INTERVAL_S - Math.floor(el % INTERVAL_S)}초 남음`;
         if (ph !== lastPhase && !Native) navigator.vibrate?.(jog ? [600] : [200, 150, 200]);   // 웹: 조깅 시작 = 길게 1번, 걷기 = 짧게 2번
         lastPhase = ph;
+      }
+      if (act === 'cooper') {
+        const left = Math.max(0, COOPER_S - Math.floor(el));
+        $('recTitle').textContent = `12분 동안 최대한 멀리 · ${Math.floor(left / 60)}분 ${String(left % 60).padStart(2, '0')}초 남음`;
+        if (el >= COOPER_S) { navigator.vibrate?.([600, 200, 600]); return stopRec(); }   // 12분이 되면 자동으로 끝
       }
       const last = gpsPts[gpsPts.length - 1];
       if (Native) $('recHint').textContent = '이제 화면을 꺼도 측정돼요. 알림창에 "걸음 측정 중"이 보이면 정상이에요.';
@@ -177,6 +185,7 @@ function finish(data, demo = false, gps = []) {
   const position = $('pos').value;
   const act = $('act').value;
   if (act === 'slowrun') return finishSlow(data, demo);
+  if (act === 'cooper') return finishCooper(data, gps, demo);
   const res = analyzeWalk(data, { position, activity: act });
   const mode = $('dmode').value;
   let maxGap = 0;
@@ -239,6 +248,43 @@ function finishSlow(data, demo) {
   renderHistory();
 }
 
+// ── 12분 달리기 테스트: 처음 12분의 GPS 거리 → 쿠퍼 식으로 최대산소섭취량 추정 ──
+function finishCooper(data, gps, demo) {
+  shownDate = null;
+  const t0s = data[0].t, end = t0s + COOPER_S * 1000, position = $('pos').value;
+  const run = data.filter(p => p.t <= end);                                // 앱은 화면이 꺼져 있어 12분 뒤에 끝을 눌러도 앞 12분만 씀
+  const durS = (run[run.length - 1].t - t0s) / 1000;
+  const g = gpsDenied && !demo ? null : gpsDistance(gps.filter(p => p.t >= t0s && p.t <= end));
+  if (!g) return showHtml(`<h2>다시 측정해 주세요</h2><div class="warn">GPS로 거리를 재지 못했어요. 위치 권한을 허용하고, 하늘이 트인 운동장이나 트랙에서 해 주세요.</div>`);
+  const res = analyzeWalk(run, { position, activity: 'run' }), full = durS >= COOPER_S - 15;   // 15초쯤 일찍 끝난 건 12분으로 봄
+  const rec = { date: new Date().toISOString(), activity: 'cooper', position, practice: false, distance: g.dist, durS, medAcc: g.medAcc,
+    speed: g.dist / durS, vo2: full ? (g.dist - 504.9) / 44.73 : null,
+    cadence: res.error ? null : res.cadence, steps: res.error ? null : res.steps, activeS: res.error ? durS : res.activeS, warnings: [] };
+  if (!demo && consent?.share && ENDPOINT) rec.receipt = send(rec);
+  const hist = store.get('history', []);
+  hist.unshift(rec); store.set('history', hist.slice(0, 200));
+  shownDate = rec.date;
+  renderCooper(rec);
+  renderHistory();
+}
+function renderCooper(r) {
+  let html = `<h2>12분 달리기 테스트 결과</h2>`;
+  if (r.vo2 == null) html += `<div class="warn">12분을 다 채우지 않아(${(r.durS / 60).toFixed(1)}분) 최대산소섭취량은 추정하지 않았어요.</div>`;
+  html += metric({ title: '달린 거리', value: Math.round(r.distance).toLocaleString(), unit: `m · 평균 페이스 ${paceText(r.speed)}/km`, grade: r.medAcc > 10 ? 'o' : 'y',
+    body: `<div class="sub">${(r.durS / 60).toFixed(1)}분 · 위치 오차 약 ${Math.round(r.medAcc)}m · 10초씩 묶은 GPS 점을 이은 거리</div>`,
+    why: ['휴대폰 GPS는 보통 수 m 오차가 있고, 굽은 길에서는 거리가 조금 짧게 나올 수 있어 "참고"예요. 거리가 표시된 트랙이면 바퀴 수로 확인해 보세요.'], refs: [] });
+  if (r.vo2 != null) html += metric({ title: '최대산소섭취량 추정', value: r.vo2.toFixed(1), unit: 'mL/kg/분', grade: 'o',
+    body: `<div class="sub">계산식: (거리 ${Math.round(r.distance)}m − 504.9) ÷ 44.73 = ${r.vo2.toFixed(1)}</div>`,
+    why: ['Cooper 1968: 12분 동안 달린 거리로 실험실에서 잰 최대산소섭취량을 추정하는 식이에요. 원문 초록이 PubMed에 없어서, 식은 여러 자료에 똑같이 인용된 값을 썼어요.',
+      'McNaughton 1998: 젊은 남성 32명에서 12분 달리기 추정값과 실험실 측정값의 상관 0.87',
+      '힘껏 달렸을 때만 맞는 식이고 GPS 거리 오차가 그대로 들어가서 "부정확할 수 있음"이에요. 나이·성별 기준표와 비교해 판정하지 않아요.'],
+    refs: ['cooper1968', 'mcnaughton1998'] });
+  if (r.cadence) html += metric({ title: '러닝 케이던스', value: r.cadence.toFixed(0), unit: '걸음/분', grade: 'y', why: ['주머니 스마트폰의 달리기 케이던스 검증 연구는 아직 못 찾아 "참고"'], refs: ['neumann16'] });
+  if (r.receipt) html += `<div class="sub" style="margin-top:12px">익명 결과를 보냈어요. 접수번호 <b>${r.receipt}</b></div>`;
+  html += `<div class="sub" style="margin-top:12px">이 결과는 의료 진단이 아니에요. 힘껏 달리는 테스트라 심장·폐·관절 질환이 있거나 평소 운동을 안 했다면 먼저 전문가와 상의하세요. 가슴 통증·어지럼이 있으면 바로 멈추세요.</div>`;
+  showHtml(html);
+}
+
 // ── 익명 결과 보내기 (선택 동의 2개를 모두 한 사람만) ──
 // 구글 Apps Script 웹앱 주소. 비어 있으면 아무것도 보내지 않음 (설정법: apps_script.gs)
 const ENDPOINT = 'https://script.google.com/macros/s/AKfycbwLfXvMoqIPDkmemDjQ5oJWhaDDKboetKlxkU603xABxQqTPjzvr1hN3Iyhb9km3OCb/exec';
@@ -263,7 +309,7 @@ function send(r) {
 }
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v31';
+const APP_VERSION = 'v32';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -536,6 +582,10 @@ function cardRows(h) {
     push('조깅한 시간', f(h.activeS / 60, 1), '분', `걷기 ${f(h.walkS / 60, 1)}분`);
     const wk = weekSlowJogMin(store.get('history', []));
     push('이번 주 조깅', f(wk), '분', `Ikenaga 2017 연구의 주간량 90분 중 ${Math.round(Math.min(1, wk / 90) * 100)}%`);
+  } else if (act === 'cooper') {
+    push('12분 달린 거리', Math.round(h.distance).toLocaleString(), 'm', `평균 페이스 ${paceText(h.speed)}/km · GPS로 잰 참고값`);
+    if (h.vo2 != null) push('최대산소섭취량 추정', f(h.vo2, 1), 'mL/kg/분', '(거리 − 504.9) ÷ 44.73 · Cooper 1968 · 부정확할 수 있음');
+    if (h.cadence) push('러닝 케이던스', f(h.cadence), '걸음/분', '주머니 스마트폰으로 잰 참고값');
   } else if (h.view === 'side') {
     const m = h.r.m;
     push('유각기 무릎 굽힘', f(m.kneeSwingMax), '°', `Perry 약 60° · ${vs(m.kneeSwingMax, 60, BEND)} — 발끝이 바닥에 걸리지 않게 하는 굽힘`);
@@ -644,6 +694,7 @@ function showHtml(html) {
 // ── 전문 용어 풀이: 화면에 처음 나오는 용어에 점선 밑줄, 누르면 아래에 쉬운 뜻 ──
 const GLOSS = {
   '케이던스': '1분 동안 걷거나 달린 걸음 수예요. 발이 땅에 닿는 횟수를 세요.',
+  '최대산소섭취량': '몸이 1분 동안 쓸 수 있는 산소의 최대량이에요. 몸무게 1kg당 mL로 나타내고, 심폐 지구력을 보는 대표 지표예요.',
   'MET': '대사당량. 가만히 앉아 쉴 때 쓰는 에너지를 1로 본 운동 강도 단위예요. 3 MET는 쉴 때의 약 3배 에너지를 써요.',
   '중강도': '숨이 조금 차지만 대화는 할 수 있는 정도의 운동 강도예요(약 3~6 MET 미만).',
   '고강도': '숨이 차서 말을 길게 하기 어려운 정도의 운동 강도예요(약 6 MET 이상).',
@@ -778,16 +829,17 @@ let calMonth = new Date(); calMonth.setDate(1); let calSel = dayKey(new Date());
 function renderWeek() {
   const hist = store.get('history', []), byDay = {};
   hist.forEach((h, i) => (byDay[dayKey(h.date)] ??= []).push(i));
+  const dot = a => a === 'cooper' ? 'run' : a;                               // 12분 테스트는 러닝 색 점
   const y = calMonth.getFullYear(), mo = calMonth.getMonth(), end = new Date(y, mo + 1, 1), today = dayKey(new Date());
   let cells = '';
   for (let d = monOf(new Date(y, mo, 1)); d < end || d.getDay() !== 1; d.setDate(d.getDate() + 1)) {   // 월요일부터, 마지막 주는 일요일까지 채움
-    const k = dayKey(d), list = byDay[k] ?? [], acts = [...new Set(list.map(i => hist[i].activity ?? 'walk'))];
+    const k = dayKey(d), list = byDay[k] ?? [], acts = [...new Set(list.map(i => dot(hist[i].activity ?? 'walk')))];
     cells += `<button class="cday${d.getMonth() !== mo ? ' out' : ''}${k === today ? ' today' : ''}${k === calSel ? ' sel' : ''}" data-d="${k}"
       aria-label="${d.getMonth() + 1}월 ${d.getDate()}일 기록 ${list.length}개"><span>${d.getDate()}</span><i>${acts.map(a => `<b style="background:${ACT_C[a]}"></b>`).join('')}</i></button>`;
   }
   // 고른 날의 기록
   const sel = new Date(calSel + 'T00:00'), selList = byDay[calSel] ?? [];
-  const val = h => h.activity === 'video' ? `${VIEW[h.view]}모습 영상` : h.cadence != null ? `${h.cadence.toFixed(0)} 걸음/분` : '';
+  const val = h => h.activity === 'video' ? `${VIEW[h.view]}모습 영상` : h.activity === 'cooper' ? `${Math.round(h.distance)} m` : h.cadence != null ? `${h.cadence.toFixed(0)} 걸음/분` : '';
   const recs = selList.length ? selList.map(i => { const h = hist[i];
       return `<button class="dayrec" data-i="${i}"><span>${ACT[h.activity ?? 'walk']}${h.practice ? ' <span class="sub">(연습)</span>' : ''}</span>
         <span>${val(h)} <span class="sub">${new Date(h.date).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })} ›</span></span></button>`; }).join('')
@@ -835,7 +887,7 @@ function sumRows(st, month) {
 }
 function calChart(start, end, mo) {                                       // 카드 아래 달력: 날짜마다 활동 종류별 점 + 색 설명
   const acts = {};
-  for (const h of store.get('history', [])) (acts[dayKey(h.date)] ??= new Set()).add(h.activity ?? 'walk');
+  for (const h of store.get('history', [])) { const a = h.activity ?? 'walk'; (acts[dayKey(h.date)] ??= new Set()).add(a === 'cooper' ? 'run' : a); }
   const days = []; for (let d = new Date(start); d < end; d.setDate(d.getDate() + 1)) days.push(new Date(d));
   const weeks = Math.ceil(days.length / 7);
   return { h: 60 + weeks * 64 + 44, draw: (g, x, y, w, _h, F) => {
@@ -969,7 +1021,7 @@ function showRecord(i) {
   if (act === 'video') { setTab('video'); renderVideo(h.r); $('vresult').insertAdjacentHTML('afterbegin', banner); return; }
   setTab('measure');
   const prev = hist.slice(i + 1).find(x => !x.practice && (x.activity ?? 'walk') === act);
-  if (act === 'slowrun') renderSlow(h, hist); else if (act === 'run') renderRun(h, prev); else render(h, prev);
+  if (act === 'slowrun') renderSlow(h, hist); else if (act === 'cooper') renderCooper(h); else if (act === 'run') renderRun(h, prev); else render(h, prev);
   $('result').insertAdjacentHTML('afterbegin', banner);
 }
 

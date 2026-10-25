@@ -155,10 +155,7 @@ function haversine(a, b) {
 // 위치 떨림이 거리로 쌓이지 않게 10초씩 묶어 평균 낸 점들을 이음
 // ponytail: 10초보다 짧게 꺾이는 길은 모서리가 잘려 조금 짧게 나옴 → 필요하면 칼만 필터·도플러 속도로 교체
 const GPS_BLOCK_MS = 10000;
-export function gpsSpeed(result, points) {
-  if (result.error) return { gpsError: 'noWalk' };
-  const pts = points.filter(p => p.acc <= GPS_MAX_ACC && p.t >= result.steadyFrom && p.t <= result.steadyTo);
-  if (pts.length < 2) return { gpsError: 'noFix' };
+function blockPath(pts) {
   const blocks = [];
   for (const p of pts) {
     const b = (blocks[Math.floor((p.t - pts[0].t) / GPS_BLOCK_MS)] ??= { t: 0, lat: 0, lon: 0, n: 0 });
@@ -167,9 +164,21 @@ export function gpsSpeed(result, points) {
   const c = blocks.filter(Boolean).map(b => ({ t: b.t / b.n, lat: b.lat / b.n, lon: b.lon / b.n }));
   let dist = 0;
   for (let i = 1; i < c.length; i++) dist += haversine(c[i - 1], c[i]);
-  const durS = c.length > 1 ? (c[c.length - 1].t - c[0].t) / 1000 : 0;
   const accs = pts.map(p => p.acc).sort((a, b) => a - b);
-  const medAcc = accs[accs.length >> 1];
+  return { dist, durS: c.length > 1 ? (c[c.length - 1].t - c[0].t) / 1000 : 0, medAcc: accs[accs.length >> 1], blocks: c.length };
+}
+// 12분 달리기 테스트: 기간 안의 GPS 점 전체로 달린 거리 (멈춘 구간도 포함)
+export function gpsDistance(points) {
+  const pts = points.filter(p => p.acc <= GPS_MAX_ACC);
+  if (pts.length < 2) return null;
+  const r = blockPath(pts);
+  return r.blocks < 2 ? null : r;
+}
+export function gpsSpeed(result, points) {
+  if (result.error) return { gpsError: 'noWalk' };
+  const pts = points.filter(p => p.acc <= GPS_MAX_ACC && p.t >= result.steadyFrom && p.t <= result.steadyTo);
+  if (pts.length < 2) return { gpsError: 'noFix' };
+  const { dist, durS, medAcc } = blockPath(pts);
   if (durS < GPS_MIN_S || dist < GPS_MIN_M) return { gpsError: 'tooShort', gpsDurS: durS, gpsDist: dist, medAcc };
   const speed = dist / durS;
   // 거리는 걸은 구간 전체로 환산 (출발·멈춤 포함 시간 × 꾸준한 속도라 약간 길게 나올 수 있음)
