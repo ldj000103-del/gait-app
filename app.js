@@ -373,7 +373,7 @@ function send(r) {
 }
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v47';
+const APP_VERSION = 'v48';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -767,7 +767,7 @@ const shareBtn = date => `<button class="ghost sharebtn" data-date="${date}" sty
 // ── 지도에서 경로 보기 (카카오맵, 위치정보법 검토: 노션 법률 검토 7번) ──
 // 누를 때만 지도를 불러옴. 경로 좌표는 방금 측정한 결과 화면에서만 쓰고 저장·전송하지 않음
 // 키: 카카오 개발자 사이트에서 JavaScript 키 발급 + 웹 도메인(https://ldj000103-del.github.io) 등록. 비어 있으면 버튼을 숨김
-const KAKAO_KEY = '';
+const KAKAO_KEY = '2df85317dc9c2ac32b9f29bc1f8ba478';   // 공개용 키(등록한 도메인에서만 작동). 카카오 개발자 앱 '걸음 분석' ID 1621825
 let route = null, kakaoLoad = null;
 function routeBox() {
   if (!KAKAO_KEY || !(route?.length > 1)) return '';
