@@ -8,12 +8,12 @@ const bump = (p, c, w) => Math.exp(-(((p - c) / w) ** 2));
 const blank = () => Array.from({ length: 33 }, () => ({ x: 0.5, y: 0.5, v: 0.9 }));
 
 // 옆모습: Perry 비슷한 곡선 (무릎 최대 60° at 70%, 넓적다리 ±20°)
-function sideFrames({ dir = 1, strideS = 1.1, secs = 6, fps = 30 }) {
+function sideFrames({ dir = 1, strideS = 1.1, secs = 6, fps = 30, kneeBase = 5 }) {
   const frames = [];
   for (let i = 0; i < secs * fps; i++) {
     const t = i / fps, p = (t / strideS) % 1;
     const thigh = 20 * Math.cos(2 * Math.PI * p);
-    const knee = 5 + 13 * bump(p, 0.12, 0.06) + 55 * bump(p, 0.7, 0.1);
+    const knee = kneeBase + 13 * bump(p, 0.12, 0.06) + 55 * bump(p, 0.7, 0.1);
     const ank = -10 * bump(p, 0.07, 0.04) + 10 * bump(p, 0.4, 0.08) - 20 * bump(p, 0.62, 0.05);
     const hip = { x: 200 + dir * 120 * t + (dir < 0 ? 900 : 0), y: 300 };
     const kn = { x: hip.x + dir * 150 * Math.sin(thigh * R), y: hip.y + 150 * Math.cos(thigh * R) };
@@ -66,4 +66,10 @@ for (const view of ['front', 'back']) {
   assert.ok(Math.abs(m.valgusL - 8) < 0.8 && Math.abs(m.valgusR) < 0.8, '무릎');
 }
 assert.equal(analyzeSide(sideFrames({}).slice(0, 10), W, H).error, 'noPerson');
+// 무릎이 뒤로 젖혀지는 걸음(입각기 −10°): 방향을 구분해 음수로 잡아야 함 (예전 방식은 +10°로 나왔음)
+for (const dir of [1, -1]) {
+  const m = analyzeSide(sideFrames({ dir, kneeBase: -10 }), W, H).m;
+  console.log(`뒤로 젖혀짐(${dir > 0 ? '→' : '←'}): 입각기 무릎 최소 ${m.kneeStanceMin.toFixed(1)}°(정답 −10), 유각 최대 ${m.kneeSwingMax.toFixed(1)}°`);
+  assert.ok(Math.abs(m.kneeStanceMin + 10) < 3, '과신전은 음수');
+}
 console.log('영상 분석 점검 통과');

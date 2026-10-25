@@ -25,6 +25,10 @@ const REF = {
   lee2014: 'Lee DC 외. Leisure-time running reduces all-cause and cardiovascular mortality risk. J Am Coll Cardiol 2014. doi:10.1016/j.jacc.2014.04.058',
   pedisic2019: 'Pedisic Z 외. Is running associated with a lower risk of all-cause, cardiovascular and cancer mortality? Br J Sports Med 2020. doi:10.1136/bjsports-2018-100493',
   perry9: 'Perry J. Gait Analysis. 1992, 9장(다리 전체 기능: 단계별 관절 각도)',
+  perry4: 'Perry J. Gait Analysis. 1992, 4장(발목·발: 3개의 흔들의자)',
+  perry5: 'Perry J. Gait Analysis. 1992, 5장(무릎: 체중 받기 때 대퇴사두근의 제동)',
+  perry10: 'Perry J. Gait Analysis. 1992, 10장(병적 보행의 원인)',
+  perry12: 'Perry J. Gait Analysis. 1992, 12장(무릎의 비정상 보행: 과신전)',
   perry17: 'Perry J. Gait Analysis. 1992, 17장(동작 분석: 카메라 1대의 한계)',
   russo2026: 'Russo M 외. Estimation of the Knee Joint with Single-Camera Smartphone. Sensors 2026. doi:10.3390/s26072148',
   cheng2025: 'Cheng X 외. Reliability and validity of computer vision based motion capture systems in gait analysis: systematic review. Gait Posture 2025. doi:10.1016/j.gaitpost.2025.04.016',
@@ -303,7 +307,7 @@ function send(r) {
 }
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v37';
+const APP_VERSION = 'v38';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -583,7 +587,7 @@ function cardRows(h) {
     const m = h.r.m;
     push('유각기 무릎 굽힘', f(m.kneeSwingMax), '°', `Perry 약 60° · ${vs(m.kneeSwingMax, 60, BEND)} — 발끝이 바닥에 걸리지 않게 하는 굽힘`);
     push('체중 받기 무릎 굽힘', f(m.kneeLoad), '°', `Perry 15~18° · ${vs(m.kneeLoad, 16, BEND)} — 충격 흡수`);
-    push('입각기 무릎 폄', f(m.kneeStanceMin), '°', `Perry 약 5° · ${vs(m.kneeStanceMin, 5, ['덜 펴도 됨', '더 펴야 함'])}`);
+    push('입각기 무릎 폄', f(m.kneeStanceMin), '°', `Perry 약 5° · ${extTxt(m.kneeStanceMin).replace(/^\(|\)$/g, '')}`);
     push('넓적다리 뒤로 젖힘', f(m.thighExt), '°', `Perry 약 20° · ${vs(m.thighExt, 20, ['더 뒤로 젖혀야 함', '덜 젖혀도 됨'])} — 한걸음 길이`);
   } else {
     const m = h.r.m, d0 = x => f(x) ?? '-';
@@ -1044,9 +1048,10 @@ function showRecord(i) {
 const VGUIDE = {
   side: ['휴대폰을 <b>허리 높이</b>에 세워 고정해요(누가 들어 주거나 물건에 기대기). 세로보다 <b>가로</b>로 찍으면 더 많이 담겨요.',
     '걷는 길에서 <b>3~4m 떨어져 옆에서</b> 찍어요. 화면 끝에서 끝까지 <b>4~5m 지나가며 3걸음 이상</b> 담기게 해요.',
-    '머리부터 발끝까지 보이게, 밝은 곳에서. 반바지나 몸에 붙는 옷이 잘 잡혀요. 10~20초면 충분해요.'],
-  front: ['휴대폰을 <b>허리 높이, 정면</b>에 고정해요.', '<b>6~8m 떨어진 곳에서 카메라 쪽으로</b> 평소처럼 걸어와요.', '머리부터 발끝까지 보이게, 밝은 곳에서. 10~20초면 충분해요.'],
-  back: ['휴대폰을 <b>허리 높이</b>에 고정해요.', '카메라 바로 앞에서 출발해 <b>6~8m 멀어지며</b> 평소처럼 걸어가요.', '머리부터 발끝까지 보이게, 밝은 곳에서. 10~20초면 충분해요.'],
+    '머리부터 발끝까지 보이게, 밝은 곳에서. 반바지나 몸에 붙는 옷이 잘 잡혀요. 10~20초면 충분해요.',
+    '걷는 사람은 바닥이나 휴대폰 말고 <b>앞쪽 목표물</b>(문, 벽의 표시 등)을 보며 평소처럼 걸어요.'],
+  front: ['휴대폰을 <b>허리 높이, 정면</b>에 고정해요.', '<b>6~8m 떨어진 곳에서 카메라 쪽으로</b> 평소처럼 걸어와요.', '머리부터 발끝까지 보이게, 밝은 곳에서. 10~20초면 충분해요.', '걷는 사람은 바닥이나 휴대폰 말고 <b>앞쪽 목표물</b>(문, 벽의 표시 등)을 보며 평소처럼 걸어요.'],
+  back: ['휴대폰을 <b>허리 높이</b>에 고정해요.', '카메라 바로 앞에서 출발해 <b>6~8m 멀어지며</b> 평소처럼 걸어가요.', '머리부터 발끝까지 보이게, 밝은 곳에서. 10~20초면 충분해요.', '걷는 사람은 바닥이나 휴대폰 말고 <b>앞쪽 목표물</b>(문, 벽의 표시 등)을 보며 평소처럼 걸어요.'],
 };
 function showVGuide() { $('vguide').innerHTML = VGUIDE[$('vview').value].map(x => `<li>${x}</li>`).join(''); }
 $('vview').value = store.get('vview', 'side');
@@ -1120,6 +1125,28 @@ const hw = (a, ref, w) => a == null || Number.isNaN(a) ? '' : `(${hint(a - ref, 
 const dif = (a, ref, w) => a == null || Number.isNaN(a) ? '-'
   : (d => `${a.toFixed(0)}° − ${ref}° = <b>${d > 0 ? '+' : ''}${d}°</b>${w ? ` (${hint(a - ref, w)})` : ''}`)(Math.round(a - ref));
 const BEND = ['더 굽혀야 함', '덜 굽혀도 됨'];
+// 입각기 무릎 폄: 0°보다 더 펴지면(음수) "뒤로 젖혀짐"이라고 사실만 (영상 오차 약 4° 안은 0°로 봄)
+const extTxt = a => a == null || Number.isNaN(a) ? '' : a < -4 ? `(0°보다 ${Math.round(-a)}° 더 펴짐 · 뒤로 젖혀짐)` : a < 0 ? '(거의 0°, 영상 오차 안)' : hw(a, 5, ['덜 펴도 됨', '더 펴야 함']);
+// 보행 8단계 막대 인형: Perry 9장 표의 단계별 넓적다리·무릎·발목 각도로 앱이 직접 그림 + 그 단계의 내 무릎 굽힘
+const PHASES = [   // [이름, 보행 주기 %, 넓적다리(앞 +), 무릎 굽힘, 발목(발등 +)]
+  ['첫 닿기', 1, 20, 3, 0], ['체중 받기', 6, 20, 16, -10], ['중간 입각', 20, 0, 5, 5], ['말기 입각', 40, -20, 3, 10],
+  ['유각 전', 55, 0, 40, -20], ['초기 유각', 67, 20, 60, -10], ['중간 유각', 79, 25, 30, 0], ['말기 유각', 93, 20, 3, 0]];
+function phaseFigures(curve) {
+  const r = d => d * Math.PI / 180, pt = (p, a, L) => [p[0] + L * Math.sin(r(a)), p[1] + L * Math.cos(r(a))];
+  const cells = PHASES.map(([name, q, th, kn, an], i) => {
+    const ox = (i % 4) * 80, oy = Math.floor(i / 4) * 140, hip = [ox + 36, oy + 44];
+    const knee = pt(hip, th, 30), ankle = pt(knee, th - kn, 30), toe = pt(ankle, th - kn + 90 + an, 12);
+    const mine = curve?.[q], f = n => n.map(v => v.toFixed(1)).join(',');
+    return `<g><circle cx="${hip[0]}" cy="${oy + 8}" r="5" fill="none" stroke="currentColor" stroke-width="1.5"/>
+      <polyline points="${f(hip)} ${hip[0]},${oy + 14}" stroke="currentColor" stroke-width="2"/>
+      <polyline points="${f(hip)} ${f(knee)} ${f(ankle)} ${f(toe)}" fill="none" stroke="var(--accent)" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+      <line x1="${ox + 6}" x2="${ox + 74}" y1="${oy + 106}" y2="${oy + 106}" stroke="currentColor" opacity=".2"/>
+      <text x="${ox + 40}" y="${oy + 120}" font-size="10" font-weight="700" text-anchor="middle" fill="currentColor">${name}</text>
+      <text x="${ox + 40}" y="${oy + 133}" font-size="9" text-anchor="middle" fill="currentColor" opacity=".75">Perry ${kn}°${mine == null || Number.isNaN(mine) ? '' : ` · 나 ${Math.round(mine)}°`}</text></g>`;
+  }).join('');
+  return `<svg class="chart" viewBox="0 0 320 280" role="img" aria-label="보행 8단계 자세와 단계별 무릎 굽힘">${cells}</svg>
+    <div class="sub">걷는 방향 → · 초록 다리 = Perry 9장 표의 단계별 기준 자세(앱이 각도로 직접 그린 그림) · 숫자 = 그 단계의 무릎 굽힘 (Perry 기준 · 이번 영상)</div>`;
+}
 function videoRecs(r) {
   const m = r.m, lim = '카메라 1대로 찍은 2D 영상이라 다리가 돌아가 있으면 굽힘 각도가 작게 찍혀요(Perry 17장). 원인 판단은 전문가에게.';
   if (r.view === 'side') return [
@@ -1129,14 +1156,17 @@ function videoRecs(r) {
         'Perry 5장: 초기 유각에 굽힘이 15°에 못 미치면 다리가 덜 나가고 발끝이 바닥에 끌릴 수 있음'], limit: lim, refs: ['perry9', 'perry17'] }),
     recCard({ title: '체중 받기 무릎 굽힘 (충격 흡수)', calc: [`이번 − Perry 약 16° → ${dif(m.kneeLoad, 16, ['더 굽혀야 함(충격 흡수)', '덜 굽혀도 됨'])} · 기준 범위 15~18°`],
       facts: [`Perry 4장: 발이 닿고 0.02초 만에 체중 60%가 실림. 무릎 약 15° 굽힘${hw(m.kneeLoad, 16, ['더 굽혀야 함', '덜 굽혀도 됨'])}, 발목 발바닥굽힘 10°, 반대쪽 골반 4° 내려감으로 충격을 흡수`,
-        'Perry 5장의 구분: 체중 받기 때 25° 넘게 굽으면 "굽힘 과다"로 봄'], limit: lim, refs: ['perry9'] }),
-    recCard({ title: '입각기 무릎 펴기', calc: [`이번 최소 − Perry 약 5° → ${dif(m.kneeStanceMin, 5, ['덜 펴도 됨', '더 펴야 함'])}`],
-      facts: [`Perry 5장: 말기 입각에 무릎이 약 5°까지 펴짐${hw(m.kneeStanceMin, 5, ['덜 펴도 됨', '더 펴야 함'])}. 10° 이내로 펴지지 않으면 "폄 부족"으로 봄`, 'Perry 5장: 말기 유각에 덜 펴지면 걸음 길이가 짧아짐'], limit: lim, refs: ['perry9'] }),
+        'Perry 5장: 이 굽힘은 허벅지 앞 근육(대퇴사두근)이 늘어나며 버티는 힘으로 무릎이 "뚝 꺾이지 않게 천천히" 조절해서 생겨요. 그 덕분에 바닥에서 받는 힘이 체중의 약 120%로 줄어요',
+        'Perry 5장의 구분: 체중 받기 때 25° 넘게 굽으면 "굽힘 과다"로 봄'], limit: lim, refs: ['perry9', 'perry5'] }),
+    recCard({ title: '입각기 무릎 펴기', calc: [m.kneeStanceMin < 0 ? `이번 최소 ${m.kneeStanceMin.toFixed(0)}° ${extTxt(m.kneeStanceMin)}` : `이번 최소 − Perry 약 5° → ${dif(m.kneeStanceMin, 5, ['덜 펴도 됨', '더 펴야 함'])}`],
+      facts: [`Perry 5장: 말기 입각에 무릎이 약 5°까지 펴짐${extTxt(m.kneeStanceMin)}. 10° 이내로 펴지지 않으면 "폄 부족"으로 봄`, 'Perry 5장: 말기 유각에 덜 펴지면 걸음 길이가 짧아짐',
+        ...(m.kneeStanceMin < -4 ? ['Perry 12장: 입각기에 무릎이 0°보다 더 펴져 뒤로 젖혀지는 것을 "과신전(반장슬)"이라고 해요. 원인은 여러 가지라 이 앱은 판단하지 않아요'] : [])],
+      limit: lim, refs: ['perry9', ...(m.kneeStanceMin < -4 ? ['perry12'] : [])] }),
     recCard({ title: '넓적다리 뒤로 젖히기 (한걸음 길이)', grade: 'o', calc: [`뒤로 젖힘: 이번 − Perry 약 20° → ${dif(m.thighExt, 20, ['더 뒤로 젖혀야 함', '덜 젖혀도 됨'])}`, `앞으로 굽힘: 이번 − Perry 약 20° → ${dif(m.thighFlex, 20, ['더 앞으로 들어야 함', '덜 들어도 됨'])}`],
       facts: [`Perry 6장: 말기 입각에 넓적다리가 수직에서 뒤로 약 20° 젖혀짐${hw(m.thighExt, 20, ['더 뒤로 젖혀야 함', '덜 젖혀도 됨'])}`, 'Perry 6장: 이 젖힘이 부족하면 한걸음 길이가 짧아짐', 'Perry 6장: 첫 닿기 때 고관절 굽힘 약 30°(넓적다리 약 20°)는 미끄러짐과 안정성 사이의 최적 타협'],
       limit: lim + ' 넓적다리 각도는 영상 정확도가 낮은 편이에요(Wegner 2026).', refs: ['perry9', 'wegner2026'] }),
     recCard({ title: '발목 (밀어내기)', grade: 'o', calc: [`발등굽힘: 이번 − Perry 약 10° → ${dif(m.ankleDF, 10, ['더 발등 쪽으로 굽혀야 함(정강이를 앞으로)', '덜 굽혀도 됨'])}`, `발바닥굽힘: 이번 − Perry 약 20° → ${dif(m.anklePF, 20, ['더 발끝으로 밀어내야 함', '덜 밀어내도 됨'])}`],
-      facts: [`Perry 4장: 말기 입각에 뒤꿈치가 들리며 발목 발등굽힘 약 10°${hw(m.ankleDF, 10, ['더 발등 쪽으로 굽혀야 함', '덜 굽혀도 됨'])}. 앞발을 축으로 굴러가는 이 동작(앞발 흔들의자)이 가장 강한 추진력`, 'Perry 4장: 중간 입각 30%까지 발등굽힘이 5° 이상 되는지 봄'],
+      facts: ['Perry 4장: 뒤꿈치가 닿은 뒤에는 정강이 앞 근육이 발이 "탁" 떨어지지 않게 천천히 내려놓아요(뒤꿈치 흔들의자)', `Perry 4장: 말기 입각에 뒤꿈치가 들리며 발목 발등굽힘 약 10°${hw(m.ankleDF, 10, ['더 발등 쪽으로 굽혀야 함', '덜 굽혀도 됨'])}. 앞발을 축으로 굴러가는 이 동작(앞발 흔들의자)이 가장 강한 추진력`, 'Perry 4장: 중간 입각 30%까지 발등굽힘이 5° 이상 되는지 봄'],
       limit: lim + ' 발목 각도는 영상 정확도가 낮아요(Russo 2026, Cheng 2025).', refs: ['perry9', 'russo2026', 'cheng2025'] }),
   ];
   const lr = (a, b) => { if (a == null || b == null) return '-'; const d = Math.abs(a - b);
@@ -1157,7 +1187,7 @@ function renderVideo(r, dur) {
     const m = r.m;
     html += `<h2>영상 분석 결과 · 옆모습</h2><div class="sub">${r.side === 'l' ? '왼' : '오른'}쪽 다리(카메라 쪽) · 보행 주기 ${r.nCycles}개 평균 · 다리가 잡힌 장면 ${Math.round(r.validFrac * 100)}%</div>`;
     html += metric({ title: '무릎 각도', value: f0(m.kneeSwingMax), unit: `유각기 최대 굽힘 (보행 주기 ${m.kneeSwingAt}%)`, grade: 'y',
-      body: `${kneeChart(r.curves.knee)}<div class="calc">이번 값 / Perry 9장 기준<br>첫 닿기 ${f0(m.kneeIC)} / 0~5°<br>체중 받기 최대 ${f0(m.kneeLoad)} / 15~18°<br>입각기 최소 ${f0(m.kneeStanceMin)} / 약 5°<br>유각기 최대 ${f0(m.kneeSwingMax)} / 약 60°(초기 유각)</div>`,
+      body: `${kneeChart(r.curves.knee)}${phaseFigures(r.curves.knee)}<div class="calc">이번 값 / Perry 9장 기준<br>첫 닿기 ${f0(m.kneeIC)} / 0~5°<br>체중 받기 최대 ${f0(m.kneeLoad)} / 15~18°<br>입각기 최소 ${f0(m.kneeStanceMin)} / 약 5° ${extTxt(m.kneeStanceMin)}<br>유각기 최대 ${f0(m.kneeSwingMax)} / 약 60°(초기 유각)</div>`,
       why: ['무릎 각도 = 180° − (엉덩이·무릎·발목 세 점이 이루는 각). Perry 17장: 영상에서 가장 잘 잡히는 관절',
         'Russo 2026: 스마트폰 + 같은 종류의 자세 인식(MediaPipe)으로 무릎 굽힘 평균 오차 3.2~4.1°',
         'Wegner 2026: 무릎 곡선 모양은 잘 맞지만 정확한 절대 각도보다 같은 사람의 변화 추적에 알맞음',
@@ -1266,6 +1296,8 @@ const LEARN = [
   ['느리게 달려도 될까요?', ['Lee 2014(55,137명, 평균 15년): 하루 5~10분, 시속 9.7km 미만으로 달려도 달리지 않는 사람보다 전체 사망 30%, 심혈관 사망 45% 낮음', 'Pedisic 2020 메타분석(232,149명): 달리기 참여 시 전체 사망 27% 낮음. 빈도·시간·속도·총량이 늘어도 추가 이득은 확인되지 않음'], '관찰 연구라 인과관계는 아님', ['lee2014', 'pedisic2019']],
   ['슬로우 러닝 (조깅 1분 + 걷기 1분)', ['Ikenaga 2017 무작위 연구(평균 70.8세, 81명): 걷기 속도의 조깅 1분 + 걷기 1분 반복, 주 90분 조깅 + 90분 걷기를 12주', '결과: 무산소역치(지구력) +15.7%(대조군 +4.9%), 앉았다 일어서기 +12.9%(대조군 +4.5%), 허벅지 근육 속 지방 감소'], '노인 대상 12주 소규모 연구', ['ikenaga2017']],
   ['영상으로 본 무릎 각도', ['Perry 4·5장: 초기 유각에 무릎이 약 60° 굽혀져야 발끝이 바닥에 걸리지 않음. 이 굽힘은 거의 근육 없이 관성으로 만들어짐', 'Perry 4장: 발이 닿고 0.02초 만에 체중 60%가 실림. 무릎 약 15° 굽힘으로 충격을 흡수', 'Perry 17장: 다리가 돌아가 있으면 카메라 1대의 각도는 실제와 달라질 수 있어요'], '휴대폰 카메라 1대의 각도는 참고값', ['perry9', 'perry17']],
+  ['발이 굴러가는 흔들의자 3개', ['Perry 4장: 한 발이 땅을 딛는 동안 몸이 굴러가는 축이 3번 바뀌어요. 흔들의자 다리처럼 둥근 곳을 축으로 몸이 앞으로 굴러가서 덜컹거리지 않고 부드럽게 나아가요', '① 뒤꿈치 흔들의자(체중 받기): 뒤꿈치를 축으로 발바닥이 내려와요. 정강이 앞 근육이 발이 "탁" 떨어지지 않게 천천히 내려놓아요', '② 발목 흔들의자(중간 입각): 발은 바닥에 붙은 채 정강이가 앞으로 기울어요. 가자미근이 너무 빨리 넘어가지 않게 속도를 조절해요', '③ 앞발 흔들의자(말기 입각): 발가락 뿌리를 축으로 뒤꿈치가 들려요. 걸을 때 가장 강한 추진력이 여기서 나와요'], '영상의 발목 각도는 정확도가 낮아서 흔들의자를 직접 재지는 않아요', ['perry4']],
+  ['걸음이 달라지는 원인 (교육용)', ['Perry 10장: 병은 달라도 걸음에 주는 영향은 몇 가지로 나뉘어요 — 관절 변형(굳음), 근력 약화, 감각 소실, 통증, 운동 조절 장애', '근력 약화: 감각과 조절이 괜찮으면 다른 동작으로 아주 잘 보완해요. 느리게 걷는 것도 보완 방법이에요', '감각 소실: 관절 위치를 잘 몰라서 무릎을 잠그거나 바닥을 세게 디디며 느리고 조심스럽게 걸어요', '통증: 관절이 부으면 압력이 가장 낮은 자세(무릎 굽힘 30~45° 등)로 굳어요'], '이 앱은 원인을 판단하지 않아요. 내 걸음이 어떤 경우인지는 전문가가 직접 봐야 알 수 있어요', ['perry10']],
 ];
 $('learn').innerHTML = LEARN.map(([t, facts, limit, refs]) => `<details style="margin-top:10px"><summary>${t}</summary><ul class="sub" style="padding-left:18px;margin:6px 0">${facts.map(f => `<li>${f}</li>`).join('')}</ul>${limit ? `<div class="sub">한계: ${limit}</div>` : ''}<div class="sub" style="font-size:.75rem;margin-top:4px">출처: ${refs.map(k => REF[k]).join(' / ')}</div></details>`).join('');
 markTerms($('learn'));

@@ -31,13 +31,15 @@ export function analyzeSide(frames, W, H) {
   const dir = pts.length > 1 && midHipX(pts[pts.length - 1]) >= midHipX(pts[0]) ? 1 : -1;   // 오른쪽으로 걸으면 +1
 
   const rows = [];
+  // 무릎이 엉덩이–발목 선보다 걷는 방향 쪽에 있으면 굽힘(+), 반대쪽이면 뒤로 젖혀짐(−, Perry 12장 과신전)
+  const kneeSign = (hip, knee, ankle) => dir * (knee.x - (hip.x + (ankle.x - hip.x) * (knee.y - hip.y) / ((ankle.y - hip.y) || 1))) >= 0 ? 1 : -1;
   for (const f of pts) {
     const [hip, knee, ankle, heel, toe] = ['Hip', 'Knee', 'Ankle', 'Heel', 'Toe'].map(k => f.p[ix(k)]);
     if ([hip, knee, ankle].some(q => q.v < VIS)) continue;
     const footOk = heel.v >= VIS && toe.v >= VIS;
     rows.push({
       t: f.t,
-      knee: 180 - angleAt(hip, knee, ankle),                                       // 무릎 굽힘
+      knee: kneeSign(hip, knee, ankle) * (180 - angleAt(hip, knee, ankle)),       // 무릎 굽힘 (뒤로 젖혀지면 −)
       thigh: deg(Math.atan2(dir * (knee.x - hip.x), knee.y - hip.y)),              // 넓적다리: 수직 기준, 앞으로 = +
       ankle: footOk ? 90 - between([knee.x - ankle.x, knee.y - ankle.y], [toe.x - heel.x, toe.y - heel.y]) : NaN,   // 발등굽힘 = +, 발이 안 잡히면 빈칸
       fwd: dir * (ankle.x - hip.x) / Math.hypot(knee.x - hip.x, knee.y - hip.y),  // 발이 엉덩이보다 얼마나 앞에 (넓적다리 길이 단위)
