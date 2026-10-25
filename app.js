@@ -146,10 +146,11 @@ $('start').addEventListener('click', async () => {
 function runRec(act) {
   const { startWall } = store.get('rec', {});
   $('recTitle').textContent = act === 'walk' ? '걷는 중… 평소처럼 직선으로' : act === 'run' ? '달리는 중… 평소 페이스로' : act === 'cooper' ? '12분 동안 최대한 멀리' : '조깅 1분';
-  t0 = startWall;
-  let lastPhase = Math.floor((Date.now() - startWall) / 1000 / INTERVAL_S);
+  t0 = startWall; liveSteps = 0; $('recLive').textContent = '';
+  let lastPhase = Math.floor((Date.now() - startWall) / 1000 / INTERVAL_S), tick = 0;
     timer = setInterval(() => {
       const el = (Date.now() - startWall) / 1000;
+      if (++tick % 6 === 0) updateLive(act, el);
       $('recTime').textContent = Math.round(el) + '초';
       if (act === 'slowrun') {
         const ph = Math.floor(el / INTERVAL_S), jog = ph % 2 === 0;
@@ -168,6 +169,22 @@ function runRec(act) {
         : last ? `GPS 오차 약 ${Math.round(last.acc)}m · 속도를 재려면 야외에서 1분 이상 걸어 주세요` : 'GPS 신호 찾는 중… (실내에서는 잘 안 잡혀요)';
     }, 500);
 }
+// 측정 중 실시간 값 (아버님 피드백: 재는 동안 값이 안 보여 답답함). 최종 결과는 끝낸 뒤 전체로 다시 계산
+let liveSteps = 0;
+async function updateLive(act, el) {
+  let s, g;
+  if (Native) { try { ({ samples: s, gps: g } = await Native.peek({ sec: 20 })); } catch { return; } }   // 0.10 이하 앱엔 peek가 없음 → 조용히 넘어감
+  else { const cut = (samples[samples.length - 1]?.t ?? 0) - 20000; s = samples.filter(p => p.t >= cut); g = gpsPts; }
+  if (!t0) return;
+  const jog = act === 'slowrun' ? Math.floor(el / INTERVAL_S) % 2 === 0 : act !== 'walk';
+  const r = s?.length > 50 ? analyzeWalk(s, { position: $('pos').value, activity: jog ? 'run' : 'walk' }) : { error: 'tooShort' };
+  const parts = [];
+  if (!r.error) { liveSteps += r.cadence * 3 / 60; parts.push(`지금 케이던스 약 ${Math.round(r.cadence)}걸음/분`, `걸음 약 ${Math.round(liveSteps).toLocaleString()}`); }
+  else parts.push('걸음 신호 찾는 중…');
+  const d = g?.length > 1 ? gpsDistance(g) : null;
+  if (d) parts.push(`GPS 거리 약 ${Math.round(d.dist).toLocaleString()}m`);
+  $('recLive').textContent = parts.join(' · ');
+}
 // 웹앱은 화면이 켜진 채 주머니에 있으니 실수로 눌리지 않게 1초 길게 눌러야 끝
 let holdTimer = null;
 // 설치형 앱은 화면을 끄고 걸어서 실수로 눌릴 일이 없으니 한 번 누르면 끝
@@ -178,8 +195,12 @@ if (Native) {
     <li>멈춰서 화면을 켜고 <b>끝</b>을 눌러요.</li>`;
 }
 else {
-$('stop').addEventListener('pointerdown', () => { $('stop').textContent = '계속 누르고 있어요…'; holdTimer = setTimeout(stopRec, 1000); });
-for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) $('stop').addEventListener(ev, () => { clearTimeout(holdTimer); $('stop').textContent = '끝 (1초 길게 누르기)'; });
+let holdStart = 0;
+$('stop').addEventListener('pointerdown', () => { holdStart = Date.now(); $('stop').textContent = '계속 누르고 있어요…'; holdTimer = setTimeout(stopRec, 1000); });
+for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) $('stop').addEventListener(ev, () => {
+  clearTimeout(holdTimer);
+  $('stop').textContent = ev === 'pointerup' && t0 && Date.now() - holdStart < 1000 ? '아직 측정 중이에요 · 1초 동안 꾹 눌러야 끝나요' : '끝 (1초 길게 누르기)';   // 짧게 누르고 끝난 줄 알면 안 되니까
+});
 }
 $('stop').addEventListener('contextmenu', e => e.preventDefault());
 async function stopRec() {
@@ -225,7 +246,7 @@ function finish(data, demo = false, gps = []) {
   }
   if (res.error) {
     const msg = { tooShort: '측정 시간이 너무 짧아요(8초 이상).', noWalk: '걷는 움직임을 찾지 못했어요. 휴대폰을 주머니에 넣고 6초 이상 걸어 주세요.', irregular: '반복되는 걸음 신호를 찾지 못했어요.' }[res.error];
-    showHtml(`<h2>다시 측정해 주세요</h2><div class="warn">${msg}</div>${diagHtml}`);
+    showHtml(`<h2>다시 측정해 주세요</h2><div class="warn">${msg} 그래서 이번 측정은 기록에 저장하지 않았어요.</div>${diagHtml}`);
     return;
   }
   const today = new Date().toLocaleDateString('sv-SE');                  // 휴대폰 시간대 기준 YYYY-MM-DD
@@ -234,8 +255,7 @@ function finish(data, demo = false, gps = []) {
   const dist = mode === 'manual' ? parseFloat($('dist').value) || null : null;
   const d = mode === 'gps' ? (gpsDenied && !demo ? { gpsError: 'denied' } : gpsSpeed(res, gps)) : withDistance(res, dist);
   const rec = { date: new Date().toISOString(), start: Date.now() - durS * 1000, activity: act, position, practice, ...res, distance: dist, ...d, distSource: d.speed ? mode : null, diag, diagHtml };
-  if (!demo && consent?.share && ENDPOINT) rec.receipt = send(rec);
-  hist.unshift(rec); store.set('history', hist.slice(0, 200));
+  saveRec(rec, hist, demo);
   shownDate = rec.date;
   const prev = hist.find(h => !h.practice && h !== rec && (h.activity ?? 'walk') === act);
   act === 'run' ? renderRun(rec, prev) : render(rec, prev);
@@ -263,8 +283,7 @@ function finishSlow(data, demo) {
     steps: sum(segs, 'steps'), activeS: sum(jogs, 'activeS'), walkS: sum(walks, 'activeS'),
     regularity: avg(jogs, 'regularity'), jogCount: jogs.length, warnings: [],
     diag: { src: Native ? 'app' : 'web', durS: (data[data.length - 1].t - t0s) / 1000, hz: data.length / Math.max(1, (data[data.length - 1].t - t0s) / 1000), gapS: 0, gpsGood: 0 } };
-  if (!demo && consent?.share && ENDPOINT) rec.receipt = send(rec);
-  hist.unshift(rec); store.set('history', hist.slice(0, 200));
+  saveRec(rec, hist, demo);
   shownDate = rec.date;
   renderSlow(rec, hist);
   renderHistory();
@@ -283,9 +302,7 @@ function finishCooper(data, gps, demo) {
   const rec = { date: new Date().toISOString(), start: Date.now() - (data[data.length - 1].t - t0s), activity: 'cooper', position, practice: false, distance: g.dist, durS, medAcc: g.medAcc,
     speed: g.dist / durS, full,
     cadence: res.error ? null : res.cadence, steps: res.error ? null : res.steps, activeS: res.error ? durS : res.activeS, warnings: [] };
-  if (!demo && consent?.share && ENDPOINT) rec.receipt = send(rec);
-  const hist = store.get('history', []);
-  hist.unshift(rec); store.set('history', hist.slice(0, 200));
+  saveRec(rec, store.get('history', []), demo);
   shownDate = rec.date;
   renderCooper(rec);
   renderHistory();
@@ -305,11 +322,17 @@ function renderCooper(r) {
 // ── 익명 결과 보내기 (선택 동의 2개를 모두 한 사람만) ──
 // 구글 Apps Script 웹앱 주소. 비어 있으면 아무것도 보내지 않음 (설정법: apps_script.gs)
 const ENDPOINT = 'https://script.google.com/macros/s/AKfycbwLfXvMoqIPDkmemDjQ5oJWhaDDKboetKlxkU603xABxQqTPjzvr1hN3Iyhb9km3OCb/exec';
+// 기록을 먼저 휴대폰에 저장하고, 익명 전송은 그다음에. 전송에서 어떤 오류가 나도 기록은 남음
+function saveRec(rec, hist, demo) {
+  hist.unshift(rec); store.set('history', hist.slice(0, 200));
+  if (demo || !consent?.share || !ENDPOINT) return;
+  try { rec.receipt = send(rec); store.set('history', hist.slice(0, 200)); } catch {}
+}
 function send(r) {
   const { sex, age } = store.get('profile', {});
   if (under14(age)) return null;                                           // 개인정보 보호법 제22조의2: 만 14세 미만은 법정대리인 동의가 필요해서 보내지 않음
   const ua = navigator.userAgent;
-  const receipt = crypto.randomUUID().slice(0, 8);                       // 삭제 요청용 접수번호, 개인과 연결 안 됨
+  const receipt = (crypto.randomUUID?.() ?? Math.random().toString(16).slice(2) + Date.now().toString(16)).slice(0, 8);   // 오래된 폰은 randomUUID가 없음                       // 삭제 요청용 접수번호, 개인과 연결 안 됨
   const num = (x, d) => x == null ? '' : +x.toFixed(d);                  // 12분 테스트는 케이던스·규칙성·측정 정보가 없을 수 있음
   const body = {
     receipt, date: new Date(r.date).toLocaleDateString('sv-SE'), appVersion: APP_VERSION,           // 시각은 빼고 날짜만 (식별 가능성 낮춤)
@@ -327,7 +350,7 @@ function send(r) {
 }
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v44';
+const APP_VERSION = 'v45';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');

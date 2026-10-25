@@ -39,6 +39,24 @@ public class GaitRecorderPlugin extends Plugin {
         call.resolve(ret);
     }
 
+    // 측정을 멈추지 않고 최근 sec초 가속도 + 지금까지 GPS (측정 중 화면에 실시간 값 표시용)
+    @PluginMethod
+    public void peek(PluginCall call) {
+        double sec = call.getInt("sec", 20);
+        List<double[]> tail = new java.util.ArrayList<>();
+        synchronized (GaitService.ACC) {
+            int n = GaitService.ACC.size();
+            if (n > 0) {
+                double cut = GaitService.ACC.get(n - 1)[0] - sec * 1000;
+                for (int i = n - 1; i >= 0 && GaitService.ACC.get(i)[0] >= cut; i--) tail.add(0, GaitService.ACC.get(i));
+            }
+        }
+        JSObject ret = new JSObject();
+        ret.put("samples", toArray(tail, new String[]{"t", "x", "y", "z"}));
+        ret.put("gps", toArray(GaitService.GPS, new String[]{"t", "lat", "lon", "acc"}));
+        call.resolve(ret);
+    }
+
     private static JSArray toArray(List<double[]> rows, String[] keys) {
         JSArray out = new JSArray();
         synchronized (rows) {

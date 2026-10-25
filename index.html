@@ -142,7 +142,7 @@
   body.recording main > h1, body.recording main > .sub { display:none; }
   body.recording #rec { position:fixed; inset:0; margin:0; border:0; border-radius:0; background:#000; color:#555;
                         display:flex; flex-direction:column; justify-content:center; padding:24px; }
-  body.recording #rec .sub { color:#444; }
+  body.recording #rec .sub { color:#444; } body.recording #recLive { color:#8a918e; }
   body.recording #stop { background:#111; color:#666; border:1px solid #222; margin-top:40vh; }
   ol.guide { padding-left:20px; margin:6px 0; } ol.guide li { margin:3px 0; }
 </style>
@@ -297,6 +297,7 @@
   <section class="card hidden" id="rec" data-tab="measure">
     <h2 id="recTitle">준비…</h2>
     <div class="big" id="recTime">0초</div>
+    <div id="recLive" style="font-size:1.0625rem;font-weight:600;margin:4px 0 8px"></div>
     <div class="sub" id="recHint">휴대폰을 주머니에 넣고 걸으세요.</div>
     <button id="stop" style="touch-action:none;user-select:none">끝 (1초 길게 누르기)</button>
   </section>
