@@ -71,7 +71,7 @@ console.log(`GPS 90초: 정답 1.30 → ${g.speed.toFixed(2)} m/s, 걸음 길이
 assert.ok(Math.abs(g.speed - 1.3) / 1.3 < 0.1, `GPS 속도 ${g.speed}`);
 assert.equal(gpsSpeed(r, fakeGps({ walkS: 20 })).gpsError, 'tooShort');      // 20초는 속도 안 냄
 assert.equal(gpsSpeed(long, fakeGps({ walkS: 90, acc: 30 })).gpsError, 'noFix'); // 실내처럼 오차 큼
-// 12분 달리기: 3 m/s로 720초 = 2160m (앞뒤 3초 서 있기 포함), 쿠퍼 식 (2160 − 504.9) ÷ 44.73 ≈ 37.0
+// 12분 달리기: 3 m/s로 720초 = 2160m (앞뒤 3초 서 있기 포함)
 const cd = gpsDistance(fakeGps({ walkS: 720, speed: 3 }));
 console.log(`12분 GPS 거리: 정답 2160 → ${cd.dist.toFixed(0)}m`);
 assert.ok(Math.abs(cd.dist - 2160) / 2160 < 0.03, `12분 거리 ${cd.dist}`);

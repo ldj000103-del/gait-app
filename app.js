@@ -30,7 +30,6 @@ const REF = {
   cheng2025: 'Cheng X 외. Reliability and validity of computer vision based motion capture systems in gait analysis: systematic review. Gait Posture 2025. doi:10.1016/j.gaitpost.2025.04.016',
   wegner2026: 'Wegner M 외. 2D video-based pose estimation app vs markerless 3D motion capture in knee osteoarthritis. Front Bioeng Biotechnol 2026. doi:10.3389/fbioe.2026.1869878',
   cooper1968: 'Cooper KH. A means of assessing maximal oxygen intake: correlation between field and treadmill testing. JAMA 1968;203(3):201-4. PMID 5694044',
-  mcnaughton1998: 'McNaughton L 외. Validation of several methods of estimating maximal oxygen uptake in young men. Percept Mot Skills 1998. doi:10.2466/pms.1998.87.2.575',
   ikenaga2017: 'Ikenaga M 외. Short-interval, intermittent, low-intensity, slow-jogging program in older adults: RCT. Eur J Appl Physiol 2017. doi:10.1007/s00421-016-3493-9',
 };
 const ACT = { walk: '걷기', run: '러닝', slowrun: '슬로우 러닝', cooper: '12분 달리기', video: '영상' };
@@ -248,7 +247,7 @@ function finishSlow(data, demo) {
   renderHistory();
 }
 
-// ── 12분 달리기 테스트: 처음 12분의 GPS 거리 → 쿠퍼 식으로 최대산소섭취량 추정 ──
+// ── 12분 달리기 테스트: 처음 12분의 GPS 거리·페이스 기록 (체력 추정은 의료기기 위험이 있어 하지 않음) ──
 function finishCooper(data, gps, demo) {
   shownDate = null;
   const t0s = data[0].t, end = t0s + COOPER_S * 1000, position = $('pos').value;
@@ -258,7 +257,7 @@ function finishCooper(data, gps, demo) {
   if (!g) return showHtml(`<h2>다시 측정해 주세요</h2><div class="warn">GPS로 거리를 재지 못했어요. 위치 권한을 허용하고, 하늘이 트인 운동장이나 트랙에서 해 주세요.</div>`);
   const res = analyzeWalk(run, { position, activity: 'run' }), full = durS >= COOPER_S - 15;   // 15초쯤 일찍 끝난 건 12분으로 봄
   const rec = { date: new Date().toISOString(), activity: 'cooper', position, practice: false, distance: g.dist, durS, medAcc: g.medAcc,
-    speed: g.dist / durS, vo2: full ? (g.dist - 504.9) / 44.73 : null,
+    speed: g.dist / durS, full,
     cadence: res.error ? null : res.cadence, steps: res.error ? null : res.steps, activeS: res.error ? durS : res.activeS, warnings: [] };
   if (!demo && consent?.share && ENDPOINT) rec.receipt = send(rec);
   const hist = store.get('history', []);
@@ -269,16 +268,10 @@ function finishCooper(data, gps, demo) {
 }
 function renderCooper(r) {
   let html = `<h2>12분 달리기 테스트 결과</h2>`;
-  if (r.vo2 == null) html += `<div class="warn">12분을 다 채우지 않아(${(r.durS / 60).toFixed(1)}분) 최대산소섭취량은 추정하지 않았어요.</div>`;
+  if (r.full === false) html += `<div class="warn">12분을 다 채우지 않았어요(${(r.durS / 60).toFixed(1)}분). 거리는 그 시간 동안의 값이에요.</div>`;
   html += metric({ title: '달린 거리', value: Math.round(r.distance).toLocaleString(), unit: `m · 평균 페이스 ${paceText(r.speed)}/km`, grade: r.medAcc > 10 ? 'o' : 'y',
     body: `<div class="sub">${(r.durS / 60).toFixed(1)}분 · 위치 오차 약 ${Math.round(r.medAcc)}m · 10초씩 묶은 GPS 점을 이은 거리</div>`,
     why: ['휴대폰 GPS는 보통 수 m 오차가 있고, 굽은 길에서는 거리가 조금 짧게 나올 수 있어 "참고"예요. 거리가 표시된 트랙이면 바퀴 수로 확인해 보세요.'], refs: [] });
-  if (r.vo2 != null) html += metric({ title: '최대산소섭취량 추정', value: r.vo2.toFixed(1), unit: 'mL/kg/분', grade: 'o',
-    body: `<div class="sub">계산식: (거리 ${Math.round(r.distance)}m − 504.9) ÷ 44.73 = ${r.vo2.toFixed(1)}</div>`,
-    why: ['Cooper 1968: 12분 동안 달린 거리로 실험실에서 잰 최대산소섭취량을 추정하는 식이에요. 원문 초록이 PubMed에 없어서, 식은 여러 자료에 똑같이 인용된 값을 썼어요.',
-      'McNaughton 1998: 젊은 남성 32명에서 12분 달리기 추정값과 실험실 측정값의 상관 0.87',
-      '힘껏 달렸을 때만 맞는 식이고 GPS 거리 오차가 그대로 들어가서 "부정확할 수 있음"이에요. 나이·성별 기준표와 비교해 판정하지 않아요.'],
-    refs: ['cooper1968', 'mcnaughton1998'] });
   if (r.cadence) html += metric({ title: '러닝 케이던스', value: r.cadence.toFixed(0), unit: '걸음/분', grade: 'y', why: ['주머니 스마트폰의 달리기 케이던스 검증 연구는 아직 못 찾아 "참고"'], refs: ['neumann16'] });
   if (r.receipt) html += `<div class="sub" style="margin-top:12px">익명 결과를 보냈어요. 접수번호 <b>${r.receipt}</b></div>`;
   html += `<div class="sub" style="margin-top:12px">이 결과는 의료 진단이 아니에요. 힘껏 달리는 테스트라 심장·폐·관절 질환이 있거나 평소 운동을 안 했다면 먼저 전문가와 상의하세요. 가슴 통증·어지럼이 있으면 바로 멈추세요.</div>`;
@@ -309,7 +302,7 @@ function send(r) {
 }
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v35';
+const APP_VERSION = 'v36';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -584,7 +577,6 @@ function cardRows(h) {
     push('이번 주 조깅', f(wk), '분', `Ikenaga 2017 연구의 주간량 90분 중 ${Math.round(Math.min(1, wk / 90) * 100)}%`);
   } else if (act === 'cooper') {
     push('12분 달린 거리', Math.round(h.distance).toLocaleString(), 'm', `평균 페이스 ${paceText(h.speed)}/km · GPS로 잰 참고값`);
-    if (h.vo2 != null) push('최대산소섭취량 추정', f(h.vo2, 1), 'mL/kg/분', '(거리 − 504.9) ÷ 44.73 · Cooper 1968 · 부정확할 수 있음');
     if (h.cadence) push('러닝 케이던스', f(h.cadence), '걸음/분', '주머니 스마트폰으로 잰 참고값');
   } else if (h.view === 'side') {
     const m = h.r.m;
@@ -714,7 +706,6 @@ async function heartBox(date) {
 // ── 전문 용어 풀이: 화면에 처음 나오는 용어에 점선 밑줄, 누르면 아래에 쉬운 뜻 ──
 const GLOSS = {
   '케이던스': '1분 동안 걷거나 달린 걸음 수예요. 발이 땅에 닿는 횟수를 세요.',
-  '최대산소섭취량': '몸이 1분 동안 쓸 수 있는 산소의 최대량이에요. 몸무게 1kg당 mL로 나타내고, 심폐 지구력을 보는 대표 지표예요.',
   'MET': '대사당량. 가만히 앉아 쉴 때 쓰는 에너지를 1로 본 운동 강도 단위예요. 3 MET는 쉴 때의 약 3배 에너지를 써요.',
   '중강도': '숨이 조금 차지만 대화는 할 수 있는 정도의 운동 강도예요(약 3~6 MET 미만).',
   '고강도': '숨이 차서 말을 길게 하기 어려운 정도의 운동 강도예요(약 6 MET 이상).',
@@ -1276,7 +1267,6 @@ const LEARN = [
   ['러닝 케이던스를 5~10% 올린 연구', ['Heiderscheit 2011(취미 러너 45명, 같은 속도): +5%에서 무릎이 흡수하는 에너지 감소, +10%에서 엉덩관절 흡수와 엉덩관절 모음 각도·모멘트도 감소. 한걸음 길이·몸의 위아래 움직임·제동충격량·무릎 굽힘 정점 감소', 'Neumann 16장(책 p.795): 케이던스 10% 증가 → 디딤기 무릎넙다리관절 힘 정점 14% 감소', 'Petri 2026 우산 고찰: 연구들의 주된 방법 = 케이던스 5~10%를 점진적으로 올리고 소리·화면 피드백을 서서히 줄이기'], 'Anderson 2022 메타분석: 손상 예방 효과는 아직 근거 부족. 대부분 단기 연구', ['heiderscheit', 'neumann16', 'petri2026', 'anderson2022']],
   ['느리게 달려도 될까요?', ['Lee 2014(55,137명, 평균 15년): 하루 5~10분, 시속 9.7km 미만으로 달려도 달리지 않는 사람보다 전체 사망 30%, 심혈관 사망 45% 낮음', 'Pedisic 2020 메타분석(232,149명): 달리기 참여 시 전체 사망 27% 낮음. 빈도·시간·속도·총량이 늘어도 추가 이득은 확인되지 않음'], '관찰 연구라 인과관계는 아님', ['lee2014', 'pedisic2019']],
   ['슬로우 러닝 (조깅 1분 + 걷기 1분)', ['Ikenaga 2017 무작위 연구(평균 70.8세, 81명): 걷기 속도의 조깅 1분 + 걷기 1분 반복, 주 90분 조깅 + 90분 걷기를 12주', '결과: 무산소역치(지구력) +15.7%(대조군 +4.9%), 앉았다 일어서기 +12.9%(대조군 +4.5%), 허벅지 근육 속 지방 감소'], '노인 대상 12주 소규모 연구', ['ikenaga2017']],
-  ['12분 달리기 테스트', ['Cooper 1968: 12분 동안 달린 거리로 최대산소섭취량을 추정 — (거리 m − 504.9) ÷ 44.73', 'McNaughton 1998: 젊은 남성 32명에서 12분 달리기 추정값과 실험실 측정값의 상관 0.87'], '힘껏 달렸을 때만 맞는 식. 원문 초록이 PubMed에 없어 식은 여러 자료에 똑같이 인용된 값', ['cooper1968', 'mcnaughton1998']],
   ['영상으로 본 무릎 각도', ['Perry 4·5장: 초기 유각에 무릎이 약 60° 굽혀져야 발끝이 바닥에 걸리지 않음. 이 굽힘은 거의 근육 없이 관성으로 만들어짐', 'Perry 4장: 발이 닿고 0.02초 만에 체중 60%가 실림. 무릎 약 15° 굽힘으로 충격을 흡수', 'Perry 17장: 다리가 돌아가 있으면 카메라 1대의 각도는 실제와 달라질 수 있어요'], '휴대폰 카메라 1대의 각도는 참고값', ['perry9', 'perry17']],
 ];
 $('learn').innerHTML = LEARN.map(([t, facts, limit, refs]) => `<details style="margin-top:10px"><summary>${t}</summary><ul class="sub" style="padding-left:18px;margin:6px 0">${facts.map(f => `<li>${f}</li>`).join('')}</ul>${limit ? `<div class="sub">한계: ${limit}</div>` : ''}<div class="sub" style="font-size:.75rem;margin-top:4px">출처: ${refs.map(k => REF[k]).join(' / ')}</div></details>`).join('');
