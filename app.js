@@ -307,7 +307,7 @@ function send(r) {
 }
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v39';
+const APP_VERSION = 'v40';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -820,10 +820,18 @@ document.querySelector('#tabbar').addEventListener('click', e => { const b = e.t
 
 // ── 홈: 요약 카드 · 이번 주 슬로우 조깅 링 · 변화 그래프 ──
 const shortDate = d => new Date(d).toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric' });
-function tile(label, value, unit, sub, i) {
-  if (value == null) return `<div class="tile empty"><div class="k">${label}</div><div class="v">기록 없음</div><div class="d">${sub}</div></div>`;
-  return `<button class="tile" data-i="${i}"><div class="k">${label}</div><div class="v">${value}<small> ${unit}</small></div><div class="d">${sub}</div></button>`;
+// 요약 카드: 색 점 + 이름 / 날짜 → 큰 숫자 + 최근 추세선 → 기준·출처 한 줄
+function spark(vals, color) {                                              // 최근 값 추세선 (축 없이 모양만, 마지막 점 강조)
+  if (vals.length < 2) return '';
+  const lo = Math.min(...vals), hi = Math.max(...vals), X = i => 4 + i * 64 / (vals.length - 1), Y = v => hi === lo ? 16 : 28 - 24 * (v - lo) / (hi - lo);
+  return `<svg width="72" height="32" viewBox="0 0 72 32" aria-hidden="true"><polyline points="${vals.map((v, i) => `${X(i).toFixed(1)},${Y(v).toFixed(1)}`).join(' ')}" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round" opacity=".55"/><circle cx="${X(vals.length - 1)}" cy="${Y(vals[vals.length - 1])}" r="3.5" fill="${color}" stroke="var(--card)" stroke-width="1.5"/></svg>`;
 }
+function mcard({ label, color, date = '', value, unit, sub, i, vals = [] }) {
+  const top = `<div class="mtop"><span class="mlab"><i style="background:${color}"></i>${label}</span><span class="mdate">${date}${i != null && value != null ? ' ›' : ''}</span></div>`;
+  if (value == null) return `<div class="mcard empty">${top}<div class="mrow"><div class="mnum">기록 없음</div></div><div class="msub">${sub}</div></div>`;
+  return `<button class="mcard" ${i != null ? `data-i="${i}"` : ''}>${top}<div class="mrow"><div class="mnum">${value}<small>${unit}</small></div>${spark(vals, color)}</div><div class="msub">${sub}</div></button>`;
+}
+const trendVals = key => store.get('history', []).filter(h => !h.practice).map(TREND[key].pick).filter(v => v != null && !Number.isNaN(v)).slice(0, 7).reverse();
 
 // 주간 통계: 고른 주(월~일) vs 그 전 주, 점수 없이 숫자와 차이만
 const dayKey = d => new Date(d).toLocaleDateString('sv-SE');                 // 2026-10-25 (휴대폰 시간 기준)
@@ -965,11 +973,16 @@ function renderHome() {
   const ir = idx(h => h.activity === 'run'), rn = hist[ir];
   const iv = idx(h => h.activity === 'video' && h.view === 'side' && h.r?.m), vd = hist[iv];
   const delta = (a, b) => b ? ` · 지난번보다 ${a - b >= 0 ? '+' : ''}${(a - b).toFixed(0)}` : '';
+  const md2 = d => d ? md(d) : '';
   $('tiles').innerHTML =
-    tile('최근 걷기 케이던스', w?.cadence.toFixed(0), '걸음/분', w ? `${shortDate(w.date)}${delta(w.cadence, wPrev?.cadence)}` : '측정 탭에서 걸어 보세요', iw) +
-    tile('최근 걷는 속도', sp?.speed.toFixed(2), 'm/s', sp ? `${shortDate(sp.date)} · Perry 성인 평균 1.37` : 'GPS나 거리 입력이 필요해요', is) +
-    tile('최근 러닝 케이던스', rn?.cadence.toFixed(0), '걸음/분', rn ? shortDate(rn.date) : '측정 탭에서 러닝을 골라요', ir) +
-    tile('영상: 유각기 무릎', vd ? vd.r.m.kneeSwingMax.toFixed(0) : null, '°', vd ? `${shortDate(vd.date)} · Perry 약 60°` : '영상 탭에서 옆모습을 찍어요', iv);
+    mcard({ label: '걷기 케이던스', color: 'var(--c-walk)', date: md2(w?.date), value: w?.cadence.toFixed(0), unit: '걸음/분', i: iw, vals: trendVals('walkCad'),
+      sub: w ? `Perry 성인 평균 113${delta(w.cadence, wPrev?.cadence)}` : '측정 탭에서 걸어 보세요' }) +
+    mcard({ label: '걷는 속도', color: 'var(--c-walk)', date: md2(sp?.date), value: sp?.speed.toFixed(2), unit: 'm/s', i: is, vals: trendVals('walkSpeed'),
+      sub: sp ? 'Perry 성인 평균 1.37' : 'GPS나 거리 입력이 필요해요' }) +
+    mcard({ label: '러닝 케이던스', color: 'var(--c-run)', date: md2(rn?.date), value: rn?.cadence.toFixed(0), unit: '걸음/분', i: ir, vals: trendVals('runCad'),
+      sub: rn ? '사람·속도마다 달라 기준선 없이 변화만' : '측정 탭에서 러닝을 골라요' }) +
+    mcard({ label: '영상 · 유각기 무릎', color: 'var(--c-video)', date: md2(vd?.date), value: vd ? vd.r.m.kneeSwingMax.toFixed(0) : null, unit: '°', i: iv, vals: trendVals('knee'),
+      sub: vd ? 'Perry 약 60°' : '영상 탭에서 옆모습을 찍어요' });
   // 링: 이번 주 슬로우 조깅 분 / 연구의 주간량 90분 (Ikenaga 2017)
   const wk = weekSlowJogMin(hist), frac = Math.min(1, wk / 90), C = 2 * Math.PI * 42;
   $('ring').innerHTML = `<svg viewBox="0 0 108 108" role="img" aria-label="이번 주 슬로우 조깅 ${wk.toFixed(0)}분, 90분 중 ${Math.round(frac * 100)}%">
@@ -984,7 +997,7 @@ function renderHome() {
   renderTrend();
   markTerms($('home'));
 }
-$('tiles').addEventListener('click', e => { const t = e.target.closest('.tile[data-i]'); if (t) showRecord(+t.dataset.i); });
+$('tiles').addEventListener('click', e => { const t = e.target.closest('.mcard[data-i]'); if (t) showRecord(+t.dataset.i); });
 
 // 변화 그래프: 선 하나 + 기준선/기준 범위(출처), 점을 누르면 값과 날짜
 const TREND = {
@@ -1279,11 +1292,14 @@ function renderSteps() {
   if (!s.granted && !s.sleep && !s.heart) return ($('steps').innerHTML = `<div class="sub">삼성헬스(갤럭시 워치 포함) 등이 헬스 커넥트(안드로이드의 건강 데이터 창구)에 저장한 걸음 수·수면·심박수를 읽어 와요. 휴대폰 안에서만 쓰고 운영자에게 보내지 않아요.</div>${ask}`);
   const n = stepsByDay[dayKey(new Date())] ?? 0, sl = sleepByDay[dayKey(new Date())];
   const missing = [!s.granted && '걸음 수', !s.sleep && '수면', !s.heart && '심박수'].filter(Boolean);
-  $('steps').innerHTML = (!s.granted ? '' : `<div class="mval">${n.toLocaleString()}<span class="sub"> 걸음</span></div><div class="bar"><i style="width:${Math.min(100, n / 70)}%"></i></div>
-    <div class="sub">7,000걸음 대비 ${Math.round(n / 70)}% · Ding 2025 메타분석: 하루 2,000걸음 대비 7,000걸음에서 전체 사망 위험 47% 낮음 (관찰 연구라 인과관계는 아니에요, 목표 처방도 아니에요)</div>
-    <div class="sub" style="margin-top:4px">헬스 커넥트에서 가져온 값이에요. 계속 0이면 삼성헬스 → 설정 → 헬스 커넥트에서 걸음 수 공유를 켜 주세요.</div>`)
-    + (s.sleep ? `<div class="sub">지난밤 수면 <b>${sl ? `${Math.floor(sl / 60)}시간 ${sl % 60}분` : '기록 없음'}</b> (워치·삼성헬스 기록, 판정하지 않아요)</div>` : '')
-    + (missing.length ? `<div class="sub" style="margin-top:4px">${missing.join('·')} 권한이 꺼져 있어요.</div>${ask}` : '');
+  const week = Array.from({ length: 7 }, (_, k) => stepsByDay[dayKey(plusDays(new Date(), k - 6))] ?? 0);
+  $('steps').innerHTML = (!s.granted ? '' : `<div class="mcard static"><div class="mtop"><span class="mlab"><i style="background:var(--c-walk)"></i>걸음 수</span><span class="mdate">오늘</span></div>
+      <div class="mrow"><div class="mnum">${n.toLocaleString()}<small>걸음</small></div>${spark(week, 'var(--c-walk)')}</div>
+      <div class="bar"><i style="width:${Math.min(100, n / 70)}%"></i></div>
+      <div class="msub" style="margin-top:0">7,000걸음 대비 ${Math.round(n / 70)}% · Ding 2025 · 헬스 커넥트</div>
+      <details class="msub"><summary>근거 보기</summary>Ding 2025 메타분석: 하루 2,000걸음 대비 7,000걸음에서 전체 사망 위험 47% 낮음. 관찰 연구라 인과관계는 아니고, 목표 처방도 아니에요. 계속 0이면 삼성헬스 → 설정 → 헬스 커넥트에서 걸음 수 공유를 켜 주세요.</details></div>`)
+    + (s.sleep ? mcard({ label: '수면', color: 'var(--c-video)', date: '지난밤', value: sl ? `${Math.floor(sl / 60)}<small>시간</small> ${sl % 60}` : null, unit: '분', sub: sl ? '워치·삼성헬스 기록 · 판정하지 않아요' : '워치를 차고 자면 기록돼요' }).replace('<button class="mcard"', '<div class="mcard static"').replace(/<\/button>$/, '</div>') : '')
+    + (missing.length ? `<div class="msub" style="margin-top:8px">${missing.join('·')} 권한이 꺼져 있어요.</div>${ask}` : '');
 }
 $('steps').addEventListener('click', async e => { if (e.target.id === 'stepsOk') { try { await HS.request(); } catch {} loadSteps(); } });
 document.addEventListener('visibilitychange', () => { if (!document.hidden) { loadSteps(); scheduleReminders(); } });

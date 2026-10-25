@@ -11,7 +11,7 @@
 <style>
   /* 색 규칙(디자인 토큰): 바탕·카드·글자·선·주요색 + 정확도 등급 4색 + 그래프 선 */
   :root { --bg:#f4f6f5; --card:#fff; --ink:#121816; --sub:#69736f; --line:#e6eae8; --accent:#1d6b5c; --accent-weak:#e3f1ed;
-          --series:#008a6e; --band:rgba(0,138,110,.10); --radius:14px; --shadow:0 1px 2px rgba(0,0,0,.04), 0 2px 8px rgba(0,0,0,.04);
+          --series:#008a6e; --band:rgba(0,138,110,.10); --radius:16px; --shadow:0 1px 2px rgba(0,0,0,.04), 0 2px 8px rgba(0,0,0,.04);
           --g:#1e8e3e; --y:#b08000; --o:#c4551b; --n:#7a8380;
           --c-walk:#008a6e; --c-run:#2f6fd1; --c-slow:#c46f1c; --c-video:#8a5cd1; }
   @media (prefers-color-scheme: dark) {
@@ -29,7 +29,7 @@
   h2 { font-size:1rem; font-weight:600; letter-spacing:-0.015em; margin:0 0 10px; }
   .sub { color:var(--sub); font-size:.875rem; }
   b, strong { font-weight:600; }
-  .card { background:var(--card); border:1px solid var(--line); border-radius:var(--radius); padding:16px; margin:14px 0; box-shadow:var(--shadow); }
+  .card { background:var(--card); border:0; border-radius:var(--radius); padding:16px; margin:12px 0; box-shadow:var(--shadow); }
   label { display:block; margin:12px 0 6px; font-weight:500; font-size:.875rem; color:var(--sub); }
   select, input { width:100%; font:inherit; padding:10px 12px; border-radius:10px; border:1px solid var(--line);
                   background:var(--bg); color:var(--ink); }
@@ -66,6 +66,16 @@
   #tabbar button[aria-selected="true"] { color:var(--accent); font-weight:600; }
   body.needConsent #tabbar, body.recording #tabbar { display:none; }
   /* 홈: 요약 카드·링·변화 그래프 */
+  .sec { font-size:1.5rem; font-weight:700; letter-spacing:-.03em; margin:18px 2px 4px; }
+  .mcard { display:block; width:100%; background:var(--card); border:0; border-radius:var(--radius); padding:14px 16px; margin:10px 0 0; box-shadow:var(--shadow); text-align:left; color:var(--ink); font-weight:400; cursor:pointer; }
+  .mcard.empty, .mcard.static { cursor:default; }
+  .mtop { display:flex; justify-content:space-between; align-items:center; font-size:.8125rem; }
+  .mlab { font-weight:600; display:flex; align-items:center; gap:6px; } .mlab i { width:8px; height:8px; border-radius:50%; display:inline-block; }
+  .mdate { color:var(--sub); }
+  .mrow { display:flex; justify-content:space-between; align-items:flex-end; gap:12px; margin-top:10px; }
+  .mnum { font-size:2rem; font-weight:700; letter-spacing:-.035em; line-height:1; } .mnum small { font-size:.8125rem; font-weight:500; color:var(--sub); letter-spacing:0; margin-left:3px; }
+  .mcard.empty .mnum { font-size:1rem; color:var(--sub); font-weight:500; letter-spacing:-.01em; }
+  .msub { font-size:.75rem; color:var(--sub); margin-top:8px; line-height:1.5; }
   .tiles { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
   .tile { background:var(--card); border:1px solid var(--line); border-radius:var(--radius); padding:12px; box-shadow:var(--shadow); text-align:left; color:var(--ink); margin:0; font-weight:400; cursor:pointer; }
   .tile .k { font-size:.75rem; color:var(--sub); font-weight:500; } .tile .v { font-size:1.75rem; font-weight:700; letter-spacing:-.03em; line-height:1.2; margin-top:6px; }
@@ -169,11 +179,9 @@
   </section>
 
   <section id="home" data-tab="home">
-    <div class="card" id="stepsCard" hidden>
-      <h2>오늘 걸음 수 · 수면</h2>
-      <div id="steps"></div>
-    </div>
-    <div class="tiles" id="tiles"></div>
+    <div class="sec">요약</div>
+    <div id="stepsCard" hidden><div id="steps"></div></div>
+    <div id="tiles"></div>
     <div class="card">
       <h2>기록 달력</h2>
       <div id="week"></div>
