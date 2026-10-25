@@ -259,10 +259,10 @@ function finish(data, demo = false, gps = []) {
   const practice = act === 'walk' && !hist.some(h => (h.activity ?? 'walk') === 'walk' && new Date(h.date).toLocaleDateString('sv-SE') === today);   // 그날 첫 걷기 측정 = 연습 (Perry 20장)
   const dist = mode === 'manual' ? parseFloat($('dist').value) || null : null;
   const d = mode === 'gps' ? (gpsDenied && !demo ? { gpsError: 'denied' } : gpsSpeed(res, gps)) : withDistance(res, dist);
-  const rec = { date: new Date().toISOString(), start: Date.now() - durS * 1000, activity: act, position, auto, practice, ...res, distance: dist, ...d, distSource: d.speed ? mode : null, diag, diagHtml };
+  const rec = { date: new Date().toISOString(), start: Date.now() - durS * 1000, activity: act, position, auto, practice, route: packRoute(gps), ...res, distance: dist, ...d, distSource: d.speed ? mode : null, diag, diagHtml };
   saveRec(rec, hist, demo);
   shownDate = rec.date;
-  route = gps.filter(p => p.acc <= 20);                                   // 지도용 경로: 이 결과 화면에서만 씀 (rec에 넣지 않음 = 저장·전송 안 함)
+  route = rec.route;
   const prev = hist.find(h => !h.practice && h !== rec && (h.activity ?? 'walk') === act);
   act === 'walk' ? render(rec, prev) : renderRun(rec, prev);
   renderHistory();
@@ -321,12 +321,12 @@ function finishCooper(data, gps, demo, position) {
   if (!g) return showHtml(`<h2>다시 측정해 주세요</h2><div class="warn">GPS로 거리를 재지 못했어요. 위치 권한을 허용하고, 하늘이 트인 운동장이나 트랙에서 해 주세요.</div>`);
   if (g.dist < 100) return showHtml(`<h2>다시 측정해 주세요</h2><div class="warn">GPS 거리가 ${Math.round(g.dist)}m로 너무 짧게 잡혔어요. 하늘이 트인 곳에서 GPS가 잡힌 뒤 달려 주세요.</div>`);
   const res = analyzeWalk(run, { position, activity: 'run' }), full = durS >= COOPER_S - 15;   // 15초쯤 일찍 끝난 건 12분으로 봄
-  const rec = { date: new Date().toISOString(), start: Date.now() - (data[data.length - 1].t - t0s), activity: 'cooper', position, practice: false, distance: g.dist, durS, medAcc: g.medAcc,
+  const rec = { date: new Date().toISOString(), start: Date.now() - (data[data.length - 1].t - t0s), activity: 'cooper', position, practice: false, distance: g.dist, durS, medAcc: g.medAcc, route: packRoute(gps.filter(p => p.t >= t0s && p.t <= end)),
     speed: g.dist / durS, full,
     cadence: res.error ? null : res.cadence, steps: res.error ? null : res.steps, activeS: res.error ? durS : res.activeS, warnings: [] };
   saveRec(rec, store.get('history', []), demo);
   shownDate = rec.date;
-  route = gps.filter(p => p.acc <= 20 && p.t >= t0s && p.t <= end);
+  route = rec.route;
   renderCooper(rec);
   renderHistory();
 }
@@ -347,7 +347,9 @@ function renderCooper(r) {
 const ENDPOINT = 'https://script.google.com/macros/s/AKfycbwLfXvMoqIPDkmemDjQ5oJWhaDDKboetKlxkU603xABxQqTPjzvr1hN3Iyhb9km3OCb/exec';
 // 기록을 먼저 휴대폰에 저장하고, 익명 전송은 그다음에. 전송에서 어떤 오류가 나도 기록은 남음
 function saveRec(rec, hist, demo) {
-  hist.unshift(rec); store.set('history', hist.slice(0, 200));
+  hist.unshift(rec);
+  hist.forEach((h, i) => { if (i >= ROUTE_KEEP) delete h.route; });     // ponytail: 휴대폰 저장 공간(약 5MB) 때문에 최근 30개만. 더 필요하면 IndexedDB로
+  store.set('history', hist.slice(0, 200));
   if (demo || !consent?.share || !ENDPOINT) return;
   try { rec.receipt = send(rec); store.set('history', hist.slice(0, 200)); } catch {}
 }
@@ -373,7 +375,7 @@ function send(r) {
 }
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v48';
+const APP_VERSION = 'v49';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -765,15 +767,22 @@ $('invite').addEventListener('click', async () => {
 const shareBtn = date => `<button class="ghost sharebtn" data-date="${date}" style="margin:4px 0 10px">결과 카드 공유하기</button><div class="sub" style="font-size:.75rem;margin:-4px 0 10px">카드에는 걸음·건강 숫자가 담겨요. 공유하면 받는 사람이 그 숫자를 보게 돼요.</div>`;   // 민감정보가 남에게 보일 수 있음을 공유 전에 알림 (개인정보 보호법 제23조 3항 취지)
 
 // ── 지도에서 경로 보기 (카카오맵, 위치정보법 검토: 노션 법률 검토 7번) ──
-// 누를 때만 지도를 불러옴. 경로 좌표는 방금 측정한 결과 화면에서만 쓰고 저장·전송하지 않음
+// 누를 때만 지도를 불러옴. 경로 좌표는 이 휴대폰의 기록에만 저장(최근 30개)하고 운영자에게 보내지 않음 (send()에 넣지 않음)
 // 키: 카카오 개발자 사이트에서 JavaScript 키 발급 + 웹 도메인(https://ldj000103-del.github.io) 등록. 비어 있으면 버튼을 숨김
 const KAKAO_KEY = '2df85317dc9c2ac32b9f29bc1f8ba478';   // 공개용 키(등록한 도메인에서만 작동). 카카오 개발자 앱 '걸음 분석' ID 1621825
 let route = null, kakaoLoad = null;
+const ROUTE_KEEP = 30;
+// GPS 점 → 5초에 한 점, 소수점 5자리(약 1m)로 줄인 [[위도, 경도], …] (오차 20m 넘는 점은 뺌)
+function packRoute(gps) {
+  const out = []; let last = -Infinity;
+  for (const p of gps) if (p.acc <= 20 && p.t - last >= 5000) { out.push([+p.lat.toFixed(5), +p.lon.toFixed(5)]); last = p.t; }
+  return out.length > 1 ? out : null;
+}
 function routeBox() {
   if (!KAKAO_KEY || !(route?.length > 1)) return '';
   return `<div class="metric" id="routeBox"><div class="mhead"><b>지도에서 경로 보기</b><span class="badge b-y">참고</span></div>
-    <div class="sub">누르면 카카오 지도 서버에서 지도 그림을 받아 와요. 이때 보이는 지역의 대략 위치와 인터넷 주소(IP)가 카카오에 전달돼요. 경로는 이 화면에서만 보여 주고 저장하거나 운영자에게 보내지 않아요. GPS 오차(보통 수 m) 때문에 선이 조금 삐뚤 수 있어요.</div>
-    <button class="ghost" id="routeBtn">지도 불러오기</button><div id="routeMap" class="hidden" style="height:280px;border-radius:10px;margin-top:8px"></div></div>`;
+    <div class="sub">누르면 카카오 지도 서버에서 지도 그림을 받아 와요. 이때 보이는 지역의 대략 위치와 인터넷 주소(IP)가 카카오에 전달돼요. 경로는 이 휴대폰의 기록에만 저장되고(최근 30개 기록) 운영자에게 보내지 않아요. GPS 오차(보통 수 m) 때문에 선이 조금 삐뚤 수 있어요.</div>
+    <button class="ghost" id="routeBtn">지도 불러오기</button> <button class="ghost" id="routeDel">이 경로 지우기</button><div id="routeMap" class="hidden" style="height:280px;border-radius:10px;margin-top:8px"></div></div>`;
 }
 function loadKakao() {
   return kakaoLoad ??= new Promise((ok, no) => {
@@ -784,13 +793,19 @@ function loadKakao() {
     document.head.append(sc);
   });
 }
+document.addEventListener('click', e => {
+  if (!e.target.closest?.('#routeDel') || !confirm('이 기록의 경로를 지울까요? 다른 결과는 그대로 남아요.')) return;
+  const hist = store.get('history', []), h = hist.find(x => x.date === shownDate);
+  if (h) { delete h.route; store.set('history', hist); }
+  route = null; $('routeBox')?.remove();
+});
 document.addEventListener('click', async e => {
   const btn = e.target.closest?.('#routeBtn');
   if (!btn) return;
   const pts = route;
   btn.disabled = true; btn.textContent = '지도 불러오는 중…';
   try { await loadKakao(); } catch { kakaoLoad = null; btn.disabled = false; btn.textContent = '지도를 못 불러왔어요 · 다시 누르기'; return; }
-  const box = $('routeMap'), K = kakao.maps, path = pts.map(p => new K.LatLng(p.lat, p.lon));
+  const box = $('routeMap'), K = kakao.maps, path = pts.map(([lat, lon]) => new K.LatLng(lat, lon));
   box.classList.remove('hidden'); btn.remove();
   const map = new K.Map(box, { center: path[0], level: 4 }), b = new K.LatLngBounds();
   new K.Polyline({ path, strokeWeight: 5, strokeColor: '#1d6b5c', strokeOpacity: 0.9 }).setMap(map);
@@ -1166,7 +1181,7 @@ function showRecord(i) {
   const when = new Date(h.date).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
   const banner = `<div class="sub" style="margin-bottom:6px">지난 기록 다시 보기 · ${when}</div>`;
   const act = h.activity ?? 'walk';
-  shownDate = h.date; route = null;                                       // 지난 기록엔 경로가 없음 (저장 안 함)
+  shownDate = h.date; route = h.route ?? null;
   if (act === 'video') { setTab('video'); renderVideo(h.r); $('vresult').insertAdjacentHTML('afterbegin', banner); return; }
   setTab('measure');
   const prev = hist.slice(i + 1).find(x => !x.practice && (x.activity ?? 'walk') === act);
