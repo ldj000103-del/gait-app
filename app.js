@@ -309,7 +309,7 @@ function send(r) {
 }
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v33';
+const APP_VERSION = 'v34';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -689,6 +689,26 @@ function showHtml(html) {
   if (shownDate) el.querySelector('h2')?.insertAdjacentHTML('afterend', shareBtn(shownDate) + ctxBox(shownDate));
   el.insertAdjacentHTML('beforeend', glossList(markTerms(el)));
   el.classList.remove('hidden'); el.scrollIntoView({ behavior: 'smooth' });
+  if (shownDate) heartBox(shownDate);
+}
+// 측정하는 동안의 워치 심박수 (헬스 커넥트, 설치형 앱): 찾으면 기록에 붙여 두고 결과 화면에 한 칸 추가
+async function heartBox(date) {
+  if (typeof HS === 'undefined' || !HS || !stepsState?.heart) return;
+  const hist = store.get('history', []), h = hist.find(x => x.date === date);
+  if (!h || !['walk', 'run', 'slowrun', 'cooper'].includes(h.activity ?? 'walk')) return;
+  const end = new Date(h.date).getTime(), dur = (h.totalS ?? h.diag?.durS ?? h.durS ?? 0) * 1000;
+  if (!dur) return;
+  try {
+    const r = h.hr ?? await HS.heartRate({ from: end - dur, to: end });
+    if (!r?.avg || shownDate !== date) return;
+    if (!h.hr) { h.hr = { avg: r.avg, max: r.max }; store.set('history', hist); }
+    const html = metric({ title: '워치 심박수 (측정하는 동안)', value: r.avg, unit: `bpm 평균 · 최고 ${r.max ?? '-'}`, grade: 'y',
+      why: ['삼성헬스(갤럭시 워치 등)가 헬스 커넥트에 저장한 심박수 중 이 측정 시간에 해당하는 값의 평균·최고예요. 심박 구간이나 강도로 판정하지 않아요.',
+        '워치 기록은 몇 분 늦게 넘어올 수 있어 측정 직후엔 안 보일 수 있어요. 나중에 기록 탭에서 다시 열면 보여요.',
+        '손목 심박수는 팔을 많이 흔들면 오차가 커질 수 있어 "참고"예요.'], refs: [] });
+    const last = [...$('result').querySelectorAll('.metric')].pop();
+    if (last) last.insertAdjacentHTML('afterend', html);
+  } catch {}
 }
 
 // ── 전문 용어 풀이: 화면에 처음 나오는 용어에 점선 밑줄, 누르면 아래에 쉬운 뜻 ──
@@ -857,7 +877,7 @@ function renderWeek() {
   $('week').innerHTML = `<div class="calhead"><button data-m="-1" aria-label="지난달">‹</button><span>${y}년 ${mo + 1}월</span><button data-m="1" aria-label="다음 달">›</button></div>
     <div class="cal">${['월', '화', '수', '목', '금', '토', '일'].map(w => `<div class="dow">${w}</div>`).join('')}${cells}</div>
     <div class="legend">${Object.entries(ACT_C).map(([a, c]) => `<span><b style="background:${c}"></b>${ACT[a]}</span>`).join('')}</div>
-    <div class="calsec">${sel.getMonth() + 1}월 ${sel.getDate()}일 기록</div>${stepsByDay[calSel] != null ? `<div class="sub">이날 걸음 수 <b>${stepsByDay[calSel].toLocaleString()}</b>걸음 (헬스 커넥트)</div>` : ''}${recs}
+    <div class="calsec">${sel.getMonth() + 1}월 ${sel.getDate()}일 기록</div>${stepsByDay[calSel] != null ? `<div class="sub">이날 걸음 수 <b>${stepsByDay[calSel].toLocaleString()}</b>걸음 (헬스 커넥트)</div>` : ''}${sleepByDay[calSel] ? `<div class="sub">그날 아침까지 잔 시간 <b>${Math.floor(sleepByDay[calSel] / 60)}시간 ${sleepByDay[calSel] % 60}분</b> (워치·삼성헬스)</div>` : ''}${recs}
     <div class="calsec">${thisWeek ? '이번 주' : `${shortDate(mon)}~${shortDate(sun)} 주`} 통계</div>
     <table class="wk"><tr class="sub"><td></td><td class="num">${thisWeek ? '이번 주' : '그 주'}</td><td class="num">전 주 대비</td></tr>
     ${row('측정 횟수', cur.n, prev.n, '회')}${row('걷기 케이던스 평균', cur.walkCad, prev.walkCad, '걸음/분')}${row('걷는 속도 평균', cur.speed, prev.speed, 'm/s', 2)}
@@ -1209,7 +1229,7 @@ if (new URLSearchParams(location.search).has('demo')) {
 
 // ── 하루 걸음 수: 설치형 앱에서 헬스 커넥트(삼성헬스 등이 저장한 걸음 수)를 읽음, 휴대폰 밖으로 안 보냄 ──
 const HS = window.Capacitor?.isNativePlatform?.() ? window.Capacitor.Plugins.HealthSteps : null;
-var stepsByDay = {}, stepsState = null;   // var: 달력이 먼저 그려져도 오류 없이 빈 값으로 보임
+var stepsByDay = {}, sleepByDay = {}, stepsState = null;   // var: 달력이 먼저 그려져도 오류 없이 빈 값으로 보임
 async function loadSteps() {
   if (!HS) return;
   try {
@@ -1218,6 +1238,11 @@ async function loadSteps() {
       const today = new Date(), last = new Date(calMonth.getFullYear(), calMonth.getMonth() + 1, 7);   // 달력에 보이는 다음 달 첫 주까지
       const { days } = await HS.daily({ from: dayKey(monOf(new Date(calMonth.getFullYear(), calMonth.getMonth(), 1))), to: dayKey(last < today ? last : today) });
       for (const d of days) stepsByDay[d.date] = d.steps;
+    }
+    if (stepsState.sleep) {
+      const today = new Date(), last = new Date(calMonth.getFullYear(), calMonth.getMonth() + 1, 7);
+      const { days } = await HS.sleepDaily({ from: dayKey(monOf(new Date(calMonth.getFullYear(), calMonth.getMonth(), 1))), to: dayKey(last < today ? last : today) });
+      for (const d of days) sleepByDay[d.date] = d.min;
     }
   } catch (e) { stepsState = { error: String(e?.message || e) }; }
   renderSteps();
@@ -1230,14 +1255,31 @@ function renderSteps() {
   if (!s) return ($('steps').innerHTML = '<div class="sub">불러오는 중…</div>');
   if (s.error) return ($('steps').innerHTML = `<div class="sub">걸음 수를 읽지 못했어요. (${s.error})</div>`);
   if (!s.available) return ($('steps').innerHTML = `<div class="sub">${s.needsUpdate ? '헬스 커넥트 앱을 플레이스토어에서 업데이트하면' : '이 휴대폰에서는 헬스 커넥트를 쓸 수 없어서'} 걸음 수를 가져올 수 없어요.</div>`);
-  if (!s.granted) return ($('steps').innerHTML = `<div class="sub">삼성헬스 등이 헬스 커넥트(안드로이드의 건강 데이터 창구)에 저장한 걸음 수를 읽어 와요. 휴대폰 안에서만 쓰고 운영자에게 보내지 않아요.</div><button id="stepsOk">걸음 수 연결하기</button>`);
-  const n = stepsByDay[dayKey(new Date())] ?? 0;
-  $('steps').innerHTML = `<div class="mval">${n.toLocaleString()}<span class="sub"> 걸음</span></div><div class="bar"><i style="width:${Math.min(100, n / 70)}%"></i></div>
+  const ask = `<button id="stepsOk">헬스 커넥트 연결하기</button>`;
+  if (!s.granted && !s.sleep && !s.heart) return ($('steps').innerHTML = `<div class="sub">삼성헬스(갤럭시 워치 포함) 등이 헬스 커넥트(안드로이드의 건강 데이터 창구)에 저장한 걸음 수·수면·심박수를 읽어 와요. 휴대폰 안에서만 쓰고 운영자에게 보내지 않아요.</div>${ask}`);
+  const n = stepsByDay[dayKey(new Date())] ?? 0, sl = sleepByDay[dayKey(new Date())];
+  const missing = [!s.granted && '걸음 수', !s.sleep && '수면', !s.heart && '심박수'].filter(Boolean);
+  $('steps').innerHTML = (!s.granted ? '' : `<div class="mval">${n.toLocaleString()}<span class="sub"> 걸음</span></div><div class="bar"><i style="width:${Math.min(100, n / 70)}%"></i></div>
     <div class="sub">7,000걸음 대비 ${Math.round(n / 70)}% · Ding 2025 메타분석: 하루 2,000걸음 대비 7,000걸음에서 전체 사망 위험 47% 낮음 (관찰 연구라 인과관계는 아니에요, 목표 처방도 아니에요)</div>
-    <div class="sub" style="margin-top:4px">헬스 커넥트에서 가져온 값이에요. 계속 0이면 삼성헬스 → 설정 → 헬스 커넥트에서 걸음 수 공유를 켜 주세요.</div>`;
+    <div class="sub" style="margin-top:4px">헬스 커넥트에서 가져온 값이에요. 계속 0이면 삼성헬스 → 설정 → 헬스 커넥트에서 걸음 수 공유를 켜 주세요.</div>`)
+    + (s.sleep ? `<div class="sub">지난밤 수면 <b>${sl ? `${Math.floor(sl / 60)}시간 ${sl % 60}분` : '기록 없음'}</b> (워치·삼성헬스 기록, 판정하지 않아요)</div>` : '')
+    + (missing.length ? `<div class="sub" style="margin-top:4px">${missing.join('·')} 권한이 꺼져 있어요.</div>${ask}` : '');
 }
 $('steps').addEventListener('click', async e => { if (e.target.id === 'stepsOk') { try { await HS.request(); } catch {} loadSteps(); } });
 document.addEventListener('visibilitychange', () => { if (!document.hidden) { loadSteps(); scheduleReminders(); } });
+
+// ── 알아보기: 앱이 이미 쓰는 근거 문장을 주제별로 모음 (새 숫자 없음) ──
+const LEARN = [
+  ['케이던스는 무엇을 보여 주나요?', ['1분 동안 걷거나 달린 걸음 수예요. 발이 땅에 닿는 횟수를 세요.', 'Perry 20장: 성인 평균 113걸음/분 (남 111 / 여 117)', 'CADENCE-Adults(21~60세): 100걸음/분 ≈ 3 MET(중강도), 130 ≈ 6 MET(고강도)', 'CADENCE-Adults(61~85세): 100걸음/분 ≈ 3 MET(중강도), 110 ≈ 4 MET, 120 ≈ 5 MET'], '', ['perry20', 'cadenceAdults']],
+  ['하루 7,000걸음', ['Ding 2025 메타분석(57개 연구): 하루 2,000걸음 대비 7,000걸음에서 전체 사망 위험 47% 낮음, 낙상 28%·치매 38% 낮음', '사망·낙상 등은 약 5,000~7,000걸음 이후 이득이 완만해짐'], '관찰 연구라 인과관계는 아님', ['ding2025']],
+  ['러닝 케이던스를 5~10% 올린 연구', ['Heiderscheit 2011(취미 러너 45명, 같은 속도): +5%에서 무릎이 흡수하는 에너지 감소, +10%에서 엉덩관절 흡수와 엉덩관절 모음 각도·모멘트도 감소. 한걸음 길이·몸의 위아래 움직임·제동충격량·무릎 굽힘 정점 감소', 'Neumann 16장(책 p.795): 케이던스 10% 증가 → 디딤기 무릎넙다리관절 힘 정점 14% 감소', 'Petri 2026 우산 고찰: 연구들의 주된 방법 = 케이던스 5~10%를 점진적으로 올리고 소리·화면 피드백을 서서히 줄이기'], 'Anderson 2022 메타분석: 손상 예방 효과는 아직 근거 부족. 대부분 단기 연구', ['heiderscheit', 'neumann16', 'petri2026', 'anderson2022']],
+  ['느리게 달려도 될까요?', ['Lee 2014(55,137명, 평균 15년): 하루 5~10분, 시속 9.7km 미만으로 달려도 달리지 않는 사람보다 전체 사망 30%, 심혈관 사망 45% 낮음', 'Pedisic 2020 메타분석(232,149명): 달리기 참여 시 전체 사망 27% 낮음. 빈도·시간·속도·총량이 늘어도 추가 이득은 확인되지 않음'], '관찰 연구라 인과관계는 아님', ['lee2014', 'pedisic2019']],
+  ['슬로우 러닝 (조깅 1분 + 걷기 1분)', ['Ikenaga 2017 무작위 연구(평균 70.8세, 81명): 걷기 속도의 조깅 1분 + 걷기 1분 반복, 주 90분 조깅 + 90분 걷기를 12주', '결과: 무산소역치(지구력) +15.7%(대조군 +4.9%), 앉았다 일어서기 +12.9%(대조군 +4.5%), 허벅지 근육 속 지방 감소'], '노인 대상 12주 소규모 연구', ['ikenaga2017']],
+  ['12분 달리기 테스트', ['Cooper 1968: 12분 동안 달린 거리로 최대산소섭취량을 추정 — (거리 m − 504.9) ÷ 44.73', 'McNaughton 1998: 젊은 남성 32명에서 12분 달리기 추정값과 실험실 측정값의 상관 0.87'], '힘껏 달렸을 때만 맞는 식. 원문 초록이 PubMed에 없어 식은 여러 자료에 똑같이 인용된 값', ['cooper1968', 'mcnaughton1998']],
+  ['영상으로 본 무릎 각도', ['Perry 4·5장: 초기 유각에 무릎이 약 60° 굽혀져야 발끝이 바닥에 걸리지 않음. 이 굽힘은 거의 근육 없이 관성으로 만들어짐', 'Perry 4장: 발이 닿고 0.02초 만에 체중 60%가 실림. 무릎 약 15° 굽힘으로 충격을 흡수', 'Perry 17장: 다리가 돌아가 있으면 카메라 1대의 각도는 실제와 달라질 수 있어요'], '휴대폰 카메라 1대의 각도는 참고값', ['perry9', 'perry17']],
+];
+$('learn').innerHTML = LEARN.map(([t, facts, limit, refs]) => `<details style="margin-top:10px"><summary>${t}</summary><ul class="sub" style="padding-left:18px;margin:6px 0">${facts.map(f => `<li>${f}</li>`).join('')}</ul>${limit ? `<div class="sub">한계: ${limit}</div>` : ''}<div class="sub" style="font-size:.75rem;margin-top:4px">출처: ${refs.map(k => REF[k]).join(' / ')}</div></details>`).join('');
+markTerms($('learn'));
 
 // ── 측정 알림: 고른 요일·시간에 이번 주 기록 알림 (설치형 앱, 앱을 열거나 기록할 때마다 숫자를 새로 넣어 다시 예약) ──
 const LN = window.Capacitor?.isNativePlatform?.() ? window.Capacitor.Plugins.LocalNotifications : null;
