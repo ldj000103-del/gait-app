@@ -37,6 +37,7 @@ const REF = {
   ikenaga2017: 'Ikenaga M 외. Short-interval, intermittent, low-intensity, slow-jogging program in older adults: RCT. Eur J Appl Physiol 2017. doi:10.1007/s00421-016-3493-9',
 };
 const ACT = { walk: '걷기', run: '러닝', slowrun: '슬로우 러닝', easyrun: '천천히 달리기', cooper: '12분 달리기', video: '영상', auto: '자동' };
+const isRun = h => h.activity === 'run' || h.activity === 'easyrun';   // 천천히 달리기도 러닝 통계에 넣음
 const POS = { pocket: '바지 앞주머니', waist: '허리', hand: '손' };
 const VIEW = { side: '옆', front: '앞', back: '뒤' };
 const MET_NOTE = 'MET(대사당량) = 가만히 앉아 쉴 때 쓰는 에너지를 1로 본 운동 강도 단위예요. 3 MET는 쉴 때의 약 3배 에너지를 쓰는 강도예요(1 MET ≈ 몸무게 1kg당 1분에 산소 3.5mL).';
@@ -377,7 +378,7 @@ function send(r) {
 }
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v50';
+const APP_VERSION = 'v51';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -989,7 +990,7 @@ const inRange = (hist, a, b) => hist.filter(h => { const t = new Date(h.date); r
 function statOf(list) {
   const walk = list.filter(h => (h.activity ?? 'walk') === 'walk');
   return { n: list.length, days: new Set(list.map(h => dayKey(h.date))).size, walkCad: avgOf(walk.map(h => h.cadence)), speed: avgOf(walk.filter(h => h.speed).map(h => h.speed)),
-    runCad: avgOf(list.filter(h => h.activity === 'run').map(h => h.cadence)),
+    runCad: avgOf(list.filter(isRun).map(h => h.cadence)),
     jog: list.filter(h => h.activity === 'slowrun').reduce((s, h) => s + h.activeS / 60, 0), video: list.filter(h => h.activity === 'video').length };
 }
 function weekSummary(hist, mon = monOf(new Date())) {
@@ -1087,7 +1088,7 @@ function bestRows() {
   if (sp) rows.push({ k: '가장 빠른 걷는 속도', v: sp.speed.toFixed(2), u: 'm/s', n: `${md(sp.date)} · Perry 성인 평균 1.37` });
   const lg = top(walk, h => h.activeS);
   if (lg) rows.push({ k: '가장 오래 걸은 측정', v: (lg.activeS / 60).toFixed(1), u: '분', n: `${md(lg.date)} · 케이던스 ${lg.cadence.toFixed(0)}걸음/분` });
-  const rn = top(hist.filter(h => h.activity === 'run' && h.speed), h => h.speed);
+  const rn = top(hist.filter(h => isRun(h) && h.speed), h => h.speed);
   if (rn) rows.push({ k: '가장 빠른 러닝 페이스', v: paceText(rn.speed), u: '/km', n: `${md(rn.date)} · GPS로 잰 참고값` });
   const wk = {}; for (const h of hist.filter(h => h.activity === 'slowrun')) { const k = dayKey(monOf(h.date)); wk[k] = (wk[k] ?? 0) + h.activeS / 60; }
   const bw = Object.entries(wk).sort((a, b) => b[1] - a[1])[0];
@@ -1118,7 +1119,7 @@ function renderHome() {
   const iw = idx(isWalk), w = hist[iw];
   const wPrev = iw >= 0 ? hist.slice(iw + 1).find(isWalk) : null;
   const is = idx(h => isWalk(h) && h.speed), sp = hist[is];
-  const ir = idx(h => h.activity === 'run'), rn = hist[ir];
+  const ir = idx(isRun), rn = hist[ir];
   const iv = idx(h => h.activity === 'video' && h.view === 'side' && h.r?.m), vd = hist[iv];
   const delta = (a, b) => b ? ` · ${a - b >= 0 ? '+' : ''}${(a - b).toFixed(0)}` : '';
   const md2 = d => d ? md(d) : '';
@@ -1152,7 +1153,7 @@ const TREND = {
   walkCad: { label: '걷기 케이던스', unit: '걸음/분', pick: h => (h.activity ?? 'walk') === 'walk' ? h.cadence : null,
     ref: () => { const { sex } = store.get('profile', {}); const n = sex === 'm' ? 111 : sex === 'f' ? 117 : 113; return { band: [n * 0.9, n * 1.1], text: `회색 띠 = Perry 성인 평균 ${n}걸음/분 ±10%` }; } },
   walkSpeed: { label: '걷는 속도', unit: 'm/s', dec: 2, pick: h => (h.activity ?? 'walk') === 'walk' ? h.speed ?? null : null, ref: () => ({ line: 1.37, text: '점선 = Perry 성인 평균 1.37 m/s' }) },
-  runCad: { label: '러닝 케이던스', unit: '걸음/분', pick: h => h.activity === 'run' ? h.cadence : null, ref: () => ({ text: '러닝 케이던스는 사람·속도마다 달라 기준선 없이 변화만 봐요' }) },
+  runCad: { label: '러닝 케이던스', unit: '걸음/분', pick: h => isRun(h) ? h.cadence : null, ref: () => ({ text: '러닝 케이던스는 사람·속도마다 달라 기준선 없이 변화만 봐요' }) },
   knee: { label: '영상: 유각기 무릎 굽힘', unit: '°', pick: h => h.activity === 'video' && h.view === 'side' ? h.r?.m?.kneeSwingMax ?? null : null, ref: () => ({ line: 60, text: '점선 = Perry 초기 유각 약 60° · 영상 각도는 같은 조건으로 찍어야 비교돼요' }) },
 };
 $('tmetric').value = store.get('tmetric', 'walkCad');
