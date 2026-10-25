@@ -291,13 +291,14 @@ function send(r) {
   if (under14(age)) return null;                                           // 개인정보 보호법 제22조의2: 만 14세 미만은 법정대리인 동의가 필요해서 보내지 않음
   const ua = navigator.userAgent;
   const receipt = crypto.randomUUID().slice(0, 8);                       // 삭제 요청용 접수번호, 개인과 연결 안 됨
+  const num = (x, d) => x == null ? '' : +x.toFixed(d);                  // 12분 테스트는 케이던스·규칙성·측정 정보가 없을 수 있음
   const body = {
     receipt, date: new Date(r.date).toLocaleDateString('sv-SE'), appVersion: APP_VERSION,           // 시각은 빼고 날짜만 (식별 가능성 낮춤)
-    cadence: +r.cadence.toFixed(1), steps: r.steps, activeS: +r.activeS.toFixed(1), regularity: +r.regularity.toFixed(2),
+    cadence: num(r.cadence, 1), steps: r.steps ?? '', activeS: num(r.activeS, 1), regularity: num(r.regularity, 2),
     speed: r.speed ? +r.speed.toFixed(2) : '', stepLength: r.stepLength ? +r.stepLength.toFixed(2) : '', distance: r.distance ? +r.distance.toFixed(1) : '',
     // ponytail: 시트 칸을 늘리려면 Apps Script 재배포가 필요해서 거리 출처(gps)는 warnings 칸에 붙여 보냄
     position: r.position, practice: r.practice, warnings: [r.activity !== 'walk' && r.activity, ...r.warnings, r.distSource === 'gps' && 'gps',
-      `d:${r.diag.src}/${r.diag.durS.toFixed(0)}s/${r.diag.hz.toFixed(0)}hz/gap${r.diag.gapS.toFixed(1)}/gps${r.diag.gpsGood}`].filter(Boolean).join(' '),
+      r.diag && `d:${r.diag.src}/${r.diag.durS.toFixed(0)}s/${r.diag.hz.toFixed(0)}hz/gap${r.diag.gapS.toFixed(1)}/gps${r.diag.gpsGood}`].filter(Boolean).join(' '),
     ageGroup: +age ? Math.floor(+age / 10) * 10 : '', sex: sex || '',
     os: /iPhone|iPad/.test(ua) ? 'iOS' : /Android/.test(ua) ? 'Android' : '기타',
   };
@@ -307,7 +308,7 @@ function send(r) {
 }
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v40';
+const APP_VERSION = 'v41';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -494,8 +495,7 @@ function renderRun(r, prev) {
     refs: ['neumann16', 'shema'] });
   html += metric({ title: '걸음 수', value: r.steps, unit: `걸음 (달린 시간 ${Math.round(r.activeS)}초)`, grade: 'y', why: ['달리기 걸음 수 정확도는 아직 확인 못 함 → "참고"'], refs: [] });
   if (r.speed) {
-    const pace = 1000 / r.speed / 60;
-    html += metric({ title: '속도·페이스', value: r.speed.toFixed(2), unit: `m/s · 페이스 ${Math.floor(pace)}분 ${String(Math.round((pace % 1) * 60)).padStart(2, '0')}초/km`, grade: r.medAcc > 10 ? 'o' : 'y',
+    html += metric({ title: '속도·페이스', value: r.speed.toFixed(2), unit: `m/s · 페이스 ${paceText(r.speed)}/km`, grade: r.medAcc > 10 ? 'o' : 'y',
       body: `<div class="sub">GPS 거리 약 ${r.distance.toFixed(0)}m · 위치 오차 약 ${Math.round(r.medAcc)}m</div>`,
       why: ['GPS로 꾸준히 달린 구간의 이동 거리 ÷ 시간. 휴대폰 GPS 오차(보통 수 m) 때문에 "참고"', 'Neumann 16장: 걷기는 보통 2.5 m/s 이하, 달리기는 2.5~10 m/s 이상'], refs: ['neumann16'] });
   } else if (r.gpsError && r.gpsError !== 'noWalk') html += `<div class="sub" style="margin-top:12px">속도는 GPS 조건(야외, 1분·50m 이상)이 안 돼 계산하지 않았어요.</div>`;
@@ -573,7 +573,7 @@ function cardRows(h) {
     push('걸음 수', String(h.steps), '걸음', `걷는 시간 ${Math.round(h.activeS)}초`);
   } else if (act === 'run') {
     push('러닝 케이던스', f(h.cadence), '걸음/분', `+5% = ${Math.round(h.cadence * 1.05)}, +10% = ${Math.round(h.cadence * 1.1)} (Heiderscheit 2011·Neumann 16장 연구 범위)`);
-    if (h.speed) { const pace = 1000 / h.speed / 60; push('페이스', `${Math.floor(pace)}'${String(Math.round((pace % 1) * 60)).padStart(2, '0')}"`, '/km', `속도 ${f(h.speed, 2)} m/s · GPS로 잰 참고값`); }
+    if (h.speed) { push('페이스', paceText(h.speed), '/km', `속도 ${f(h.speed, 2)} m/s · GPS로 잰 참고값`); }
     push('걸음 수', String(h.steps), '걸음', `달린 시간 ${Math.round(h.activeS)}초`);
   } else if (act === 'slowrun') {
     push('조깅 케이던스', f(h.cadence), '걸음/분', h.walkCadence ? `걷기 구간 ${f(h.walkCadence)}걸음/분` : '조깅 1분 + 걷기 1분');
@@ -697,7 +697,7 @@ async function heartBox(date) {
   const end = h.activity === 'cooper' ? start + h.durS * 1000 : new Date(h.date).getTime();
   if (!(end > start)) return;
   try {
-    const r = h.hr ?? await HS.heartRate({ from: start, to: end });
+    const r = h.hr ?? await HS.heartRate({ from: Math.round(start), to: Math.round(end) });   // 자바 getLong은 소수점 숫자를 못 읽어서 정수로
     if (!r?.avg || shownDate !== date) return;
     if (!h.hr) { h.hr = { avg: r.avg, max: r.max }; store.set('history', hist); }
     const html = metric({ title: '워치 심박수 (측정하는 동안)', value: r.avg, unit: `bpm 평균 · 최고 ${r.max ?? '-'}`, grade: 'y',
@@ -903,7 +903,7 @@ $('week').addEventListener('click', e => {
 const CARD_C = { walk: '#008a6e', run: '#2f6fd1', slowrun: '#c46f1c', video: '#8a5cd1' };   // 화면 달력과 같은 색 (밝은 배경 대비 검증 통과)
 const md = d => { d = new Date(d); return `${d.getMonth() + 1}/${d.getDate()}`; };
 const plusDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
-const paceText = sp => { const p = 1000 / sp / 60; return `${Math.floor(p)}'${String(Math.round((p % 1) * 60)).padStart(2, '0')}"`; };
+const paceText = sp => { const s = Math.round(1000 / sp); return `${Math.floor(s / 60)}'${String(s % 60).padStart(2, '0')}"`; };   // 초를 먼저 반올림해야 5'60" 같은 값이 안 나옴
 function sumRows(st, month) {
   const rows = [{ k: '측정', v: `${st.n}회`, u: '', n: `측정한 날 ${st.days}일 · 연습 측정 제외` }];
   if (st.walkCad != null) rows.push({ k: '걷기 케이던스 평균', v: st.walkCad.toFixed(0), u: '걸음/분', n: 'Perry 성인 평균 113 (남 111 / 여 117)' });

@@ -70,7 +70,7 @@ export function analyzeSide(frames, W, H) {
     for (const key of ['knee', 'thigh', 'ankle']) {
       curve[key] = Array.from({ length: 101 }, (_, q) => {
         const t = rows[a].t + dur * q / 100;
-        let j = seg.findIndex(r => r.t >= t); if (j <= 0) return seg[Math.max(0, j)][key];
+        let j = seg.findIndex(r => r.t >= t); if (j <= 0) return seg[j < 0 ? seg.length - 1 : 0][key];   // 주기 끝(100%)이 소수점 오차로 넘치면 마지막 장면
         const r0 = seg[j - 1], r1 = seg[j], w = (t - r0.t) / (r1.t - r0.t || 1);
         return r0[key] + (r1[key] - r0[key]) * w;
       });
