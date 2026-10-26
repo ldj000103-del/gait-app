@@ -122,6 +122,9 @@ showDmode();
 // 설치형 안드로이드 앱이면 네이티브 기록기(화면이 꺼져도 측정), 아니면 브라우저 센서
 const Native = window.Capacitor?.isNativePlatform?.() ? window.Capacitor.Plugins.GaitRecorder : null;
 if (Native) $('webOnly')?.remove();
+// 웹에서 주머니·허리(또는 자동 짐작)를 고르면 시작 전에 끊김 경고 (데이터: 웹 주머니 측정은 초당 3번·대부분 끊김)
+const showPocketNote = () => $('pocketNote').classList.toggle('hidden', !!Native || $('pos').value === 'hand');
+$('pos').addEventListener('change', showPocketNote); showPocketNote();
 let samples = [], t0 = 0, timer = null, gpsPts = [], gpsWatch = null, gpsDenied = false, wakeLock = null, hiddenDuringRec = false;
 // 휴대폰 브라우저는 화면이 꺼지면 센서·GPS를 멈춤 → 측정 중엔 화면 켜짐 유지, 그래도 꺼지면 기록해 두고 이유를 알려 줌
 // 웹앱은 다른 앱(카톡·전화)으로 가면 센서가 멈추고, 휴대폰이 브라우저를 정리하면 페이지가 닫혀 측정이 사라짐
@@ -326,14 +329,21 @@ function finish(data, demo = false, gps = []) {
   const res = analyzeWalk(data, { position, activity: act === 'walk' ? 'walk' : 'run' });   // 천천히 달리기도 러닝 방식으로 분석
   if (act === 'walk' && !res.error) Object.assign(res, fastMinutes(data, { position, activity: 'walk' }));   // 빠르게 걸은 분 (기록에 같이 저장)
   const mode = $('dmode').value;
-  let maxGap = 0;
-  for (let i = 1; i < data.length; i++) maxGap = Math.max(maxGap, data[i].t - data[i - 1].t);
-  const paused = !demo && ((!Native && hiddenDuringRec) || maxGap > 2000);
+  let maxGap = 0, gapSum = 0;                                              // 2초 넘게 센서 값이 없던 빈틈 = 끊김
+  for (let i = 1; i < data.length; i++) { const g = data[i].t - data[i - 1].t; maxGap = Math.max(maxGap, g); if (g > 2000) gapSum += g; }
+  // 끊김은 실제 데이터의 빈틈으로만 판정 (화면이 잠깐 숨겨져도 센서가 계속 들어오는 브라우저가 있어서, 숨김만으로는 판정하지 않음)
+  const paused = !demo && maxGap > 2000;
   // 측정 정보: 문제가 생겼을 때 원인(센서 끊김, GPS 없음, 웹/앱 방식)을 찾기 위한 값
   const durS = data.length > 1 ? (data[data.length - 1].t - data[0].t) / 1000 : 0;
   const diag = { src: Native ? 'app' : 'web', n: data.length, durS, hz: durS ? data.length / durS : 0, gapS: maxGap / 1000, sd: res.sd,
     gpsN: gps.length, gpsGood: gps.filter(p => p.acc <= 20).length, hidden: !Native && hiddenDuringRec };
   const diagHtml = `<details><summary>측정 정보 (문제 찾기용)</summary><div class="sub">${diag.src === 'app' ? '설치형 앱' : '웹'} 방식 · 센서 값 ${diag.n}개 · 기록 시간 ${durS.toFixed(0)}초 · 초당 ${diag.hz.toFixed(0)}회 · 가장 길게 끊긴 시간 ${diag.gapS.toFixed(1)}초 · GPS 점 ${diag.gpsN}개(오차 20m 이내 ${diag.gpsGood}개)${diag.hidden ? ' · 화면 꺼짐 감지' : ''}</div></details>`;              // 2초 넘게 센서 값이 끊김 = 화면 꺼짐·다른 앱
+  // 측정 품질이 너무 낮으면(초당 10번 미만 또는 끊긴 시간이 절반 넘음) 결과를 보여 주지 않음 — 웹을 주머니에 넣으면 화면이 꺼져 거의 기록되지 않음
+  const recS = Math.max(0, durS - gapSum / 1000);
+  if (!demo && durS > 0 && (diag.hz < 10 || recS < durS / 2)) {
+    showHtml(`<h2>측정이 제대로 안 됐어요</h2><div class="warn">${durS >= 60 ? `${Math.floor(durS / 60)}분 ${Math.round(durS % 60)}초` : `${Math.round(durS)}초`} 중 ${Math.round(recS)}초만 기록됐어요(초당 ${diag.hz.toFixed(0)}번). ${Native ? '' : '웹은 화면이 꺼지거나 다른 앱으로 가면 기록이 멈춰요. 주머니에 넣고 재려면 <a href="install.html">설치형 앱</a>을 쓰세요. '}그래서 이번 측정은 기록에 저장하지 않았어요.</div>${diagHtml}`);
+    return;
+  }
   if (paused && !res.error) res.warnings.push('paused');
   if (res.error && paused) {
     showHtml(`<h2>다시 측정해 주세요</h2><div class="warn">측정 중에 화면이 꺼지거나 다른 앱으로 바뀌어서 센서가 멈췄어요 (최대 ${Math.round(maxGap / 1000)}초 끊김). <b>전원 버튼은 누르지 말고</b> 시작 후 그대로 주머니에 넣어 주세요(화면이 까만 주머니 모드는 켜진 상태라 측정이 계속돼요). 끝은 1초 길게 눌러야 멈춰서 주머니 속에서 실수로 눌리지 않아요.</div>`);
@@ -528,7 +538,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v79';
+const APP_VERSION = 'v80';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
