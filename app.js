@@ -397,7 +397,7 @@ function send(r) {
 }
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v61';
+const APP_VERSION = 'v62';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -424,7 +424,7 @@ const ro = w => { const c = (w.charCodeAt(w.length - 1) - 0xac00) % 28; return w
 function autoNote(r) {
   const a = r.auto ?? {};
   if (!a.act && !a.pos) return '';
-  return `<div class="metric"><div class="sub">${a.act ? `활동: <b>${ro(ACT[a.act])}</b> 자동 구분 <span class="badge b-y">참고</span><br>` : ''}${a.pos ? `휴대폰 위치: <b>${ro(POS[a.pos])}</b> 짐작 <span class="badge b-n">검증 안 됨</span><br>` : ''}다르면 다음엔 직접 재기 탭에서 골라 주세요.</div>
+  return `<div class="metric"><div class="sub">${a.act ? `활동: <b>${ro(ACT[a.act])}</b> 자동 구분 <span class="badge b-y">참고</span><br>` : ''}${a.pos ? `휴대폰 위치: <b>${ro(POS[a.pos])}</b> 짐작 <span class="badge b-n">검증 안 됨</span><br>` : ''}다르면 다음엔 측정 탭에서 골라 주세요.</div>
     <details><summary>어떻게 골랐나요?</summary><ul>
     ${a.act ? `<li>달리기 방식으로 센 케이던스가 ${RUN_CAD}걸음/분 이상이고 흔들림도 크면 달리기, 아니면 걷기로 봐요. 이 선은 이 앱이 정한 것이고 연구로 확인하지 않았어요.</li><li>30초씩 나눠 보고 걷기와 달리기가 각각 1분 넘게 섞여 있으면 슬로우 러닝으로 봐요.</li>` : ''}
     ${a.pos ? '<li>화면이 하늘을 보고 있으면 손, 같은 다리가 돌아올 때만 신호가 크게 반복되면 바지 앞주머니(허벅지), 걸음마다 비슷하면 허리로 짐작해요(Perry 7장: 몸통 움직임은 걸음마다 반복). 정확도를 확인한 연구가 없어요.</li>' : ''}</ul></details></div>`;
@@ -1146,13 +1146,13 @@ function renderHome() {
   // 타일 부제는 좁은 폰(320px)에서 잘리지 않게 짧게 · 케이던스 기준은 결과 화면처럼 성별 반영 (Perry 20장)
   $('tiles').innerHTML =
     mcard({ label: '걷기 케이던스', color: 'var(--c-walk)', date: md2(w?.date), value: w?.cadence.toFixed(0), unit: '걸음/분', i: iw, vals: trendVals('walkCad'),
-      sub: w ? `전공서적 ${(({ sex }) => sex === 'm' ? 111 : sex === 'f' ? 117 : 113)(store.get('profile', {}))}${delta(w.cadence, wPrev?.cadence)}` : '직접 재기 탭에서 걸어요' }) +
+      sub: w ? `전공서적 ${(({ sex }) => sex === 'm' ? 111 : sex === 'f' ? 117 : 113)(store.get('profile', {}))}${delta(w.cadence, wPrev?.cadence)}` : '측정 탭에서 걸어요' }) +
     mcard({ label: '걷기 속도', color: 'var(--c-walk)', date: md2(sp?.date), value: sp?.speed.toFixed(2), unit: 'm/s', i: is, vals: trendVals('walkSpeed'),
       sub: sp ? '전공서적 1.37' : 'GPS·거리 입력 필요' }) +
     mcard({ label: '러닝 케이던스', color: 'var(--c-run)', date: md2(rn?.date), value: rn?.cadence.toFixed(0), unit: '걸음/분', i: ir, vals: trendVals('runCad'),
-      sub: rn ? '기준선 없음 · 변화만' : '직접 재기 탭 → 러닝' }) +
+      sub: rn ? '기준선 없음 · 변화만' : '측정 탭 → 러닝' }) +
     mcard({ label: '유각기 무릎', color: 'var(--c-video)', date: md2(vd?.date), value: vd ? vd.r.m.kneeSwingMax.toFixed(0) : null, unit: '°', i: iv, vals: trendVals('knee'),
-      sub: vd ? '전공서적 약 60°' : '걸음 비교 탭 → 옆모습' });
+      sub: vd ? '전공서적 약 60°' : '분석 탭 → 옆모습' });
   // 링: 이번 주 슬로우 조깅 분 / 연구의 주간량 90분 (Ikenaga 2017)
   const wk = weekSlowJogMin(hist), frac = Math.min(1, wk / 90), C = 2 * Math.PI * 42;
   $('ring').innerHTML = `<svg viewBox="0 0 108 108" role="img" aria-label="이번 주 슬로우 조깅 ${wk.toFixed(0)}분, 90분 중 ${Math.round(frac * 100)}%">
@@ -1413,8 +1413,8 @@ function glance(rows, photo) {
 function lastSpeedRow() {                                                  // 영상엔 거리 기준(cm)이 없어 속도를 못 잼 → 센서·GPS로 잰 가장 최근 값을 같이 보여 줌
   const h = store.get('history', []).find(x => (x.activity ?? 'walk') === 'walk' && x.speed);
   const d = h && h.speed - 1.37;
-  return h ? { part: 'step', what: '걷는 속도 (직접 재기 탭 GPS)', big: Math.abs(d) < 0.005 ? '전공서적 기준과 같음' : `${Math.abs(d).toFixed(2)} m/s ${d > 0 ? '빠름' : '느림'}`, now: `${md(h.date)} 측정 ${h.speed.toFixed(2)} m/s · 전공서적 성인 평균 1.37 m/s` }
-    : { part: 'step', what: '걷는 속도', big: '-', now: '영상에는 거리 기준이 없어 속도를 못 재요. 직접 재기 탭에서 GPS로 걸으면 여기 같이 보여요.' };
+  return h ? { part: 'step', what: '걷는 속도 (측정 탭 GPS)', big: Math.abs(d) < 0.005 ? '전공서적 기준과 같음' : `${Math.abs(d).toFixed(2)} m/s ${d > 0 ? '빠름' : '느림'}`, now: `${md(h.date)} 측정 ${h.speed.toFixed(2)} m/s · 전공서적 성인 평균 1.37 m/s` }
+    : { part: 'step', what: '걷는 속도', big: '-', now: '영상에는 거리 기준이 없어 속도를 못 재요. 측정 탭에서 GPS로 걸으면 여기 같이 보여요.' };
 }
 function glanceSide(r, photo) {
   const m = r.m, { sex } = store.get('profile', {}), norm = sex === 'm' ? 111 : sex === 'f' ? 117 : 113;
