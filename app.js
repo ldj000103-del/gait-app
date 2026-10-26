@@ -102,9 +102,9 @@ function changeNote(id, seenKey, date, text, href, view) {
 }
 if (store.get('locConsent', null) && store.get('locTermsSeen', null) !== LOC_TERMS)
   changeNote('locNote', 'locTermsSeen', LOC_TERMS, '위치기반서비스 이용약관이 바뀌었어요 (2026년 10월 26일 시행). 위치를 받는 방법, 기록 보관, 다른 사람에게 주지 않는다는 설명을 보탰어요. 동의하신 내용은 그대로라 다시 동의할 필요는 없어요.', 'location-terms.html', '약관 보기');
-const PRIV_DATE = '2026-10-26';                                            // 처리방침 10번 "바꾸면 앱에 미리 알립니다" (건의함 추가)
+const PRIV_DATE = '2026-10-26-photo';                                      // 처리방침 10번 "바꾸면 앱에 미리 알립니다" (건의함 사진 첨부 추가). 바꿀 때마다 새 값
 if (store.get('consent', null) && store.get('privSeen', null) !== PRIV_DATE)
-  changeNote('privNote', 'privSeen', PRIV_DATE, '개인정보 처리방침에 건의함 내용이 추가됐어요 (2026년 10월 26일 시행).', 'privacy.html', '보기');
+  changeNote('privNote', 'privSeen', PRIV_DATE, '개인정보 처리방침에 건의함 사진 첨부 내용이 추가됐어요 (2026년 10월 26일 시행).', 'privacy.html', '보기');
 const usesGps = a => a === 'cooper' || (a !== 'slowrun' && $('dmode').value === 'gps');
 function showLoc() { $('locBox').classList.toggle('hidden', !usesGps($('act').value)); }
 function showAct() { showLoc(); const a = $('act').value; $('autoNote').classList.toggle('hidden', a !== 'auto'); $('easyNote').classList.toggle('hidden', a !== 'easyrun'); $('slowNote').classList.toggle('hidden', a !== 'slowrun'); $('cooperNote').classList.toggle('hidden', a !== 'cooper'); $('dmodeBox').classList.toggle('hidden', a === 'slowrun' || a === 'cooper'); }
@@ -464,13 +464,32 @@ function send(r) {
   return receipt;
 }
 
-// ── 건의함: 이용자가 '보내기'를 누를 때만 익명 의견을 보냄 (글 + 날짜·버전·OS·설치형/웹·접수번호, 이름·연락처·위치·측정 기록 없음). 처리방침 2-1번 ──
+// ── 건의함: 이용자가 '보내기'를 누를 때만 익명 의견을 보냄 (글 + 날짜·버전·OS·설치형/웹·접수번호 + 사진 3장까지, 이름·연락처·위치·측정 기록 없음). 처리방침 2-1번 ──
+// 사진은 휴대폰 안에서 canvas에 다시 그려 JPEG로 만듦 → 촬영 위치(EXIF GPS)·기기 정보가 빠지고 긴 변 1280px로 줄어듦. 원본은 보내지 않음
+async function shrinkPhoto(file, max = 1280) {
+  const img = new Image(), url = URL.createObjectURL(file);
+  try { img.src = url; await img.decode(); } finally { URL.revokeObjectURL(url); }
+  const k = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight)), c = document.createElement('canvas');
+  c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
+  c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+  return c.toDataURL('image/jpeg', 0.8);
+}
 function openFeedback() {
+  const photos = [];                                                       // 줄인 사진 data URL
+  const showPhotos = () => {
+    $('fbPics').innerHTML = photos.map((p, i) => `<span class="fbpic"><img src="${p}" alt="넣은 사진 ${i + 1}"><button class="chip" data-f="del" data-i="${i}" aria-label="사진 ${i + 1} 빼기">빼기</button></span>`).join('');
+    $('fbAdd').hidden = photos.length >= 3;
+    $('fbOkBox').hidden = !photos.length;                                  // 사진이 있을 때만 확인 체크 (동의가 아니라 확인, 법률 검토 12번)
+  };
   const o = document.createElement('div');
   o.id = 'fbOv'; o.setAttribute('role', 'dialog'); o.setAttribute('aria-modal', 'true'); o.setAttribute('aria-label', '건의하기');
   o.innerHTML = `<div class="dsheet" style="padding-left:20px;padding-right:20px"><h3 style="margin:0 0 4px">건의하기</h3>
     <div class="sub">앱을 쓰면서 불편한 점이나 바라는 점을 적어 주세요.</div>
     <textarea id="fbText" maxlength="1000" rows="5" aria-label="건의 내용"></textarea>
+    <div class="sub" style="font-size:.8125rem">앱 화면 캡처처럼 문제를 보여 주는 사진만 올려 주세요. 사람 얼굴, 이름, 진료기록, 다른 사람이 찍힌 사진은 올리지 마세요. 사진은 촬영 위치·기기 정보를 지우고 보내며 90일 뒤 지워요.</div>
+    <div id="fbPics"></div>
+    <button class="ghost" id="fbAdd" data-f="add">사진 넣기 (선택 · 3장까지)</button><input type="file" id="fbFile" accept="image/*" multiple hidden>
+    <label class="chk" id="fbOkBox" hidden><input type="checkbox" id="fbOk"><span>얼굴이나 이름이 보이는 사진이 없어요</span></label>
     <div class="sub" style="font-size:.8125rem">이름, 전화번호, 이메일, 주소, 병원·질병 이름처럼 나를 알아볼 수 있는 정보는 쓰지 마세요. 보낸 글은 앱 개선에만 쓰고 1년 뒤 지워요(Google 서버, 미국 등에 보관). 보내지 않아도 앱은 똑같이 쓸 수 있어요.<br>답장이 필요하면 ldj000103@gmail.com으로 메일 주세요.</div>
     <div id="fbMsg" class="sub" role="status" style="margin-top:8px"></div>
     <button data-f="send">보내기</button><button class="ghost" data-f="close">닫기</button></div>`;
@@ -481,22 +500,33 @@ function openFeedback() {
   o.addEventListener('click', e => {
     const b = e.target.closest('[data-f]'); if (!b) return;
     if (b.dataset.f === 'close') return close();
+    if (b.dataset.f === 'add') return $('fbFile').click();
+    if (b.dataset.f === 'del') { photos.splice(+b.dataset.i, 1); return showPhotos(); }
     const text = $('fbText').value.trim(), msg = $('fbMsg');
     if (under14(store.get('profile', {}).age)) return (msg.textContent = '만 14세 미만은 건의함을 쓸 수 없어요.');   // 처리방침 8번
     if (!text) return (msg.textContent = '내용을 적어 주세요.');
+    if (photos.length && !$('fbOk').checked) return (msg.textContent = '사진을 보내려면 "얼굴이나 이름이 보이는 사진이 없어요"를 확인해 체크해 주세요. 사진을 빼면 글만 보낼 수 있어요.');
     const receipt = 'K-' + [...crypto.getRandomValues(new Uint8Array(4))].map(x => x.toString(16).padStart(2, '0')).join('').toUpperCase();
-    const body = { kind: 'feedback', receipt, date: new Date().toLocaleDateString('sv-SE'), appVersion: APP_VERSION, os: osName(), src: Native ? 'app' : 'web', text };
+    const body = { kind: 'feedback', receipt, date: new Date().toLocaleDateString('sv-SE'), appVersion: APP_VERSION, os: osName(), src: Native ? 'app' : 'web', text,
+      photos: photos.map(p => p.slice(p.indexOf(',') + 1)) };                // base64만
     b.disabled = true; msg.textContent = '보내는 중…';
     fetch(ENDPOINT, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(body) })
-      .then(() => { $('fbText').remove(); b.remove(); msg.innerHTML = `<b>보냈어요. 고마워요.</b><br>접수번호 ${receipt} · 지우고 싶으면 이 번호를 ldj000103@gmail.com으로 보내 주세요.`; },
+      .then(() => { $('fbText').remove(); $('fbPics').remove(); $('fbAdd').remove(); $('fbOkBox').remove(); b.remove(); msg.innerHTML = `<b>보냈어요. 고마워요.</b><br>접수번호 ${receipt} · 지우고 싶으면 이 번호를 ldj000103@gmail.com으로 보내 주세요.`; },
         () => { b.disabled = false; msg.textContent = '보내지 못했어요. 인터넷 연결을 확인하고 다시 눌러 주세요.'; });   // 글은 그대로 남겨 둠
+  });
+  $('fbFile').addEventListener('change', async () => {
+    const msg = $('fbMsg');
+    for (const f of [...$('fbFile').files].slice(0, 3 - photos.length)) {
+      try { photos.push(await shrinkPhoto(f)); } catch { msg.textContent = '이 사진은 열지 못했어요. 다른 사진을 골라 주세요.'; }
+    }
+    $('fbFile').value = ''; showPhotos();
   });
   $('fbText').focus();
 }
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v78';
+const APP_VERSION = 'v79';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
