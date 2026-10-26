@@ -102,8 +102,12 @@ function changeNote(id, seenKey, date, text, href, view) {
 }
 if (store.get('locConsent', null) && store.get('locTermsSeen', null) !== LOC_TERMS)
   changeNote('locNote', 'locTermsSeen', LOC_TERMS, '위치기반서비스 이용약관이 바뀌었어요 (2026년 10월 26일 시행). 위치를 받는 방법, 기록 보관, 다른 사람에게 주지 않는다는 설명을 보탰어요. 동의하신 내용은 그대로라 다시 동의할 필요는 없어요.', 'location-terms.html', '약관 보기');
-const PRIV_DATE = '2026-10-26-photo';                                      // 처리방침 10번 "바꾸면 앱에 미리 알립니다" (건의함 사진 첨부 추가). 바꿀 때마다 새 값
-if (store.get('consent', null) && store.get('privSeen', null) !== PRIV_DATE)
+// 처리방침 10번 "바꾸면 앱에 미리 알립니다". 바꿀 때마다 새 값. 익명 결과 전송 동의자에게는 수집 항목이 바뀐 안내를, 나머지 동의자에게는 지난 안내(사진 첨부)를
+const PRIV_DATE = '2026-10-26-quality';
+const privSeen = store.get('privSeen', null), cons = store.get('consent', null);
+if (cons?.share && privSeen !== PRIV_DATE)
+  changeNote('privNote', 'privSeen', PRIV_DATE, '익명 결과 수집 안내가 바뀌었어요: 측정 품질 정보와 결과가 안 나온 측정의 이유도 함께 보내요(걸음 숫자·위치는 없어요). 원하지 않으면 화면 아래 ‘동의 변경’에서 끌 수 있어요.', 'privacy.html', '처리방침 보기');
+else if (cons && privSeen !== PRIV_DATE && privSeen !== '2026-10-26-photo')
   changeNote('privNote', 'privSeen', PRIV_DATE, '개인정보 처리방침에 건의함 사진 첨부 내용이 추가됐어요 (2026년 10월 26일 시행).', 'privacy.html', '보기');
 const usesGps = a => a === 'cooper' || (a !== 'slowrun' && $('dmode').value === 'gps');
 function showLoc() { $('locBox').classList.toggle('hidden', !usesGps($('act').value)); }
@@ -1105,7 +1109,7 @@ function showHtml(html) {
   el.querySelector('details.howto')?.insertAdjacentHTML('beforebegin', routeBox());
   if (shownDate) el.querySelector('h2')?.insertAdjacentHTML('afterend', shareBtn(shownDate));
   el.insertAdjacentHTML('beforeend', glossList(markTerms(el)));
-  if (shownDate) el.insertAdjacentHTML('beforeend', `<button class="ghost" data-raw="${shownDate}">센서 원본 내보내기 (CSV)</button>`);   // 최근 ${RAW_KEEP}개 측정만
+  if (shownDate) el.insertAdjacentHTML('beforeend', `<button class="ghost" data-raw="${shownDate}">센서 원본 내보내기 (CSV)</button><div class="sub" style="font-size:.8125rem">이 파일에는 이번 측정의 센서 원본이 들어 있어요. 운영자에게 보내려면 먼저 실험 참여 동의서를 써 주세요.</div>`);   // 최근 ${RAW_KEEP}개 측정만
   if (shownDate) el.insertAdjacentHTML('beforeend', ctxBox(shownDate));   // 지표 먼저, 그때 상황 남기기는 맨 아래 (사용자 메모)
   el.classList.remove('hidden'); el.scrollIntoView({ behavior: 'smooth' });
   if (shownDate) heartBox(shownDate);
