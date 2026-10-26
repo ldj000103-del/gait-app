@@ -488,7 +488,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v75';
+const APP_VERSION = 'v76';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -626,7 +626,7 @@ function render(r, prev) {
   if (r.minutes != null) html += metric({
     title: '빠르게 걸은 시간', value: r.minutes ? `${r.fastMin}분` : '-', unit: r.minutes ? `/ 전체 ${r.minutes}분 · 분당 100걸음 이상인 분` : '1분 이상 재면 보여요', grade: 'y',
     why: ['측정을 1분씩 나눠, 그 1분 동안 걸은 걸음 수가 100걸음 이상인 분을 셌어요. 끝에 남은 1분 미만은 세지 않아요.',
-      '21~60세와 61~85세 연구에서 분당 100걸음은 중간 강도(약 3 METs)에 해당했어요. 집단 평균 값이라 사람마다 강도는 달라요.',
+      '21~60세와 61~85세 연구에서 분당 100걸음은 중간 강도(약 3 MET)에 해당했어요. 집단 평균 값이라 사람마다 강도는 달라요.',
       '케이던스는 정확하지만 강도와 맞는지는 집단 평균이라 "참고"예요.'],
     refs: ['mcavoy2021', 'cadenceAdults'] });
   if (r.regularity != null) html += metric({
