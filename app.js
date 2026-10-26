@@ -442,7 +442,7 @@ function send(r) {
 }
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v70';
+const APP_VERSION = 'v71';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -508,7 +508,7 @@ function angleFig(kind, ref, mine) {
   };
   const dash = P(G.J, G.base, L);
   return `<svg class="chart" viewBox="0 0 300 ${kind === 'ankle' ? 130 : 160}" role="img" aria-label="각도 그림: 페리 기준 ${ref}°, 나 ${mine == null ? '-' : Math.round(mine)}°">
-    ${G.fixed.map(q => `<line x1="${G.J[0]}" y1="${G.J[1]}" x2="${q[0]}" y2="${q[1]}" stroke="currentColor" stroke-width="4" stroke-linecap="round" opacity=".5"/>`).join('')}
+    ${G.fixed.map(q => `<line x1="${G.J[0]}" y1="${G.J[1]}" x2="${q[0]}" y2="${q[1]}" stroke="currentColor" stroke-width="4" stroke-linecap="round" opacity=".2"/>`).join('')}
     <line x1="${G.J[0]}" y1="${G.J[1]}" x2="${dash[0].toFixed(1)}" y2="${dash[1].toFixed(1)}" stroke="currentColor" stroke-dasharray="4 4" opacity=".4"/>
     ${seg(ref, '#9aa5a1', 26, `${ref}°`)}${seg(mine, 'var(--accent)', 46, mine == null ? '' : `${Math.round(mine)}°`)}
     <circle cx="${G.J[0]}" cy="${G.J[1]}" r="5" fill="currentColor"/></svg>`;
@@ -529,7 +529,7 @@ function metric({ title, value, unit, grade, body = '', why = [], refs = [], cmp
   const fig = !cmp?.fig ? '' : cmp.fig === 'pelvis' ? pelvisFig(cmp.rows) : angleFig(cmp.fig, cmp.rows[0].ref, cmp.rows[0].mine);
   return `<div class="metric"><div class="mhead"><div><b>${title}</b></div><span class="badge ${cls}">${label}</span></div>
     <div class="mval">${value}<span class="sub"> ${unit}</span></div>${body}
-    <details><summary>근거 보기</summary>${cmp ? cmpCells(cmp) + fig + (cmp.fig ? '<div class="sub" style="font-size:.75rem">회색 = 페리 기준 · 초록 = 나 · 점선 = 기준선</div>' : '') : ''}
+    <details><summary>근거 보기</summary>${cmp ? cmpCells(cmp) + fig + (cmp.fig ? '<div class="sub" style="font-size:.75rem">회색 = 페리 기준 · 초록 = 나 · 점선 = 기준선 · 흐린 위 마디는 움직이지 않는 쪽</div>' : '') : ''}
     <ul>${why.map(w => `<li>${plain(w)}</li>`).join('')}</ul>
     ${limit ? `<div class="sub" style="font-size:.8125rem">${limit}</div>` : ''}
     <div>출처</div><ul>${refs.map(r => `<li>${REF[r]}</li>`).join('')}</ul></details></div>`;
@@ -589,7 +589,7 @@ function render(r, prev) {
     html += metric({
       title: '걷는 속도', value: r.speed.toFixed(2), unit: `m/s (${(r.speed * 60).toFixed(0)} m/분)`, grade: dGrade,
       body: `<div class="sub">페리의 보행 분석 성인 평균 1.37 m/s(82 m/분)${shortNote}${slow ? `<br>참고: JAMA 2024 지침은 65세 이상에서 걷는 속도 0.8~1.0 m/s 미만을 낙상 위험을 평가하는 기준 중 하나로 써요. 이 앱은 낙상 위험을 판정하지 않아요.` : ''}</div>`,
-      why: [how, '성인 평균 82 m/분 (Perry 20장)', 'JAMA 2024 지침: 65세 이상에서 지난 1년 낙상, 낙상 걱정, 걷는 속도 0.8~1.0 m/s 미만 중 하나가 있으면 낙상 예방 중재를 고려 (나이를 65 이상으로 입력하면 이 안내가 보여요)', '65세 이상에서 걷는 속도 0.1 m/s 빠를 때마다 사망 위험 12% 낮음 (관찰 연구, 연관성)'],
+      why: [how, '성인 평균 82 m/분 (Perry 20장)', '65세 이상 낙상 예방 지침(JAMA 2024)은 지난 1년 낙상, 낙상 걱정, 걷는 속도 0.8~1.0 m/s 미만 중 하나가 있으면 낙상 예방 중재를 고려하라고 해요 (나이를 65 이상으로 입력하면 이 안내가 보여요)', '65세 이상에서 걷는 속도 0.1 m/s 빠를 때마다 사망 위험 12% 낮음 (관찰 연구, 연관성)'],
       refs: ['perry20', 'jama2024', 'studenski'], cmp: { unit: 'm/s', dp: 2, rows: [{ ref: 1.37, mine: r.speed }] },
     });
     const ideal = sex === 'f' ? 0.0064 : sex === 'm' ? 0.0072 : null;
@@ -1638,7 +1638,7 @@ function renderVideo(r, dur) {
       cmp: { unit: '°', fig: 'pelvis', rows: [{ label: '왼발 디딜 때', ref: 4, mine: m.dropL }, { label: '오른발 디딜 때', ref: 4, mine: m.dropR }] } });
     html += metric({ title: '무릎 안쪽 모임', value: `왼 ${f0(m.valgusL)} · 오른 ${f0(m.valgusR)}`, unit: '', grade: 'n',
       body: `<div class="calc">디딜 때 무릎이 엉덩이-발목 선보다 안쪽(+)·바깥쪽(−)으로 간 각도 (상위 10% 값)<br>${diff(m.valgusL, m.valgusR)}</div>`,
-      why: ['Perry 책에는 이 각도의 영상 기준값이 없어요 → 기준값 없이 좌우만 비교', 'Perry 17장: 다리가 돌아가 있으면 카메라 1대의 각도는 실제와 달라질 수 있어요'], refs: ['perry17'] });
+      why: ['페리의 책에는 이 각도의 영상 기준값이 없어요 → 기준값 없이 좌우만 비교', 'Perry 17장: 다리가 돌아가 있으면 카메라 1대의 각도는 실제와 달라질 수 있어요'], refs: ['perry17'] });
     html += metric({ title: '몸통 옆 기울기', value: `왼쪽 ${f0(m.leanL)} · 오른쪽 ${f0(m.leanR)}`, unit: '', grade: 'n',
       body: `<div class="calc">어깨 가운데와 엉덩이 가운데를 잇는 선이 수직에서 기운 각도 (상위 10% 값)</div>`, why: ['휴대폰 2D 영상의 정확도 연구는 찾지 못함'], refs: [] });
     html += metric({ title: '걸음 폭', value: m.width != null ? `골반 너비의 ${m.width.toFixed(2)}배` : '-', unit: '', grade: 'n',
@@ -1748,7 +1748,7 @@ const DICT = [
   { part: 'knee', name: '무릎 안쪽 모임', short: '디딜 때 무릎 방향', mean: '디딜 때 무릎이 엉덩이와 발목을 잇는 선보다 안쪽(+)이나 바깥쪽(−)으로 간 각도예요.',
     why: '왼쪽과 오른쪽을 비교해 봐요. 이 각도는 페리의 보행 분석 기준값이 없어요.', where: '걸음걸이 탭(앞·뒤모습 영상)' },
 ];
-$('dict').innerHTML = DICT.map((d, i) => `<button class="dayrec" data-di="${i}"><span style="display:flex;align-items:center;gap:8px">${partIcon(d.part)}${d.name}</span><span class="sub">${d.short} ›</span></button>`).join('');
+$('dict').innerHTML = DICT.map((d, i) => `<button class="dayrec" data-di="${i}"><span style="display:flex;align-items:center;gap:8px;white-space:nowrap">${partIcon(d.part)}${d.name}</span><span class="sub" style="text-align:right">${d.short} ›</span></button>`).join('');
 $('dict').addEventListener('click', e => { const b = e.target.closest('[data-di]'); if (b) openDict(+b.dataset.di); });
 // ── 해 볼 만한 프로그램: 연구에서 쓴 방식으로 바로 측정 화면 열기 (처방·목표가 아님) ──
 const PROGS = [
@@ -1770,11 +1770,20 @@ function openDict(start) {
   o.innerHTML = `<div class="dsheet"><div class="dtrack">${DICT.map(d => `<section class="dcard">${partIcon(d.part)}<h3>${d.name}</h3><p>${d.mean}</p>
       <b>왜 보나요?</b><p>${d.why}</p><b>어디서 보나요?</b><p>${d.where}</p></section>`).join('')}</div>
     <div class="ddots" aria-hidden="true">${DICT.map(() => '<i></i>').join('')}</div>
-    <div class="drow"><button class="ghost" data-dx="skip">건너뛰기</button><button data-dx="next">다음</button></div></div>`;
+    <div class="drow"><button class="ghost" data-dx="skip">건너뛰기</button><button data-dx="next">다음</button></div>
+    <div class="sr" aria-live="polite"></div></div>`;
   document.body.append(o);
+  for (const el of [document.querySelector('main'), $('tabbar')]) el.inert = true;      // 열린 동안 Tab이 뒤 화면으로 빠지지 않게
   const tr = o.querySelector('.dtrack'), cur = () => Math.round(tr.scrollLeft / tr.clientWidth), last = DICT.length - 1;
-  const sync = () => { const c = cur(); o.querySelectorAll('.ddots i').forEach((e, k) => e.classList.toggle('on', k === c)); o.querySelector('[data-dx=next]').textContent = c === last ? '닫기' : '다음'; };
-  const close = () => { o.remove(); $('dict').querySelector(`[data-di="${start}"]`)?.focus(); };
+  let shown = -1;
+  const sync = () => {
+    const c = cur(); if (c === shown) return; shown = c;
+    o.querySelectorAll('.ddots i').forEach((e, k) => e.classList.toggle('on', k === c));
+    o.querySelectorAll('.dcard').forEach((e, k) => { e.inert = k !== c; });             // 화면낭독은 지금 카드만 읽음
+    o.querySelector('.sr').textContent = `${c + 1}/${DICT.length} ${DICT[c].name}`;
+    o.querySelector('[data-dx=next]').textContent = c === last ? '닫기' : '다음';
+  };
+  const close = () => { for (const el of [document.querySelector('main'), $('tabbar')]) el.inert = false; o.remove(); $('dict').querySelector(`[data-di="${start}"]`)?.focus(); };
   tr.scrollLeft = start * tr.clientWidth; sync();
   tr.addEventListener('scroll', sync, { passive: true });
   o.addEventListener('click', e => {
