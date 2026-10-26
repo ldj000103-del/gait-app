@@ -64,14 +64,16 @@ const store = {
   set: (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
 };
 const prof = store.get('profile', { sex: '', age: '' });
-// 내 정보: 성별은 큰 버튼 3개(숨은 #sex에 값), 나이는 큰 숫자 칸, '저장'을 눌러야 저장 (이름·사진·생년월일은 받지 않음)
+// 내 정보: 성별은 큰 버튼 3개(숨은 #sex에 값), 나이는 큰 숫자 칸 (이름·사진·생년월일은 받지 않음)
+// 바꾸는 즉시 저장: 화면의 '만 14세 미만은 보내지 않아요' 안내와 실제 전송(send)이 늘 같은 나이를 보게 (개인정보 보호법 제22조의2). '저장'은 확인용
+const saveProf = () => store.set('profile', { sex: $('sex').value, age: $('age').value });
 const setSex = v => { $('sex').value = v; for (const b of $('sexBtns').children) b.setAttribute('aria-pressed', b.dataset.sex === v); $('profMsg').textContent = ''; };
 setSex(prof.sex ?? ''); $('age').value = prof.age;
 const under14 = age => +age > 0 && +age < 14;
 const ageNote = () => $('ageNote').classList.toggle('hidden', !under14($('age').value));
-$('sexBtns').addEventListener('click', e => { const b = e.target.closest('[data-sex]'); if (b) setSex(b.dataset.sex); });
-$('age').addEventListener('input', () => { ageNote(); $('profMsg').textContent = ''; });
-$('profSave').addEventListener('click', () => { store.set('profile', { sex: $('sex').value, age: $('age').value }); ageNote(); $('profMsg').textContent = '저장했어요'; });
+$('sexBtns').addEventListener('click', e => { const b = e.target.closest('[data-sex]'); if (b) { setSex(b.dataset.sex); saveProf(); } });
+$('age').addEventListener('input', () => { saveProf(); ageNote(); $('profMsg').textContent = ''; });
+$('profSave').addEventListener('click', () => { saveProf(); ageNote(); $('profMsg').textContent = '저장했어요'; });
 ageNote();
 
 // ── 활동 종류 (선택은 이 휴대폰에 기억) ──
@@ -422,7 +424,7 @@ function saveRec(rec, hist, demo) {
 }
 function send(r) {
   const { sex, age } = store.get('profile', {});
-  if (under14(age)) return null;                                           // 개인정보 보호법 제22조의2: 만 14세 미만은 법정대리인 동의가 필요해서 보내지 않음
+  if (under14(age) || under14($('age').value)) return null;                  // 화면 칸도 함께 확인 (안내와 동작이 어긋나지 않게)                                           // 개인정보 보호법 제22조의2: 만 14세 미만은 법정대리인 동의가 필요해서 보내지 않음
   const ua = navigator.userAgent;
   const receipt = (crypto.randomUUID?.() ?? Math.random().toString(16).slice(2) + Date.now().toString(16)).slice(0, 8);   // 오래된 폰은 randomUUID가 없음                       // 삭제 요청용 접수번호, 개인과 연결 안 됨
   const num = (x, d) => x == null ? '' : +x.toFixed(d);                  // 12분 테스트는 케이던스·규칙성·측정 정보가 없을 수 있음
@@ -442,7 +444,7 @@ function send(r) {
 }
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v71';
+const APP_VERSION = 'v72';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -1752,9 +1754,9 @@ $('dict').innerHTML = DICT.map((d, i) => `<button class="dayrec" data-di="${i}">
 $('dict').addEventListener('click', e => { const b = e.target.closest('[data-di]'); if (b) openDict(+b.dataset.di); });
 // ── 해 볼 만한 프로그램: 연구에서 쓴 방식으로 바로 측정 화면 열기 (처방·목표가 아님) ──
 const PROGS = [
-  { act: 'slowrun', name: '슬로우 러닝', badges: ['처음', '주 90분'], text: '조깅 1분 + 걷기 1분을 번갈아 해요 · Ikenaga 2017 연구 방식' },
+  { act: 'slowrun', name: '슬로우 러닝', badges: ['처음', '1분씩 번갈아'], text: '조깅 1분 + 걷기 1분을 번갈아 해요 · Ikenaga 2017 연구 방식' },
   { act: 'cooper', name: '12분 달리기 기록', badges: ['한 번'], text: '12분 동안 간 거리와 페이스만 재요' },
-  { act: 'video', name: '10초 걸음걸이 영상', badges: ['매일'], text: '옆모습을 찍어 페리의 보행 분석 기준과 나란히 봐요' },
+  { act: 'video', name: '10초 걸음걸이 영상', badges: ['10초'], text: '옆모습을 찍어 페리의 보행 분석 기준과 나란히 봐요' },
 ];
 $('progs').innerHTML = PROGS.map((p, i) => `<button class="dayrec" data-pi="${i}" style="flex-direction:column;align-items:flex-start;gap:4px">
   <span><b>${p.name}</b> ${p.badges.map(b => `<span class="badge b-n">${b}</span>`).join(' ')}</span><span class="sub">${p.text} ›</span></button>`).join('');
