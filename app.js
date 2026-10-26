@@ -350,7 +350,7 @@ function finish(data, demo = false, gps = []) {
       const practice = act === 'walk' && !store.get('history', []).some(h => (h.activity ?? 'walk') === 'walk' && new Date(h.date).toLocaleDateString('sv-SE') === today);
       try { sent = send({ date: new Date().toISOString(), activity: act, position, practice, warnings: [diag.hz < 10 ? 'failed:lowHz' : 'failed:gaps'], diag }); } catch {}
     }
-    showHtml(`<h2>측정이 제대로 안 됐어요</h2><div class="warn">${Native ? '' : '<b>다음엔 손에 들고 화면을 켠 채로 재 주세요.</b> 주머니에 넣고 재려면 <a href="install.html">설치형 앱</a>을 쓰세요.<br>'}${why} 그래서 이번 측정은 기록에 저장하지 않았어요.</div>${sent ? `<div class="sub">걸음 숫자 없이 측정 정보만 익명으로 보냈어요. 접수번호 <b>${sent}</b></div>` : ''}${diagHtml}`);
+    showHtml(`<h2>측정이 제대로 안 됐어요</h2><div class="warn">${Native ? '' : '<b>다음엔 손에 들고 화면을 켠 채로 재 주세요.</b> 주머니에 넣고 재려면 <a href="install.html">설치형 앱</a>을 쓰세요.<br>'}${why} 그래서 이번 측정은 기록에 저장하지 않았어요.</div>${sent ? `<div class="sub">걸음 숫자 없이 측정 정보만 익명으로 보냈어요. 접수번호 <b>${sent}</b> · 지우고 싶으면 이 번호를 ldj000103@gmail.com으로 보내 주세요(이 화면을 벗어나면 다시 볼 수 없으니 적어 두세요).</div>` : ''}${diagHtml}`);
     return;
   }
   if (paused && !res.error) res.warnings.push('paused');
