@@ -290,9 +290,21 @@ for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) $('stop').addEv
 $('stop').addEventListener('contextmenu', e => e.preventDefault());
 // 설치형 앱에서 휴대폰(절전·메모리 정리)이 측정 중인 앱을 끄면 측정이 멈춤 → 이유와 막는 방법을 알려 줌
 const BATTERY_TIP = '삼성 휴대폰은 설정 → 배터리 → 백그라운드 사용 제한 → <b>절전 예외 앱</b>에 ‘걸음 분석’을 넣으면 측정 중에 앱이 정리되지 않아요.';
+// 결과가 안 나온 측정도 이유만 한 줄 보냄 (시작한 측정 중 몇 번 성공했나 = 수율의 분모, 데이터분석팀). 걸음 숫자 칸은 빈칸,
+// warnings = 이유 표시(end:… / failed:…) + 측정 정보. 익명 전송 동의자만, 14세 미만은 send()가 막음. 휴대폰 기록에는 저장 안 함
+function sendEnd(tags, act, position, diag) {
+  if (!consent?.share || !ENDPOINT) return '';
+  const today = new Date().toLocaleDateString('sv-SE');
+  const practice = act === 'walk' && !store.get('history', []).some(h => (h.activity ?? 'walk') === 'walk' && new Date(h.date).toLocaleDateString('sv-SE') === today);
+  let rc = null;
+  try { rc = send({ date: new Date().toISOString(), activity: act, position, practice, warnings: tags, diag }); } catch {}
+  return rc ? `<div class="sub">걸음 숫자 없이 측정 정보만 익명으로 보냈어요. 접수번호 <b>${rc}</b> · 지우고 싶으면 이 번호를 ldj000103@gmail.com으로 보내 주세요(이 화면을 벗어나면 다시 볼 수 없으니 적어 두세요).</div>` : '';
+}
+const noDiag = () => ({ src: Native ? 'app' : 'web', durS: 0, hz: 0, gapS: 0, gpsGood: 0 });   // 센서 값이 거의 없어 측정 정보를 못 만든 경우
 async function stopRec(killed = false) {
   killed = killed === true;                                                // '끝' 버튼은 클릭 이벤트를 넘김 → 진짜 true일 때만
   const rec = store.get('rec', null), ran = t0, lead = rec?.lead ?? 0; clearInterval(timer); t0 = 0;
+  const endTag = !rec || Date.now() < rec.startWall ? 'end:cancel' : 'end:noData';   // 3초 카운트다운 중에 끝 = 취소
   store.set('rec', null); store.set('recSnap', null);
   document.body.classList.remove('recording');
   if (Native) {
@@ -303,9 +315,12 @@ async function stopRec(killed = false) {
     const cut = (r.samples[0]?.t ?? 0) + lead * 1000;                       // 주머니에 넣던 처음 3초는 뺌 (센서·GPS 시각은 같은 시계)
     const s = r.samples.filter(p => p.t >= cut), g = r.gps.filter(p => p.t >= cut);
     const longRun = rec?.startWall && Date.now() - rec.startWall > 20000;   // 20초 넘게 지났는데 값이 없으면 '짧아서'가 아니라 측정이 멈춘 것
-    if (s.length < 20) return killed || longRun
-      ? showHtml(`<h2>측정이 멈췄어요</h2><div class="warn">휴대폰이 앱을 정리해서 측정이 멈췄고, 저장된 측정값이 없어요. 다시 측정해 주세요.<br>${BATTERY_TIP}</div>`)
-      : alert('측정 시간이 너무 짧아요. 시작 후 3초 동안은 주머니에 넣는 시간이라 빼고, 그 뒤부터 재요. 걷고 나서 끝을 눌러 주세요.');
+    if (s.length < 20) {
+      const act = rec?.act ?? $('act').value;
+      if (killed || longRun) return showHtml(`<h2>측정이 멈췄어요</h2><div class="warn">휴대폰이 앱을 정리해서 측정이 멈췄고, 저장된 측정값이 없어요. 다시 측정해 주세요.<br>${BATTERY_TIP}</div>${sendEnd(['end:killed'], act, $('pos').value, noDiag())}`);
+      sendEnd([endTag], act, $('pos').value, noDiag());
+      return alert('측정 시간이 너무 짧아요. 시작 후 3초 동안은 주머니에 넣는 시간이라 빼고, 그 뒤부터 재요. 걷고 나서 끝을 눌러 주세요.');
+    }
     finish(s, false, g);
     if (killed || r.fromFile) $('result').insertAdjacentHTML('afterbegin', `<div class="warn">측정 중에 휴대폰이 앱을 정리해서 측정이 중간에 멈췄어요. 멈추기 전까지 저장된 기록으로 분석했어요(걸음 수·시간이 실제보다 적을 수 있어요).<br>${BATTERY_TIP}</div>`);
     return;
@@ -314,7 +329,7 @@ async function stopRec(killed = false) {
   window.removeEventListener('devicemotion', onMotion);
   stopGps();
   $('rec').classList.add('hidden'); $('setup').classList.remove('hidden');
-  if (samples.length < 20) return alert('센서 값이 거의 들어오지 않았어요. 다시 시도해 주세요.');
+  if (samples.length < 20) { sendEnd([endTag], $('act').value, $('pos').value, noDiag()); return alert('센서 값이 거의 들어오지 않았어요. 다시 시도해 주세요.'); }
   finish(samples, false, gpsPts);
 }
 
@@ -344,23 +359,18 @@ function finish(data, demo = false, gps = []) {
     const mmss = x => { const t = Math.round(x); return t >= 60 ? `${Math.floor(t / 60)}분 ${t % 60}초` : `${t}초`; };   // 초를 먼저 반올림 ("1분 60초" 방지)
     const why = diag.hz < 10 ? `기록이 초당 ${diag.hz.toFixed(0)}번뿐이라(정상은 수십 번) 걸음을 셀 수 없었어요.` : `${mmss(durS)} 중 ${mmss(recS)}만 기록됐어요.`;
     // 실패한 측정도 걸음 숫자 없이 '실패' 표시와 측정 정보만 보냄 (실패가 얼마나 잦은지 세려고, 데이터분석팀). 휴대폰 기록에는 저장 안 함
-    let sent = null;
-    if (consent?.share && ENDPOINT) {
-      const today = new Date().toLocaleDateString('sv-SE');
-      const practice = act === 'walk' && !store.get('history', []).some(h => (h.activity ?? 'walk') === 'walk' && new Date(h.date).toLocaleDateString('sv-SE') === today);
-      try { sent = send({ date: new Date().toISOString(), activity: act, position, practice, warnings: [diag.hz < 10 ? 'failed:lowHz' : 'failed:gaps'], diag }); } catch {}
-    }
-    showHtml(`<h2>측정이 제대로 안 됐어요</h2><div class="warn">${Native ? '' : '<b>다음엔 손에 들고 화면을 켠 채로 재 주세요.</b> 주머니에 넣고 재려면 <a href="install.html">설치형 앱</a>을 쓰세요.<br>'}${why} 그래서 이번 측정은 기록에 저장하지 않았어요.</div>${sent ? `<div class="sub">걸음 숫자 없이 측정 정보만 익명으로 보냈어요. 접수번호 <b>${sent}</b> · 지우고 싶으면 이 번호를 ldj000103@gmail.com으로 보내 주세요(이 화면을 벗어나면 다시 볼 수 없으니 적어 두세요).</div>` : ''}${diagHtml}`);
+    const sentNote = sendEnd([diag.hz < 10 ? 'failed:lowHz' : 'failed:gaps'], act, position, diag);
+    showHtml(`<h2>측정이 제대로 안 됐어요</h2><div class="warn">${Native ? '' : '<b>다음엔 손에 들고 화면을 켠 채로 재 주세요.</b> 주머니에 넣고 재려면 <a href="install.html">설치형 앱</a>을 쓰세요.<br>'}${why} 그래서 이번 측정은 기록에 저장하지 않았어요.</div>${sentNote}${diagHtml}`);
     return;
   }
   if (paused && !res.error) res.warnings.push('paused');
   if (res.error && paused) {
-    showHtml(`<h2>다시 측정해 주세요</h2><div class="warn">측정 중에 화면이 꺼지거나 다른 앱으로 바뀌어서 센서가 멈췄어요 (최대 ${Math.round(maxGap / 1000)}초 끊김). <b>전원 버튼은 누르지 말고</b> 시작 후 그대로 주머니에 넣어 주세요(화면이 까만 주머니 모드는 켜진 상태라 측정이 계속돼요). 끝은 1초 길게 눌러야 멈춰서 주머니 속에서 실수로 눌리지 않아요.</div>`);
+    showHtml(`<h2>다시 측정해 주세요</h2><div class="warn">측정 중에 화면이 꺼지거나 다른 앱으로 바뀌어서 센서가 멈췄어요 (최대 ${Math.round(maxGap / 1000)}초 끊김). <b>전원 버튼은 누르지 말고</b> 시작 후 그대로 주머니에 넣어 주세요(화면이 까만 주머니 모드는 켜진 상태라 측정이 계속돼요). 끝은 1초 길게 눌러야 멈춰서 주머니 속에서 실수로 눌리지 않아요.</div>${sendEnd([`end:${res.error}`, 'paused'], act, position, diag)}`);
     return;
   }
   if (res.error) {
     const msg = { tooShort: '측정 시간이 너무 짧아요(8초 이상).', noWalk: '걷는 움직임을 찾지 못했어요. 휴대폰을 주머니에 넣고 6초 이상 걸어 주세요.', irregular: '반복되는 걸음 신호를 찾지 못했어요.' }[res.error];
-    showHtml(`<h2>다시 측정해 주세요</h2><div class="warn">${msg} 그래서 이번 측정은 기록에 저장하지 않았어요.</div>${diagHtml}`);
+    showHtml(`<h2>다시 측정해 주세요</h2><div class="warn">${msg} 그래서 이번 측정은 기록에 저장하지 않았어요.</div>${sendEnd([`end:${res.error}`], act, position, diag)}${diagHtml}`);
     return;
   }
   const today = new Date().toLocaleDateString('sv-SE');                  // 휴대폰 시간대 기준 YYYY-MM-DD
@@ -369,7 +379,7 @@ function finish(data, demo = false, gps = []) {
   const dist = mode === 'manual' ? parseFloat($('dist').value) || null : null;
   const d = mode === 'gps' ? (gpsDenied && !demo ? { gpsError: 'denied' } : gpsSpeed(res, gps)) : withDistance(res, dist);
   const rec = { date: new Date().toISOString(), start: Date.now() - durS * 1000, activity: act, position, auto, practice, route: packRoute(gps), ...res, distance: dist, ...d, distSource: d.speed ? mode : null, diag, diagHtml };
-  saveRec(rec, hist, demo);
+  saveRec(rec, hist, demo, data);
   shownDate = rec.date;
   route = rec.route;
   const prev = hist.find(h => !h.practice && h !== rec && (h.activity ?? 'walk') === act);
@@ -414,7 +424,7 @@ function finishSlow(data, demo, position, auto = {}) {
     steps: sum(segs, 'steps'), activeS: sum(jogs, 'activeS'), walkS: sum(walks, 'activeS'),
     regularity: avg(jogs, 'regularity'), jogCount: jogs.length, warnings: [],
     diag: { src: Native ? 'app' : 'web', durS: (data[data.length - 1].t - t0s) / 1000, hz: data.length / Math.max(1, (data[data.length - 1].t - t0s) / 1000), gapS: 0, gpsGood: 0 } };
-  saveRec(rec, hist, demo);
+  saveRec(rec, hist, demo, data);
   shownDate = rec.date;
   renderSlow(rec, hist);
   renderHistory();
@@ -433,7 +443,7 @@ function finishCooper(data, gps, demo, position) {
   const rec = { date: new Date().toISOString(), start: Date.now() - (data[data.length - 1].t - t0s), activity: 'cooper', position, practice: false, distance: g.dist, durS, medAcc: g.medAcc, route: packRoute(gps.filter(p => p.t >= t0s && p.t <= end)),
     speed: g.dist / durS, full,
     cadence: res.error ? null : res.cadence, steps: res.error ? null : res.steps, activeS: res.error ? durS : res.activeS, warnings: [] };
-  saveRec(rec, store.get('history', []), demo);
+  saveRec(rec, store.get('history', []), demo, data);
   shownDate = rec.date;
   route = rec.route;
   renderCooper(rec);
@@ -455,7 +465,23 @@ function renderCooper(r) {
 // 구글 Apps Script 웹앱 주소. 비어 있으면 아무것도 보내지 않음 (설정법: apps_script.gs)
 const ENDPOINT = 'https://script.google.com/macros/s/AKfycbwLfXvMoqIPDkmemDjQ5oJWhaDDKboetKlxkU603xABxQqTPjzvr1hN3Iyhb9km3OCb/exec';
 // 기록을 먼저 휴대폰에 저장하고, 익명 전송은 그다음에. 전송에서 어떤 오류가 나도 기록은 남음
-function saveRec(rec, hist, demo) {
+// 센서 원본: 최근 RAW_KEEP개 측정만 이 휴대폰(IndexedDB, localStorage보다 큼)에 보관 → 결과 화면에서 CSV로 내보내기. 서버로 보내지 않음
+// 한 줄 = [시각 ms, x, y, z] (중력 포함 가속도 m/s²). 50Hz·10분 측정이 약 1MB라 10개면 약 10MB
+const RAW_KEEP = 10;
+const rawDb = () => new Promise((ok, bad) => { const r = indexedDB.open('gaitRaw', 1); r.onupgradeneeded = () => r.result.createObjectStore('raw'); r.onsuccess = () => ok(r.result); r.onerror = () => bad(r.error); });
+async function rawPut(key, rows) {
+  const db = await rawDb(), tx = db.transaction('raw', 'readwrite'), st = tx.objectStore('raw');
+  st.put(rows, key);
+  const q = st.getAllKeys();                                                // 키 = 기록 날짜(ISO)라 정렬하면 오래된 순
+  q.onsuccess = () => q.result.sort().slice(0, -RAW_KEEP).forEach(k => st.delete(k));
+  return new Promise((ok, bad) => { tx.oncomplete = ok; tx.onerror = () => bad(tx.error); });
+}
+async function rawGet(key) {
+  const db = await rawDb();
+  return new Promise(ok => { const q = db.transaction('raw').objectStore('raw').get(key); q.onsuccess = () => ok(q.result ?? null); q.onerror = () => ok(null); });
+}
+function saveRec(rec, hist, demo, raw) {
+  if (raw && !demo) rawPut(rec.date, raw.map(p => [Math.round(p.t * 10) / 10, +p.x.toFixed(3), +p.y.toFixed(3), +p.z.toFixed(3)])).catch(() => {});
   hist.unshift(rec);
   hist.forEach((h, i) => { if (i >= ROUTE_KEEP) delete h.route; });     // ponytail: 휴대폰 저장 공간(약 5MB) 때문에 최근 30개만. 더 필요하면 IndexedDB로
   store.set('history', hist.slice(0, 200));
@@ -547,7 +573,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v81';
+const APP_VERSION = 'v82';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -964,19 +990,20 @@ function makeCard(h) {
     g.font = F(400, 22); g.fillStyle = '#008a6e'; g.fillText('이번 영상', cx + cw - 300, cy + 22); g.fillStyle = '#9aa5a1'; g.fillText('- - 페리 기준', cx + cw - 185, cy + 22);
   } });
 }
-async function shareCanvas(canvas, text) {
-  const dataUrl = canvas.toDataURL('image/png');
+async function shareCanvas(canvas, text) { return shareFile(canvas.toDataURL('image/png'), 'gait-card.png', text); }
+// 파일 공유: 설치형 앱은 캐시에 저장해서 안드로이드 공유 창, 웹은 공유 창 → 안 되면 내려받기
+async function shareFile(dataUrl, name, text) {
   const P = window.Capacitor?.isNativePlatform?.() ? window.Capacitor.Plugins : null;
   try {
     if (P?.Share && P?.Filesystem) {                                    // 설치형 앱: 파일로 저장해서 안드로이드 공유 창
-      const { uri } = await P.Filesystem.writeFile({ path: `gait-card-${Date.now()}.png`, data: dataUrl.split(',')[1], directory: 'CACHE' });
+      const { uri } = await P.Filesystem.writeFile({ path: `${Date.now()}-${name}`, data: dataUrl.split(',')[1], directory: 'CACHE' });
       await P.Share.share({ title: '걸음 분석', text, files: [uri] });
       return;
     }
-    const blob = await (await fetch(dataUrl)).blob(), file = new File([blob], 'gait-card.png', { type: 'image/png' });
+    const blob = await (await fetch(dataUrl)).blob(), file = new File([blob], name, { type: blob.type });
     if (navigator.canShare?.({ files: [file] })) { await navigator.share({ files: [file], title: '걸음 분석', text }); return; }
   } catch (e) { if (e?.name === 'AbortError' || /cancel/i.test(e?.message || '')) return; }
-  const a = document.createElement('a'); a.href = dataUrl; a.download = 'gait-card.png'; a.click();   // 공유가 안 되면 이미지 내려받기
+  const a = document.createElement('a'); a.href = dataUrl; a.download = name; a.click();   // 공유가 안 되면 내려받기
 }
 async function shareRecord(date) {
   const h = store.get('history', []).find(x => x.date === date);
@@ -1061,11 +1088,20 @@ $('recMapBtn').addEventListener('click', async () => {
   else { closeRecMap(); btn.textContent = '지도를 못 불러왔어요 · 다시 누르기'; }
 });
 
+$('result').addEventListener('click', async e => {
+  const b = e.target.closest('[data-raw]'); if (!b) return;
+  const rows = await rawGet(b.dataset.raw).catch(() => null);
+  if (!rows?.length) return alert(`이 측정은 센서 원본이 없어요. 원본은 v82 이후 측정 중 최근 ${RAW_KEEP}개만 이 휴대폰에 보관해요.`);
+  const csv = 't_ms,ax,ay,az\n' + rows.map(r => r.join(',')).join('\n') + '\n';
+  const name = `gait-raw-${new Date(b.dataset.raw).toLocaleString('sv-SE').slice(0, 16).replace(/[- :]/g, '')}.csv`;   // 휴대폰 시간 기준 YYYYMMDDHHMM
+  shareFile('data:text/csv;base64,' + btoa(csv), name, '걸음 분석 센서 원본');   // CSV는 숫자·쉼표만이라 btoa 그대로 됨
+});
 function showHtml(html) {
   const el = $('result'); el.innerHTML = html;
   el.querySelector('details.howto')?.insertAdjacentHTML('beforebegin', routeBox());
   if (shownDate) el.querySelector('h2')?.insertAdjacentHTML('afterend', shareBtn(shownDate));
   el.insertAdjacentHTML('beforeend', glossList(markTerms(el)));
+  if (shownDate) el.insertAdjacentHTML('beforeend', `<button class="ghost" data-raw="${shownDate}">센서 원본 내보내기 (CSV)</button>`);   // 최근 ${RAW_KEEP}개 측정만
   if (shownDate) el.insertAdjacentHTML('beforeend', ctxBox(shownDate));   // 지표 먼저, 그때 상황 남기기는 맨 아래 (사용자 메모)
   el.classList.remove('hidden'); el.scrollIntoView({ behavior: 'smooth' });
   if (shownDate) heartBox(shownDate);
