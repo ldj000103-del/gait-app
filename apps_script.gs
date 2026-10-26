@@ -1,4 +1,4 @@
-// 구글 Apps Script 수신 코드 (script.google.com 단독 프로젝트 '걸음분석 수신')
+// 구글 Apps Script 수신 코드 (script.google.com 단독 프로젝트 '제목 없는 프로젝트') · 받은 날은 서울 날짜
 // 배포 → 새 배포 → 웹 앱, 실행: 나, 액세스: 모든 사용자 → 나온 주소를 app.js의 ENDPOINT에 넣기
 const SHEET_ID = '19EJCFgAhHS5fOHbgu9CGx41WdPrWYRENbywh0AJbrKU';   // '걸음분석 수집' 시트 (운영자 계정에서만 열림)
 const KEYS = ['receipt', 'date', 'appVersion', 'cadence', 'steps', 'activeS', 'regularity', 'speed', 'stepLength',
@@ -28,12 +28,41 @@ function doPost(e) {
   const book = SpreadsheetApp.openById(SHEET_ID);
   if (d.kind === 'feedback') {                                       // 건의함: '건의' 탭에 따로, 글은 1000자까지
     const sh = book.getSheetByName('건의') || book.insertSheet('건의');
-    if (sh.getLastRow() === 0) sh.appendRow(['받은 날(UTC)', ...FB_KEYS, '사진']);
-    sh.appendRow([new Date().toISOString().slice(0, 10), ...FB_KEYS.map(k => clean(d[k], k === 'text' ? 1000 : 60)), savePhotos(d).join(' ')]);
+    if (sh.getLastRow() === 0) sh.appendRow(['받은 날', ...FB_KEYS, '사진']);
+    let urls = '';
+    try { urls = savePhotos(d).join(' '); } catch (err) { urls = '사진 저장 실패: ' + String(err).slice(0, 50); }   // 드라이브가 실패해도 글은 남김
+    sh.appendRow([Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyy-MM-dd'), ...FB_KEYS.map(k => clean(d[k], k === 'text' ? 1000 : 60)), urls]);
     return ContentService.createTextOutput('ok');
   }
   const sheet = book.getSheets()[0];
-  if (sheet.getLastRow() === 0) sheet.appendRow(['받은 날(UTC)', ...KEYS]);
-  sheet.appendRow([new Date().toISOString().slice(0, 10), ...KEYS.map(k => clean(d[k], 60))]);
+  if (sheet.getLastRow() === 0) sheet.appendRow(['받은 날', ...KEYS]);
+  sheet.appendRow([Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyy-MM-dd'), ...KEYS.map(k => clean(d[k], 60))]);
   return ContentService.createTextOutput('ok');
+}
+
+// 처리방침 3번 보유 기간 지키기: 측정 결과 3년, 건의 글 1년, 건의 사진 90일이 지나면 지움 (사진은 휴지통이 아니라 영구 삭제)
+// 매일 한 번 돌도록 setupDailyPurge()를 편집기에서 한 번 실행해 두면 됨
+function purgeOld() {
+  const now = Date.now(), day = 864e5;
+  const book = SpreadsheetApp.openById(SHEET_ID);
+  const trim = (sh, days) => {
+    if (!sh || sh.getLastRow() < 2) return;
+    const dates = sh.getRange(2, 1, sh.getLastRow() - 1, 1).getValues();
+    for (let i = dates.length - 1; i >= 0; i--) {                     // 아래에서 위로 지워야 줄 번호가 안 밀림
+      const t = new Date(dates[i][0]).getTime();
+      if (t && now - t > days * day) sh.deleteRow(i + 2);
+    }
+  };
+  trim(book.getSheets()[0], 3 * 365);
+  trim(book.getSheetByName('건의'), 365);
+  const it = DriveApp.getFoldersByName(PHOTO_FOLDER);
+  if (it.hasNext()) {
+    const files = it.next().getFiles();
+    while (files.hasNext()) { const f = files.next(); if (now - f.getDateCreated().getTime() > 90 * day) Drive.Files.remove(f.getId()); }
+  }
+}
+
+function setupDailyPurge() {
+  ScriptApp.getProjectTriggers().filter(t => t.getHandlerFunction() === 'purgeOld').forEach(t => ScriptApp.deleteTrigger(t));
+  ScriptApp.newTrigger('purgeOld').timeBased().everyDays(1).atHour(4).create();
 }

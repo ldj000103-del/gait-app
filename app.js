@@ -468,7 +468,9 @@ function send(r) {
 // 사진은 휴대폰 안에서 canvas에 다시 그려 JPEG로 만듦 → 촬영 위치(EXIF GPS)·기기 정보가 빠지고 긴 변 1280px로 줄어듦. 원본은 보내지 않음
 async function shrinkPhoto(file, max = 1280) {
   const img = new Image(), url = URL.createObjectURL(file);
-  try { img.src = url; await img.decode(); } finally { URL.revokeObjectURL(url); }
+  try {                                                                    // 못 여는 사진(HEIC 등)이나 멈춘 해독은 10초 뒤 실패로
+    await new Promise((ok, bad) => { img.onload = ok; img.onerror = bad; setTimeout(bad, 10000); img.src = url; });
+  } finally { URL.revokeObjectURL(url); }
   const k = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight)), c = document.createElement('canvas');
   c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
   c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
@@ -501,7 +503,7 @@ function openFeedback() {
     const b = e.target.closest('[data-f]'); if (!b) return;
     if (b.dataset.f === 'close') return close();
     if (b.dataset.f === 'add') return $('fbFile').click();
-    if (b.dataset.f === 'del') { photos.splice(+b.dataset.i, 1); return showPhotos(); }
+    if (b.dataset.f === 'del') { photos.splice(+b.dataset.i, 1); showPhotos(); return ($('fbPics').querySelector('[data-f=del]') ?? $('fbAdd')).focus(); }   // 다시 그려도 포커스 유지
     const text = $('fbText').value.trim(), msg = $('fbMsg');
     if (under14(store.get('profile', {}).age)) return (msg.textContent = '만 14세 미만은 건의함을 쓸 수 없어요.');   // 처리방침 8번
     if (!text) return (msg.textContent = '내용을 적어 주세요.');
