@@ -184,7 +184,7 @@ function runRec(act) {
   $('recTitle').textContent = { walk: '걷는 중… 평소처럼 직선으로', run: '달리는 중… 평소 페이스로', easyrun: '천천히 달리는 중… 걷는 속도 정도로 쭉', cooper: '12분 동안 최대한 멀리', auto: '측정 중… 걷거나 달려요' }[act] ?? '조깅 1분';
   t0 = startWall; liveSteps = 0; $('recLive').textContent = '';
   $('recMapBox').classList.toggle('hidden', !KAKAO_KEY || !usesGps(act));
-  $('recMap').classList.add('hidden'); $('recMap').innerHTML = ''; $('recMapBtn').textContent = '지금까지 경로 지도 보기';
+  closeRecMap();
   let lastPhase = Math.floor((Date.now() - startWall) / 1000 / INTERVAL_S), tick = 0;
     timer = setInterval(() => {
       const el = Math.max(0, (Date.now() - startWall) / 1000);
@@ -413,7 +413,7 @@ function send(r) {
 }
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v65';
+const APP_VERSION = 'v66';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -854,14 +854,19 @@ document.addEventListener('click', async e => {
   else { btn.disabled = false; btn.textContent = '지도를 못 불러왔어요 · 다시 누르기'; }
 });
 // 측정 중: 누를 때만 그 순간까지의 경로를 한 번 그림 (따라가며 계속 그리지 않음 → 배터리·카카오 전달은 누를 때만)
+// 지도가 열려 있으면 이 버튼이 '지도 접기'. 열 때는 지도가 끝 버튼을 화면 밖으로 밀지 않게 #rec를 위에서부터 쌓고 스크롤되게 (mapOpen)
+function closeRecMap() { $('recMap').classList.add('hidden'); $('recMap').innerHTML = ''; $('rec').classList.remove('mapOpen'); $('recMapBtn').textContent = '지금까지 경로 지도 보기'; }
 $('recMapBtn').addEventListener('click', async () => {
   const btn = $('recMapBtn');
+  if (!$('recMap').classList.contains('hidden')) return closeRecMap();
   let g = gpsPts;
   if (Native) { try { ({ gps: g } = await Native.peek({ sec: 1 })); } catch { g = []; } }
   const pts = packRoute(g ?? []);
   if (!pts) return (btn.textContent = '아직 경로가 없어요 · 야외에서 조금 더 간 뒤 다시 눌러요');
   btn.textContent = '지도 불러오는 중…';
-  btn.textContent = await drawRoute($('recMap'), pts) ? '경로 새로 보기' : '지도를 못 불러왔어요 · 다시 누르기';
+  $('rec').classList.add('mapOpen');
+  if (await drawRoute($('recMap'), pts)) { btn.textContent = '지도 접기'; $('stop').scrollIntoView({ block: 'nearest' }); }
+  else { closeRecMap(); btn.textContent = '지도를 못 불러왔어요 · 다시 누르기'; }
 });
 
 function showHtml(html) {
