@@ -45,7 +45,6 @@ public class GaitRecorderPlugin extends Plugin {
         call.resolve(ret);
     }
 
-    // 측정을 멈추지 않고 최근 sec초 가속도 + 지금까지 GPS (측정 중 화면에 실시간 값 표시용)
     // 설치형 앱 버전 (화면 아래 '설치형 앱 0.14 · 화면 v86' 표시용)
     @PluginMethod
     public void info(PluginCall call) {
@@ -54,6 +53,7 @@ public class GaitRecorderPlugin extends Plugin {
         call.resolve(r);
     }
 
+    // 측정을 멈추지 않고 최근 sec초 가속도 + 지금까지 GPS (측정 중 화면에 실시간 값 표시용)
     @PluginMethod
     public void peek(PluginCall call) {
         double sec = call.getInt("sec", 20);

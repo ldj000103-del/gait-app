@@ -136,7 +136,7 @@ if (Native) $('webOnly')?.remove();
   if (!Native && (kakao || /NAVER\(inapp|Instagram|FBAN|FBAV|Line\//i.test(ua))) {
     const href = kakao ? 'kakaotalk://web/openExternal?url=' + encodeURIComponent(location.href)          // 카톡 공식 외부 브라우저 열기 주소
       : ios ? '' : `intent://${location.href.replace(/^https?:\/\//, '')}#Intent;scheme=https;package=com.android.chrome;end`;
-    const name = ios ? '사파리로' : '크롬으로';
+    const name = ios ? '사파리로' : kakao ? '크롬(기본 브라우저)으로' : '크롬으로';
     document.querySelector('main > .sub').insertAdjacentHTML('afterend', `<div class="warn" id="inAppNote" role="status" style="font-size:1rem">
       <b>${kakao ? '카톡' : '다른 앱'} 안에서 열렸어요.</b> 여기서는 측정 중에 다른 화면으로 가면 측정이 끊겨요. ${name} 열어 주세요.
       ${href ? `<a class="btnlike" href="${href}">${name} 열기</a>` : `<br>화면 구석의 메뉴(⋯)에서 <b>"Safari로 열기"</b>를 눌러 주세요.`}
@@ -621,7 +621,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v87';
+const APP_VERSION = 'v88';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
