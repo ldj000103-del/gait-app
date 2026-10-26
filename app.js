@@ -246,7 +246,7 @@ $('start').addEventListener('click', async () => {
   document.body.classList.add('recording');                                 // 측정 중엔 탭 막대를 숨겨 다른 화면으로 못 넘어가게 (앱도 같이)
   samples = []; $('setup').classList.add('hidden'); $('result').classList.add('hidden'); $('rec').classList.remove('hidden');
   $('recTitle').textContent = '3초 안에 주머니에 넣으세요';
-  $('recTime').textContent = LEAD_S;
+  $('recTime').textContent = LEAD_S; setArc(1); $('recAct').textContent = ACT[act] ?? '';
   // 앱: 카운트다운 전에 측정 서비스부터 켬. 카운트다운 중에 화면을 꺼도 화면 타이머만 멈추고 측정은 계속됨 (예전엔 서비스가 안 켜져 결과가 안 나왔음)
   // 처음 3초(주머니에 넣는 시간)는 끝낼 때 빼고 계산. 슬로우 러닝은 서비스 진동이 켠 순간부터 1분마다라 그 시각을 기준으로 둠(첫 조깅 57초)
   const cdEnd = Date.now() + LEAD_S * 1000, lead = Native && act === 'slowrun' ? 0 : LEAD_S;
@@ -258,7 +258,7 @@ $('start').addEventListener('click', async () => {
   }
   timer = setInterval(() => {                                               // 시계 기준이라 화면이 잠깐 멈췄다 돌아와도 맞게 셈
     const left = Math.ceil((cdEnd - Date.now()) / 1000);
-    if (left > 0) return ($('recTime').textContent = left);
+    if (left > 0) { $('recTime').textContent = left; return setArc(left / LEAD_S); }
     clearInterval(timer);
     navigator.vibrate?.(200);
     if (!Native) { window.addEventListener('devicemotion', onMotion); store.set('rec', { act, startWall, native: false }); }
@@ -267,17 +267,24 @@ $('start').addEventListener('click', async () => {
   }, 250);
 });
 // 측정 중 화면 (시간·안내). 시작 시각 기준이라 다시 열린 앱에서도 이어서 셈
+// 가운데 원: 기본 1분에 한 바퀴, 12분 테스트는 남은 시간, 슬로우 러닝은 조깅·걷기 1분 구간마다 한 바퀴
+const setArc = f => { $('recArc').style.strokeDashoffset = (565.5 * (1 - Math.min(1, Math.max(0, f)))).toFixed(1); };
 function runRec(act) {
   const { startWall } = store.get('rec', {});
-  $('recTitle').textContent = { walk: '걷는 중… 평소처럼 직선으로', run: '달리는 중… 평소 페이스로', easyrun: '천천히 달리는 중… 걷는 속도 정도로 쭉', cooper: '12분 동안 최대한 멀리', auto: '측정 중… 걷거나 달려요' }[act] ?? '조깅 1분';
-  t0 = startWall; liveSteps = 0; $('recLive').textContent = '';
+  $('recTitle').textContent = { walk: '걷는 중 · 평소처럼', run: '달리는 중 · 평소 페이스로', easyrun: '천천히 달리는 중 · 걷는 속도 정도로', cooper: '12분 동안 최대한 멀리', auto: '측정 중 · 걷거나 달려요' }[act] ?? '조깅 1분';
+  t0 = startWall; liveSteps = 0; $('recAct').textContent = ACT[act] ?? '';
+  for (const id of ['lvCad', 'lvSteps', 'lvDist']) $(id).textContent = '–';
+  $('recFind').textContent = '걸음 신호 찾는 중…';
+  $('lvDistBox').hidden = !usesGps(act);
+  $('recGpsNote').classList.toggle('hidden', !usesGps(act) || act === 'cooper');
   $('recMapBox').classList.toggle('hidden', !KAKAO_KEY || !usesGps(act));
   closeRecMap();
   let lastPhase = Math.floor((Date.now() - startWall) / 1000 / INTERVAL_S), tick = 0;
     timer = setInterval(() => {
       const el = Math.max(0, (Date.now() - startWall) / 1000);
       if (++tick % 6 === 0) updateLive(act, el);
-      $('recTime').textContent = Math.round(el) + '초';
+      $('recTime').textContent = clock(el);
+      setArc(act === 'cooper' ? 1 - el / COOPER_S : (el % INTERVAL_S) / INTERVAL_S);   // INTERVAL_S = 60초
       if (act === 'slowrun') {
         const ph = Math.floor(el / INTERVAL_S), jog = ph % 2 === 0;
         $('recTitle').textContent = `${jog ? '조깅' : '걷기'} 1분 · ${INTERVAL_S - Math.floor(el % INTERVAL_S)}초 남음`;
@@ -286,11 +293,11 @@ function runRec(act) {
       }
       if (act === 'cooper') {
         const left = Math.max(0, COOPER_S - Math.floor(el));
-        $('recTitle').textContent = `12분 동안 최대한 멀리 · ${Math.floor(left / 60)}분 ${String(left % 60).padStart(2, '0')}초 남음`;
+        $('recTitle').textContent = `${clock(left)} 남음 · 최대한 멀리`;
         if (el >= COOPER_S) { navigator.vibrate?.([600, 200, 600]); return stopRec(); }   // 12분이 되면 자동으로 끝
       }
       const last = gpsPts[gpsPts.length - 1];
-      if (Native) $('recHint').textContent = '이제 화면을 꺼도 측정돼요. 알림창에 "걸음 측정 중"이 보이면 정상이에요.';
+      if (Native) $('recHint').textContent = '알림창에 "걸음 측정 중"이 보이면 정상이에요';
       else if ($('dmode').value === 'gps') $('recHint').textContent = gpsDenied ? '위치 권한이 없어 속도는 재지 않아요 (케이던스는 정상 측정)'
         : last ? `GPS 오차 약 ${Math.round(last.acc)}m · 속도를 재려면 야외에서 1분 이상 걸어 주세요` : 'GPS 신호 찾는 중… (실내에서는 잘 안 잡혀요)';
     }, 500);
@@ -305,31 +312,24 @@ async function updateLive(act, el) {
   const ok = s?.length > 50, pos = $('pos').value === 'auto' ? 'pocket' : $('pos').value;
   const mode = !ok ? null : act === 'slowrun' ? (Math.floor(el / INTERVAL_S) % 2 === 0 ? 'run' : 'walk') : act === 'auto' ? guessActivity(s) ?? 'walk' : act === 'walk' ? 'walk' : 'run';
   const r = ok ? analyzeWalk(s, { position: pos, activity: mode }) : { error: 'tooShort' };
-  const parts = act === 'auto' && !r.error ? [`지금 ${mode === 'run' ? '달리기' : '걷기'}로 보여요`] : [];
-  if (!r.error) { liveSteps += r.cadence * 3 / 60; parts.push(`지금 케이던스 약 ${Math.round(r.cadence)}걸음/분`, `걸음 약 ${Math.round(liveSteps).toLocaleString()}`); }
-  else parts.push('걸음 신호 찾는 중…');
+  if (act === 'auto' && !r.error) $('recTitle').textContent = `지금 ${mode === 'run' ? '달리기' : '걷기'}로 보여요`;
+  if (!r.error) { liveSteps += r.cadence * 3 / 60; $('lvCad').textContent = Math.round(r.cadence); $('lvSteps').textContent = Math.round(liveSteps).toLocaleString(); }
+  $('recFind').textContent = r.error ? '걸음 신호 찾는 중…' : '';
   const d = g?.length > 1 ? gpsDistance(g) : null;
-  if (d) parts.push(`GPS 거리 약 ${Math.round(d.dist).toLocaleString()}m`);
-  $('recLive').textContent = parts.join(' · ');
+  if (d) $('lvDist').textContent = Math.round(d.dist).toLocaleString();
 }
-// 웹앱은 화면이 켜진 채 주머니에 있으니 실수로 눌리지 않게 1초 길게 눌러야 끝
-let holdTimer = null;
-// 설치형 앱은 화면을 끄고 걸어서 실수로 눌릴 일이 없으니 한 번 누르면 끝
+// 측정 종료: 한 번 누르면 확인 창, '측정 종료'를 눌러야 끝 (사용자 결정 10/27: 길게 누르기 대신 확인 창 하나로 주머니 오작동 막기)
+const closeStopSheet = () => { $('stopSheet').hidden = true; };
+$('stop').addEventListener('click', () => { $('stopSheet').hidden = false; $('stopNo').focus(); });
+$('stopNo').addEventListener('click', () => { closeStopSheet(); $('stop').focus(); });
+$('stopYes').addEventListener('click', () => { closeStopSheet(); stopRec(); });
+$('stopSheet').addEventListener('click', e => { if (e.target.id === 'stopSheet') closeStopSheet(); });   // 시트 바깥 = 계속 측정
+$('stopSheet').addEventListener('keydown', e => { if (e.key === 'Escape') closeStopSheet(); });
 if (Native) {
-  $('stop').textContent = '끝'; $('stop').addEventListener('click', stopRec);
   document.querySelector('ol.guide').innerHTML = `<li><b>시작</b>을 누르고 3초 뒤 <b>화면을 끄고</b> 주머니에 넣어요. 알림창에 "걸음 측정 중"이 떠 있으면 화면이 꺼져도 측정돼요.</li>
     <li><b>평소처럼, 멈추지 말고 이어서</b> 걸어요. 케이던스만 볼 땐 20초 이상, GPS로 속도까지 볼 땐 야외에서 1분 이상. 방향을 틀며 멈추면 그 앞뒤가 따로 잘려 짧게 잡혀요.</li>
-    <li>멈춰서 화면을 켜고 <b>끝</b>을 눌러요.</li>`;
+    <li>멈춰서 화면을 켜고 <b>측정 종료</b>를 누른 뒤 한 번 더 확인해요.</li>`;
 }
-else {
-let holdStart = 0;
-$('stop').addEventListener('pointerdown', () => { holdStart = Date.now(); $('stop').textContent = '계속 누르고 있어요…'; holdTimer = setTimeout(stopRec, 1000); });
-for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) $('stop').addEventListener(ev, () => {
-  clearTimeout(holdTimer);
-  $('stop').textContent = ev === 'pointerup' && t0 && Date.now() - holdStart < 1000 ? '아직 측정 중이에요 · 1초 동안 꾹 눌러야 끝나요' : '끝 (1초 길게 누르기)';   // 짧게 누르고 끝난 줄 알면 안 되니까
-});
-}
-$('stop').addEventListener('contextmenu', e => e.preventDefault());
 // 설치형 앱에서 휴대폰(절전·메모리 정리)이 측정 중인 앱을 끄면 측정이 멈춤 → 이유와 막는 방법을 알려 줌
 const BATTERY_TIP = '삼성 휴대폰은 설정 → 배터리 → 백그라운드 사용 제한 → <b>절전 예외 앱</b>에 ‘스텝미러’(예전 이름 ‘걸음 분석’)를 넣으면 측정 중에 앱이 정리되지 않아요.';
 // 결과가 안 나온 측정도 이유만 한 줄 보냄 (시작한 측정 중 몇 번 성공했나 = 수율의 분모, 데이터분석팀). 걸음 숫자 칸은 빈칸,
@@ -346,7 +346,8 @@ const sentText = rc => rc ? `
 측정 정보만 익명으로 보냈어요. 접수번호 ${rc} (지우려면 이 번호를 ldj000103@gmail.com으로 보내 주세요)` : '';
 const noDiag = () => ({ src: Native ? 'app' : 'web', durS: 0, hz: 0, gapS: 0, gpsGood: 0 });   // 센서 값이 거의 없어 측정 정보를 못 만든 경우
 async function stopRec(killed = false) {
-  killed = killed === true;                                                // '끝' 버튼은 클릭 이벤트를 넘김 → 진짜 true일 때만
+  killed = killed === true;                                                // 혹시 클릭 이벤트가 넘어와도 진짜 true일 때만
+  closeStopSheet();                                                        // 12분 자동 종료·앱 정리로 끝날 때 확인 창이 남지 않게
   shownDate = null;                                                        // 실패 화면에 앞 측정의 공유·원본·상황 버튼이 붙지 않게 (finish는 따로 다시 정함)
   const rec = store.get('rec', null), ran = t0, lead = rec?.lead ?? 0; clearInterval(timer); t0 = 0;
   const endTag = !rec || Date.now() < rec.startWall ? 'end:cancel' : 'end:noData';   // 3초 카운트다운 중에 끝 = 취소
@@ -364,7 +365,7 @@ async function stopRec(killed = false) {
       const act = rec?.act ?? $('act').value;
       if (killed || longRun) return showHtml(`<h2>측정이 멈췄어요</h2><div class="warn">휴대폰이 앱을 정리해서 측정이 멈췄고, 저장된 측정값이 없어요. 다시 측정해 주세요.<br>${BATTERY_TIP}</div>${sentNote(sendEnd(['end:killed'], act, $('pos').value, noDiag()))}`);
       const rc = sendEnd([endTag], act, $('pos').value, noDiag());
-      return alert('측정 시간이 너무 짧아요. 시작 후 3초 동안은 주머니에 넣는 시간이라 빼고, 그 뒤부터 재요. 걷고 나서 끝을 눌러 주세요.' + sentText(rc));
+      return alert('측정 시간이 너무 짧아요. 시작 후 3초 동안은 주머니에 넣는 시간이라 빼고, 그 뒤부터 재요. 걷고 나서 측정 종료를 눌러 주세요.' + sentText(rc));
     }
     finish(s, false, g);
     if (killed || r.fromFile) $('result').insertAdjacentHTML('afterbegin', `<div class="warn">측정 중에 휴대폰이 앱을 정리해서 측정이 중간에 멈췄어요. 멈추기 전까지 저장된 기록으로 분석했어요(걸음 수·시간이 실제보다 적을 수 있어요).<br>${BATTERY_TIP}</div>`);
@@ -409,7 +410,7 @@ function finish(data, demo = false, gps = []) {
   }
   if (paused && !res.error) res.warnings.push('paused');
   if (res.error && paused) {
-    showHtml(`<h2>다시 측정해 주세요</h2><div class="warn">측정 중에 화면이 꺼지거나 다른 앱으로 바뀌어서 센서가 멈췄어요 (최대 ${Math.round(maxGap / 1000)}초 끊김). <b>전원 버튼은 누르지 말고</b> 시작 후 그대로 주머니에 넣어 주세요(화면이 까만 주머니 모드는 켜진 상태라 측정이 계속돼요). 끝은 1초 길게 눌러야 멈춰서 주머니 속에서 실수로 눌리지 않아요.</div>${sentNote(sendEnd([`end:${res.error}`, 'paused'], act, position, diag))}`);
+    showHtml(`<h2>다시 측정해 주세요</h2><div class="warn">측정 중에 화면이 꺼지거나 다른 앱으로 바뀌어서 센서가 멈췄어요 (최대 ${Math.round(maxGap / 1000)}초 끊김). <b>전원 버튼은 누르지 말고</b> 시작 후 그대로 주머니에 넣어 주세요(화면이 까만 주머니 모드는 켜진 상태라 측정이 계속돼요). 측정 종료는 누른 뒤 한 번 더 확인해야 끝나서 주머니 속에서 실수로 끝나지 않아요.</div>${sentNote(sendEnd([`end:${res.error}`, 'paused'], act, position, diag))}`);
     return;
   }
   if (res.error) {
@@ -621,7 +622,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v93';
+const APP_VERSION = 'v94';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -1162,8 +1163,8 @@ document.addEventListener('click', async e => {
   else { btn.disabled = false; btn.textContent = '지도를 못 불러왔어요 · 다시 누르기'; }
 });
 // 측정 중: 누를 때만 그 순간까지의 경로를 한 번 그림 (따라가며 계속 그리지 않음 → 배터리·카카오 전달은 누를 때만)
-// 지도가 열려 있으면 이 버튼이 '지도 접기'. 열 때는 지도가 끝 버튼을 화면 밖으로 밀지 않게 #rec를 위에서부터 쌓고 스크롤되게 (mapOpen)
-function closeRecMap() { $('recMap').classList.add('hidden'); $('recMap').innerHTML = ''; $('rec').classList.remove('mapOpen'); $('recMapBtn').textContent = '지금까지 경로 지도 보기'; }
+// 지도가 열려 있으면 이 버튼이 '지도 접기'. 측정 종료 버튼은 화면 아래에 고정이라 지도를 열어도 가려지지 않음
+function closeRecMap() { $('recMap').classList.add('hidden'); $('recMap').innerHTML = ''; $('rec').classList.remove('mapOpen'); $('recMapBtn').textContent = '지금까지 경로 지도 보기 ›'; }
 $('recMapBtn').addEventListener('click', async () => {
   const btn = $('recMapBtn');
   if (!$('recMap').classList.contains('hidden')) return closeRecMap();
@@ -1173,7 +1174,7 @@ $('recMapBtn').addEventListener('click', async () => {
   if (!pts) return (btn.textContent = '아직 경로가 없어요 · 야외에서 조금 더 간 뒤 다시 눌러요');
   btn.textContent = '지도 불러오는 중…';
   $('rec').classList.add('mapOpen');
-  if (await drawRoute($('recMap'), pts)) { btn.textContent = '지도 접기'; $('stop').scrollIntoView({ block: 'nearest' }); }
+  if (await drawRoute($('recMap'), pts)) { btn.textContent = '지도 접기'; $('recMap').scrollIntoView({ block: 'nearest' }); }
   else { closeRecMap(); btn.textContent = '지도를 못 불러왔어요 · 다시 누르기'; }
 });
 
@@ -2108,6 +2109,6 @@ if ('serviceWorker' in navigator) {
 }
 // 웹인지 설치형인지 + 버전 (검수팀 제안 c). 앱 버전은 0.14부터 네이티브가 알려 줌, 그 전 앱은 버전 없이
 $('appver').textContent = Native ? `설치형 앱 · 화면 ${APP_VERSION}` : `웹(브라우저) · 화면 ${APP_VERSION}`;
-$('recMode').textContent = Native ? '설치형 앱으로 측정 중 · 다른 앱을 써도 계속돼요' : '웹(브라우저)으로 측정 중 · 다른 앱에 가면 끊겨요';
-$('recMode').className = `badge ${Native ? 'b-g' : 'b-o'}`;
+$('recMode').textContent = Native ? '측정 중 · 화면 꺼도 돼요' : '측정 중 · 화면을 켜 두세요';
+$('recMode').classList.toggle('web', !Native);
 if (Native) (async () => { try { const { version } = await Native.info(); if (version) $('appver').textContent = `설치형 앱 ${version} · 화면 ${APP_VERSION}`; } catch {} })();

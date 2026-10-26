@@ -212,13 +212,29 @@
   body.recording main > section:not(#rec) { display:none; }
   body.needConsent main > section#vsetup, body.needConsent main > section#vresult { display:none; }
   body.recording main > h1, body.recording main > .sub { display:none; }
-  body.recording #rec { position:fixed; inset:0; margin:0; border:0; border-radius:0; background:#000; color:#555;
-                        display:flex; flex-direction:column; justify-content:center; padding:24px; }
-  body.recording #rec .sub { color:#444; } body.recording #recLive { color:#8a918e; }
-  body.recording #recMapBtn { background:#111; color:#888; border:1px solid #222; margin-top:16px; }
-  body.recording #stop { background:#111; color:#666; border:1px solid #222; margin-top:24vh; }
-  body.recording #rec.mapOpen { justify-content:flex-start; overflow-y:auto; padding-bottom:calc(16px + env(safe-area-inset-bottom)); }   /* 지도(260px)를 열어도 끝 버튼이 화면 안에 */
-  body.recording #rec.mapOpen #stop { margin-top:16px; }
+  /* 측정 중 화면 (디자인 팀 시안 A, 10/27): 어두운 바탕 흰 글씨, 가운데 원 타이머, 실시간 값 3칸, 지도는 접어 두고, 측정 종료는 아래 고정 + 확인 창 */
+  body.recording #rec { position:fixed; inset:0; margin:0; border:0; border-radius:0; background:#000; color:#fff; box-shadow:none; overflow-y:auto;
+                        padding:calc(16px + env(safe-area-inset-top)) 16px calc(100px + env(safe-area-inset-bottom)); }
+  #rec .rtop { display:flex; justify-content:space-between; align-items:center; gap:8px; }
+  #rec .rchip { display:inline-flex; align-items:center; gap:6px; font-size:.8125rem; font-weight:600; padding:5px 12px; border-radius:999px; background:#1a201e; color:#fff; }
+  #rec .rchip::before { content:''; width:8px; height:8px; border-radius:50%; background:#16a383; }
+  #rec .rchip.web::before { background:#f08a55; }
+  #recAct { color:#9aa5a1; font-size:.875rem; white-space:nowrap; }
+  body.recording #rec .sub { color:#9aa5a1; } #recHint { margin:6px 2px 0; font-size:.8125rem; }
+  #rec .ring { position:relative; width:190px; height:190px; margin:14px auto 6px; }
+  #rec .ring svg { width:100%; height:100%; transform:rotate(-90deg); } #rec .ring circle { fill:none; stroke-width:10; }
+  #rec .ring circle:first-child { stroke:#2a3330; } #recArc { stroke:#16a383; stroke-linecap:round; stroke-dasharray:565.5; transition:stroke-dashoffset .4s linear; }
+  #rec .rin { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:0 22px; }
+  #recTime { font-size:2.5rem; font-weight:700; letter-spacing:-.03em; line-height:1.1; font-variant-numeric:tabular-nums; }
+  #recTitle { font-size:.8125rem; color:#c4ccc9; margin-top:4px; line-height:1.35; word-break:keep-all; }
+  #rec .rlive { display:grid; grid-auto-flow:column; grid-auto-columns:1fr; gap:8px; text-align:center; margin:4px 0 12px; }
+  #rec .rlive b { display:block; font-size:1.25rem; font-weight:700; } #rec .rlive small { display:block; font-size:.6875rem; color:#9aa5a1; }
+  body.recording #recMapBtn { background:transparent; color:#c4ccc9; border:1px solid #2a3330; border-radius:999px; padding:10px; margin-top:4px; font-weight:500; }
+  body.recording #stop { position:fixed; z-index:5; left:16px; right:16px; bottom:calc(16px + env(safe-area-inset-bottom)); width:auto; max-width:528px; margin:0 auto;
+                         min-height:56px; border-radius:14px; background:#5fc2ab; color:#0b1a16; font-size:1.0625rem; font-weight:700; }
+  #stopSheet { position:fixed; inset:0; z-index:40; background:rgba(0,0,0,.6); display:flex; align-items:flex-end; }
+  #stopSheet[hidden] { display:none; }
+  #stopSheet .dsheet { background:#1a201e; color:#fff; } #stopNo { color:#c4ccc9; border-color:#2a3330; margin-top:10px; }
   ol.guide { padding-left:20px; margin:6px 0; } ol.guide li { margin:3px 0; }
 </style>
 </head>
@@ -370,13 +386,13 @@
       <li><b>무엇을 할까요</b>는 잘 모르겠으면 <b>자동</b>으로 두세요. 걷기·러닝·슬로우 러닝을 알아서 나눠요.</li>
       <li>휴대폰은 <b>바지 앞주머니</b>에 넣을 때 가장 정확해요.</li>
       <li><b>시작</b>을 누르고 3초 안에 주머니에 넣은 뒤, 평소처럼 걷거나 달려요.</li>
-      <li>다 했으면 멈춰서 휴대폰을 꺼내 <b>끝</b>을 눌러요. 결과는 휴대폰에 저절로 저장돼요.</li>
+      <li>다 했으면 멈춰서 휴대폰을 꺼내 <b>측정 종료</b>를 누르고 한 번 더 확인해요. 결과는 휴대폰에 저절로 저장돼요.</li>
       <li>결과 화면 아래 <b>이 숫자 읽는 법</b>을 눌러 보세요.</li></ol></details>
     <ol class="guide sub">
       <li><b>시작</b>을 누르고 3초 안에 주머니에 넣어요. 화면이 까맣게 바뀌는 <b>주머니 모드</b>가 돼요. <b>전원 버튼은 누르지 마세요</b> — 누르면 휴대폰이 센서를 멈춰요.</li>
       <li id="webOnly"><b>측정 중에는 화면을 켜 둔 채 다른 앱·탭으로 넘어가지 마세요.</b> 넘어가면 웹에서는 기록이 끊겨요. <a href="install.html">설치형 앱</a>은 끊기지 않아요.</li>
       <li><b>평소처럼</b> 걸어요. 케이던스만 볼 땐 20초 이상, GPS로 속도까지 볼 땐 <b>야외에서 1분 이상</b>. 특정 지점을 밟으려고 하지 마세요.</li>
-      <li>멈춰서 휴대폰을 꺼내 <b>끝을 1초 길게</b> 눌러요.</li>
+      <li>멈춰서 휴대폰을 꺼내 <b>측정 종료</b>를 누르고 한 번 더 확인해요.</li>
     </ol>
     <button id="demo" class="ghost hidden">데모 데이터로 보기</button>
   </section>
@@ -404,15 +420,20 @@
   <section class="card hidden" id="vresult" data-tab="video"></section>
 
   <section class="card hidden" id="rec" data-tab="measure">
-    <span id="recMode" style="font-size:.875rem;padding:5px 11px"></span>
-    <h2 id="recTitle">준비…</h2>
-    <div class="big" id="recTime">0초</div>
-    <div id="recLive" style="font-size:1.0625rem;font-weight:600;margin:4px 0 8px"></div>
+    <div class="rtop"><span id="recMode" class="rchip"></span><span id="recAct"></span></div>
     <div class="sub" id="recHint">휴대폰을 주머니에 넣고 걸으세요.</div>
-    <div id="recMapBox" class="hidden"><button class="ghost" id="recMapBtn">지금까지 경로 지도 보기</button>
+    <div class="ring"><svg viewBox="0 0 200 200" aria-hidden="true"><circle cx="100" cy="100" r="90"/><circle id="recArc" cx="100" cy="100" r="90"/></svg>
+      <div class="rin"><div id="recTime">0:00</div><div id="recTitle">준비…</div></div></div>
+    <div class="sub hidden" id="recGpsNote" style="text-align:center">1분 이상 걸으면 속도도 나와요</div>
+    <div class="sub" id="recFind" style="text-align:center;min-height:1.4em"></div>
+    <div class="rlive"><div><b id="lvCad">–</b><small>걸음/분</small></div><div><b id="lvSteps">–</b><small>걸음</small></div><div id="lvDistBox"><b id="lvDist">–</b><small>GPS 거리 m</small></div></div>
+    <div id="recMapBox" class="hidden"><button class="ghost" id="recMapBtn">지금까지 경로 지도 보기 ›</button>
       <div class="sub" style="margin-top:4px">누를 때만 카카오 지도를 불러와요(대략 위치가 카카오에 전달돼요). 측정은 계속돼요.</div>
       <div id="recMap" class="hidden" style="height:260px;border-radius:10px;margin-top:8px"></div></div>
-    <button id="stop" style="touch-action:none;user-select:none">끝 (1초 길게 누르기)</button>
+    <button id="stop">측정 종료</button>
+    <div id="stopSheet" hidden role="dialog" aria-modal="true" aria-labelledby="stopQ"><div class="dsheet" style="padding-left:20px;padding-right:20px">
+      <h3 id="stopQ" style="margin:0 0 4px">측정을 끝낼까요?</h3>
+      <button id="stopYes">측정 종료</button><button class="ghost" id="stopNo">계속 측정</button></div></div>
   </section>
 
   <section class="card hidden" id="result" data-tab="measure"></section>
