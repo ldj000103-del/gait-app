@@ -285,8 +285,10 @@ for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) $('stop').addEv
 });
 }
 $('stop').addEventListener('contextmenu', e => e.preventDefault());
-async function stopRec() {
-  const ran = t0, lead = store.get('rec', null)?.lead ?? 0; clearInterval(timer); t0 = 0;
+// 설치형 앱에서 휴대폰(절전·메모리 정리)이 측정 중인 앱을 끄면 측정이 멈춤 → 이유와 막는 방법을 알려 줌
+const BATTERY_TIP = '삼성 휴대폰은 설정 → 배터리 → 백그라운드 사용 제한 → <b>절전 예외 앱</b>에 ‘걸음 분석’을 넣으면 측정 중에 앱이 정리되지 않아요.';
+async function stopRec(killed = false) {
+  const rec = store.get('rec', null), ran = t0, lead = rec?.lead ?? 0; clearInterval(timer); t0 = 0;
   store.set('rec', null); store.set('recSnap', null);
   document.body.classList.remove('recording');
   if (Native) {
@@ -296,8 +298,13 @@ async function stopRec() {
     try { r = await Native.stop(); } catch { return alert('측정을 끝내지 못했어요. 앱을 껐다 켜고 다시 해 주세요.'); }
     const cut = (r.samples[0]?.t ?? 0) + lead * 1000;                       // 주머니에 넣던 처음 3초는 뺌 (센서·GPS 시각은 같은 시계)
     const s = r.samples.filter(p => p.t >= cut), g = r.gps.filter(p => p.t >= cut);
-    if (s.length < 20) return alert('측정 시간이 너무 짧아요. 시작 후 3초 동안은 주머니에 넣는 시간이라 빼고, 그 뒤부터 재요. 걷고 나서 끝을 눌러 주세요.');
-    return finish(s, false, g);
+    const longRun = rec?.startWall && Date.now() - rec.startWall > 20000;   // 20초 넘게 지났는데 값이 없으면 '짧아서'가 아니라 측정이 멈춘 것
+    if (s.length < 20) return killed || longRun
+      ? showHtml(`<h2>측정이 멈췄어요</h2><div class="warn">휴대폰이 앱을 정리해서 측정이 멈췄고, 저장된 측정값이 없어요. 다시 측정해 주세요.<br>${BATTERY_TIP}</div>`)
+      : alert('측정 시간이 너무 짧아요. 시작 후 3초 동안은 주머니에 넣는 시간이라 빼고, 그 뒤부터 재요. 걷고 나서 끝을 눌러 주세요.');
+    finish(s, false, g);
+    if (killed || r.fromFile) $('result').insertAdjacentHTML('afterbegin', `<div class="warn">측정 중에 휴대폰이 앱을 정리해서 측정이 중간에 멈췄어요. 멈추기 전까지 저장된 기록으로 분석했어요(걸음 수·시간이 실제보다 적을 수 있어요).<br>${BATTERY_TIP}</div>`);
+    return;
   }
   wakeLock?.release().catch(() => {}); wakeLock = null;
   window.removeEventListener('devicemotion', onMotion);
@@ -488,7 +495,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v76';
+const APP_VERSION = 'v77';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -1888,12 +1895,14 @@ renderRemind();
 loadSteps();
 homeReady = true;
 // ── 측정 이어 하기: 측정 중에 전화·카톡 등으로 앱(페이지)이 다시 열린 경우 ──
-(function resumeRec() {
+(async function resumeRec() {
   const rec = store.get('rec', null);
   if (!rec?.startWall) return;
   if (Date.now() - rec.startWall > 3 * 3600e3) { store.set('rec', null); store.set('recSnap', null); return; }   // 3시간 넘은 건 버림
   $('act').value = rec.act; showAct(); setTab('measure');
   if (Native && rec.native) {                                              // 설치형 앱: 측정 서비스는 계속 도는 중 → 측정 화면만 다시 띄움
+    const { alive } = await Native.peek({ sec: 1 }).catch(() => ({}));      // 0.12 이하 앱은 alive를 안 줌 → 예전처럼 살아 있다고 봄
+    if (alive === false) { t0 = rec.startWall; return stopRec(true); }      // 휴대폰이 앱을 정리함 → 파일에 남은 값으로 바로 결과
     document.body.classList.add('recording');
     $('setup').classList.add('hidden'); $('result').classList.add('hidden'); $('rec').classList.remove('hidden');
     return runRec(rec.act);
