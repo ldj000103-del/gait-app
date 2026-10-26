@@ -130,6 +130,19 @@ showDmode();
 // 설치형 안드로이드 앱이면 네이티브 기록기(화면이 꺼져도 측정), 아니면 브라우저 센서
 const Native = window.Capacitor?.isNativePlatform?.() ? window.Capacitor.Plugins.GaitRecorder : null;
 if (Native) $('webOnly')?.remove();
+// 카톡·네이버·인스타 안의 브라우저: 다른 화면으로 가면 측정이 끊기고 설치·홈 화면 추가도 잘 안 돼서 크롬·사파리로 넘기는 안내 (검수팀 제안 a)
+{
+  const ua = navigator.userAgent, ios = /iPhone|iPad|iPod/.test(ua), kakao = /KAKAOTALK/i.test(ua);
+  if (!Native && (kakao || /NAVER\(inapp|Instagram|FBAN|FBAV|Line\//i.test(ua))) {
+    const href = kakao ? 'kakaotalk://web/openExternal?url=' + encodeURIComponent(location.href)          // 카톡 공식 외부 브라우저 열기 주소
+      : ios ? '' : `intent://${location.href.replace(/^https?:\/\//, '')}#Intent;scheme=https;package=com.android.chrome;end`;
+    const name = ios ? '사파리로' : '크롬으로';
+    document.querySelector('main > .sub').insertAdjacentHTML('afterend', `<div class="warn" id="inAppNote" role="status" style="font-size:1rem">
+      <b>${kakao ? '카톡' : '다른 앱'} 안에서 열렸어요.</b> 여기서는 측정 중에 다른 화면으로 가면 측정이 끊겨요. ${name} 열어 주세요.
+      ${href ? `<a class="btnlike" href="${href}">${name} 열기</a>` : `<br>화면 구석의 메뉴(⋯)에서 <b>"Safari로 열기"</b>를 눌러 주세요.`}
+      ${ios ? '' : '<a class="btnlike ghostlike" href="install.html">설치형 앱 받기 (다른 앱을 써도 측정이 계속돼요)</a>'}</div>`);
+  }
+}
 // 웹에서 주머니·허리(또는 자동 짐작)를 고르면 시작 전에 끊김 경고 (데이터: 웹 주머니 측정은 초당 3번·대부분 끊김)
 const showPocketNote = () => $('pocketNote').classList.toggle('hidden', !!Native || $('pos').value === 'hand');
 $('pos').value = store.get('pos', 'pocket');                                  // 휴대폰 위치도 지난 선택을 기억
@@ -608,7 +621,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v85';
+const APP_VERSION = 'v86';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -2067,7 +2080,8 @@ homeReady = true;
   if (!snap?.s?.length) return;
   $('pos').value = snap.pos; $('dmode').value = snap.dmode; gpsDenied = snap.gpsDenied; hiddenDuringRec = true;
   finish(snap.s.map(([t, m]) => ({ t, x: m, y: 0, z: 0, mag: true })), false, snap.g || []);   // mag: 크기 값뿐 → 센서 원본으로는 저장 안 함
-  $('result').insertAdjacentHTML('afterbegin', '<div class="warn">측정 중에 다른 앱으로 나가서 측정이 끊겼어요. 나가기 직전까지의 기록으로 분석했어요. 웹앱은 다른 앱으로 가면 측정이 멈춰요. 설치형 안드로이드 앱은 다른 앱을 써도 계속 측정돼요.</div>');
+  $('result').insertAdjacentHTML('afterbegin', `<div class="warn" style="font-size:1rem"><b>웹(브라우저)으로 측정해서 끊겼어요.</b> 나가기 직전까지의 기록으로 분석했어요. 웹은 다른 앱으로 가면 측정이 멈춰요. 설치형 안드로이드 앱은 다른 앱을 써도 계속 측정돼요.
+    ${/Android/.test(navigator.userAgent) ? '<a class="btnlike" href="install.html">설치형 앱 받기</a>' : ''}</div>`);   // 검수팀 제안 d
 })();
 if (document.body.dataset.tab === 'home') setTab('home');   // 측정 이어 하기로 이미 측정 탭을 열었으면 그대로
 // 새 화면 버전이 적용되면 한 번 새로고침 (옛 화면이 남지 않게)
@@ -2076,4 +2090,8 @@ if ('serviceWorker' in navigator) {
   navigator.serviceWorker.addEventListener('controllerchange', () => { if (had && !window.__reloaded && !t0) { window.__reloaded = true; location.reload(); } });
   navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(r => r.update()).catch(() => {});
 }
-$('appver').textContent = `화면 버전 ${APP_VERSION}`;
+// 웹인지 설치형인지 + 버전 (검수팀 제안 c). 앱 버전은 0.14부터 네이티브가 알려 줌, 그 전 앱은 버전 없이
+$('appver').textContent = Native ? `설치형 앱 · 화면 ${APP_VERSION}` : `웹(브라우저) · 화면 ${APP_VERSION}`;
+$('recMode').textContent = Native ? '설치형 앱으로 측정 중 · 다른 앱을 써도 계속돼요' : '웹(브라우저)으로 측정 중 · 다른 앱에 가면 끊겨요';
+$('recMode').className = `badge ${Native ? 'b-g' : 'b-o'}`;
+if (Native) (async () => { try { const { version } = await Native.info(); if (version) $('appver').textContent = `설치형 앱 ${version} · 화면 ${APP_VERSION}`; } catch {} })();

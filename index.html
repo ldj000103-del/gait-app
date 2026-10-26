@@ -121,7 +121,7 @@
          padding:12px 14px; border-radius:12px; font-size:.95rem; box-shadow:0 6px 24px rgba(0,0,0,.25); max-width:536px; margin:0 auto; }
   #tip .sub { color:inherit; opacity:.7; }
   .gloss { margin-top:14px; } .gloss dt { font-weight:600; margin-top:8px; color:var(--ink); } .gloss dd { margin:2px 0 0; }
-  .btnlike { display:block; text-align:center; font-weight:600; border-radius:12px; padding:14px; margin-top:14px; background:var(--accent); color:#fff; cursor:pointer; }
+  .btnlike { display:block; text-decoration:none; text-align:center; font-weight:600; border-radius:12px; padding:14px; margin-top:14px; background:var(--accent); color:#fff; cursor:pointer; }
   .ghostlike { background:transparent; color:var(--accent); border:1px solid var(--accent); }
   .bar2 { height:10px; border-radius:6px; background:var(--line); overflow:hidden; margin-top:12px; } .bar2 i { display:block; height:100%; width:0; background:var(--accent); }
   svg.chart { width:100%; height:auto; margin-top:8px; }
@@ -383,6 +383,7 @@
   <section class="card hidden" id="vresult" data-tab="video"></section>
 
   <section class="card hidden" id="rec" data-tab="measure">
+    <span id="recMode" style="font-size:.875rem;padding:5px 11px"></span>
     <h2 id="recTitle">준비…</h2>
     <div class="big" id="recTime">0초</div>
     <div id="recLive" style="font-size:1.0625rem;font-weight:600;margin:4px 0 8px"></div>
@@ -413,7 +414,7 @@
     — 결과마다 "근거 보기"에서 출처를 확인할 수 있어요.
     <button id="invite" class="ghost" style="margin:6px 0 10px">친구에게 앱 알려주기</button>
     <button id="fbBtn" class="ghost" style="margin:0 0 10px">건의하기 (익명 의견 보내기)</button>
-    <p class="sub" id="appver" style="margin:4px 0"></p>
+    <p id="appver" style="margin:4px 0;font-weight:600"></p>
     <p><span id="consentState"></span> · <a href="#" id="cEdit">동의 변경</a> · <a href="privacy.html">개인정보 처리방침</a> · <a href="location-terms.html">위치기반서비스 이용약관</a></p>
   </section>
 </main>

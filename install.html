@@ -83,9 +83,16 @@
   const ua = navigator.userAgent, ios = /iPhone|iPad|iPod/.test(ua), android = /Android/.test(ua);
   if (ios) { document.getElementById('tagI').hidden = false; document.getElementById('ios').classList.add('me'); document.querySelector('main').insertBefore(document.getElementById('ios'), document.getElementById('android')); }
   // 카톡 안 브라우저에서는 홈 화면 추가가 안 되니 사파리로 넘기는 버튼을 보여 줌 (카톡 공식 외부 브라우저 열기 주소)
-  if (ios && /KAKAOTALK/i.test(ua)) {
-    document.getElementById('kakao').hidden = false;
+  // 안드로이드 카톡도 같은 주소로 기본 브라우저(크롬 등)를 열 수 있어 안내 칸을 맨 위로 옮겨 보여 줌 (검수팀 제안 b)
+  if (/KAKAOTALK/i.test(ua)) {
+    const k = document.getElementById('kakao'), main = document.querySelector('main');
+    k.hidden = false;
+    main.insertBefore(k, main.querySelector('.card'));
     document.getElementById('openSafari').href = 'kakaotalk://web/openExternal?url=' + encodeURIComponent(location.href);
+    if (!ios) {
+      k.querySelector('.sub').innerHTML = '카톡 안의 화면에서는 앱 파일 받기·설치가 막히거나, 웹으로 잴 때 측정이 끊길 수 있어요. 아래 버튼을 누르거나, 화면 구석의 메뉴(⋮)에서 <b>"다른 브라우저로 열기"</b>를 눌러 주세요.';
+      document.getElementById('openSafari').textContent = '크롬(기본 브라우저)으로 열기';
+    }
   }
   if (android) { document.getElementById('tagA').hidden = false; document.getElementById('android').classList.add('me'); }
 </script>
