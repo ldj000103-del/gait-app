@@ -1,6 +1,6 @@
 {
   "appId": "io.github.ldj000103.gaitapp",
-  "appName": "걸음 분석",
+  "appName": "스텝미러",
   "webDir": "www",
   "server": {
     "url": "https://ldj000103-del.github.io/gait-app/",
