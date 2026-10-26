@@ -56,7 +56,7 @@ const WARN = {
   hand: '손에 들면 팔 흔들림이 섞여 정확도가 낮아요. 바지 앞주머니를 권장해요.',
   paused: '측정 중에 화면이 꺼지거나 다른 앱(카톡·전화)으로 가서 센서가 잠시 멈췄어요. 설치형 안드로이드 앱은 다른 앱을 써도 계속 측정돼요. 끊기지 않고 가장 길게 걸은 구간만으로 계산해서 걸음 수가 실제보다 적을 수 있어요. 다음엔 전원 버튼을 누르지 말고 주머니 모드 그대로 넣어 주세요.',
 };
-const warnHtml = r => r.warnings.map(w => `<div class="warn">${w === 'paused' && r.diag ? `<b>중간에 ${Math.round(r.diag.gapS)}초 끊겼어요.</b> ` : ''}${WARN[w]}${w === 'paused' && !Native ? ' <a href="install.html">설치형 앱 받기</a>' : ''}</div>`).join('');
+const warnHtml = r => r.warnings.map(w => `<div class="warn">${w === 'paused' && r.diag?.gapS >= 1 ? `<b>중간에 ${Math.round(r.diag.gapS)}초 끊겼어요.</b> ` : ''}${WARN[w]}${w === 'paused' && !Native ? ' <a href="install.html">설치형 앱 받기</a>' : ''}</div>`).join('');
 
 // ── 내 정보 ──
 const store = {
@@ -106,7 +106,7 @@ function saveSnap() {
 document.addEventListener('visibilitychange', () => {
   if (!t0) return;
   if (document.hidden) { hiddenDuringRec = true; saveSnap(); }
-  else { store.set('recSnap', null); if (!Native) navigator.wakeLock?.request('screen').then(w => wakeLock = w, () => {}); }   // 브라우저는 다른 앱에 가면 화면 켜짐을 풀어 버림 → 돌아오면 다시 요청
+  else { store.set('recSnap', null); if (!Native) navigator.wakeLock?.request('screen').then(w => { if (t0) wakeLock = w; else w.release(); }, () => {}); }   // 브라우저는 다른 앱에 가면 화면 켜짐을 풀어 버림 → 돌아오면 다시 요청
 });
 addEventListener('pagehide', saveSnap);
 // 위치 좌표는 이 휴대폰 안에서 거리 계산에만 쓰고 저장·전송하지 않음
@@ -397,7 +397,7 @@ function send(r) {
 }
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v57';
+const APP_VERSION = 'v58';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
