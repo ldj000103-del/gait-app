@@ -159,7 +159,7 @@
   body.recording #rec .sub { color:#444; } body.recording #recLive { color:#8a918e; }
   body.recording #recMapBtn { background:#111; color:#888; border:1px solid #222; margin-top:16px; }
   body.recording #stop { background:#111; color:#666; border:1px solid #222; margin-top:24vh; }
-  body.recording #rec.mapOpen { justify-content:flex-start; overflow-y:auto; }   /* 지도(260px)를 열어도 끝 버튼이 화면 안에 */
+  body.recording #rec.mapOpen { justify-content:flex-start; overflow-y:auto; padding-bottom:calc(16px + env(safe-area-inset-bottom)); }   /* 지도(260px)를 열어도 끝 버튼이 화면 안에 */
   body.recording #rec.mapOpen #stop { margin-top:16px; }
   ol.guide { padding-left:20px; margin:6px 0; } ol.guide li { margin:3px 0; }
 </style>
