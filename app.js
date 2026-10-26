@@ -87,16 +87,21 @@ $('locOk').addEventListener('change', () => {
   store.set('locConsent', $('locOk').checked ? { date: new Date().toISOString(), version: 1 } : null);
   if ($('locOk').checked) store.set('locTermsSeen', LOC_TERMS);
 });
-if (store.get('locConsent', null) && store.get('locTermsSeen', null) !== LOC_TERMS) {
-  document.querySelector('main > .sub').insertAdjacentHTML('afterend', `<div class="card sub" id="locNote" role="status">위치기반서비스 이용약관이 바뀌었어요 (2026년 10월 26일 시행). 위치를 받는 방법, 기록 보관, 다른 사람에게 주지 않는다는 설명을 보탰어요. 동의하신 내용은 그대로라 다시 동의할 필요는 없어요.
-    <div style="display:flex;gap:6px;margin-top:10px"><button class="chip" data-loc="view">약관 보기</button><button class="chip" data-loc="close">닫기</button></div></div>`);
-  $('locNote').addEventListener('click', e => {
-    const b = e.target.closest('[data-loc]');
-    if (!b) return;
-    store.set('locTermsSeen', LOC_TERMS); $('locNote').remove();
-    if (b.dataset.loc === 'view') location.href = 'location-terms.html';
+// 약관·처리방침이 바뀌면 이미 동의한 사람에게 앱을 열 때 한 번 안내 (재동의 아님). '보기'나 '닫기'를 누르면 다시 안 뜸
+function changeNote(id, seenKey, date, text, href, view) {
+  document.querySelector('main > .sub').insertAdjacentHTML('afterend', `<div class="card sub" id="${id}" role="status">${text}
+    <div style="display:flex;gap:6px;margin-top:10px"><button class="chip" data-n="view">${view}</button><button class="chip" data-n="close">닫기</button></div></div>`);
+  $(id).addEventListener('click', e => {
+    const b = e.target.closest('[data-n]'); if (!b) return;
+    store.set(seenKey, date); $(id).remove();
+    if (b.dataset.n === 'view') location.href = href;
   });
 }
+if (store.get('locConsent', null) && store.get('locTermsSeen', null) !== LOC_TERMS)
+  changeNote('locNote', 'locTermsSeen', LOC_TERMS, '위치기반서비스 이용약관이 바뀌었어요 (2026년 10월 26일 시행). 위치를 받는 방법, 기록 보관, 다른 사람에게 주지 않는다는 설명을 보탰어요. 동의하신 내용은 그대로라 다시 동의할 필요는 없어요.', 'location-terms.html', '약관 보기');
+const PRIV_DATE = '2026-10-26';                                            // 처리방침 10번 "바꾸면 앱에 미리 알립니다" (건의함 추가)
+if (store.get('consent', null) && store.get('privSeen', null) !== PRIV_DATE)
+  changeNote('privNote', 'privSeen', PRIV_DATE, '개인정보 처리방침에 건의함 내용이 추가됐어요 (2026년 10월 26일 시행).', 'privacy.html', '보기');
 const usesGps = a => a === 'cooper' || (a !== 'slowrun' && $('dmode').value === 'gps');
 function showLoc() { $('locBox').classList.toggle('hidden', !usesGps($('act').value)); }
 function showAct() { showLoc(); const a = $('act').value; $('autoNote').classList.toggle('hidden', a !== 'auto'); $('easyNote').classList.toggle('hidden', a !== 'easyrun'); $('slowNote').classList.toggle('hidden', a !== 'slowrun'); $('cooperNote').classList.toggle('hidden', a !== 'cooper'); $('dmodeBox').classList.toggle('hidden', a === 'slowrun' || a === 'cooper'); }
@@ -426,10 +431,10 @@ function saveRec(rec, hist, demo) {
   if (demo || !consent?.share || !ENDPOINT) return;
   try { rec.receipt = send(rec); store.set('history', hist.slice(0, 200)); } catch {}
 }
+const osName = () => /iPhone|iPad/.test(navigator.userAgent) ? 'iOS' : /Android/.test(navigator.userAgent) ? 'Android' : '기타';
 function send(r) {
   const { sex, age } = store.get('profile', {});
-  if (under14(age) || under14($('age').value)) return null;                  // 화면 칸도 함께 확인 (안내와 동작이 어긋나지 않게)                                           // 개인정보 보호법 제22조의2: 만 14세 미만은 법정대리인 동의가 필요해서 보내지 않음
-  const ua = navigator.userAgent;
+  if (under14(age) || under14($('age').value)) return null;                  // 화면 칸도 함께 확인 (안내와 동작이 어긋나지 않게)
   const receipt = (crypto.randomUUID?.() ?? Math.random().toString(16).slice(2) + Date.now().toString(16)).slice(0, 8);   // 오래된 폰은 randomUUID가 없음                       // 삭제 요청용 접수번호, 개인과 연결 안 됨
   const num = (x, d) => x == null ? '' : +x.toFixed(d);                  // 12분 테스트는 케이던스·규칙성·측정 정보가 없을 수 있음
   const body = {
@@ -440,15 +445,46 @@ function send(r) {
     position: r.position, practice: r.practice, warnings: [r.activity !== 'walk' && r.activity, ...r.warnings, r.distSource === 'gps' && 'gps',
       r.diag && `d:${r.diag.src}/${r.diag.durS.toFixed(0)}s/${r.diag.hz.toFixed(0)}hz/gap${r.diag.gapS.toFixed(1)}/gps${r.diag.gpsGood}`].filter(Boolean).join(' '),
     ageGroup: +age ? Math.floor(+age / 10) * 10 : '', sex: sex || '',
-    os: /iPhone|iPad/.test(ua) ? 'iOS' : /Android/.test(ua) ? 'Android' : '기타',
+    os: osName(),
   };
   // no-cors: Apps Script는 응답을 못 읽지만 저장은 됨. 실패하면 조용히 넘어감 (측정 기록은 휴대폰에 남아 있음)
   fetch(ENDPOINT, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(body) }).catch(() => {});
   return receipt;
 }
 
+// ── 건의함: 이용자가 '보내기'를 누를 때만 익명 의견을 보냄 (글 + 날짜·버전·OS·설치형/웹·접수번호, 이름·연락처·위치·측정 기록 없음). 처리방침 2-1번 ──
+function openFeedback() {
+  const o = document.createElement('div');
+  o.id = 'fbOv'; o.setAttribute('role', 'dialog'); o.setAttribute('aria-modal', 'true'); o.setAttribute('aria-label', '건의하기');
+  o.innerHTML = `<div class="dsheet" style="padding-left:20px;padding-right:20px"><h3 style="margin:0 0 4px">건의하기</h3>
+    <div class="sub">앱을 쓰면서 불편한 점이나 바라는 점을 적어 주세요.</div>
+    <textarea id="fbText" maxlength="1000" rows="5" aria-label="건의 내용"></textarea>
+    <div class="sub" style="font-size:.8125rem">이름, 전화번호, 이메일, 주소, 병원·질병 이름처럼 나를 알아볼 수 있는 정보는 쓰지 마세요. 보낸 글은 앱 개선에만 쓰고 1년 뒤 지워요(Google 서버, 미국 등에 보관). 보내지 않아도 앱은 똑같이 쓸 수 있어요.<br>답장이 필요하면 ldj000103@gmail.com으로 메일 주세요.</div>
+    <div id="fbMsg" class="sub" role="status" style="margin-top:8px"></div>
+    <button data-f="send">보내기</button><button class="ghost" data-f="close">닫기</button></div>`;
+  document.body.append(o);
+  for (const el of [document.querySelector('main'), $('tabbar')]) el.inert = true;
+  const close = () => { for (const el of [document.querySelector('main'), $('tabbar')]) el.inert = false; o.remove(); $('fbBtn').focus(); };
+  o.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
+  o.addEventListener('click', e => {
+    const b = e.target.closest('[data-f]'); if (!b) return;
+    if (b.dataset.f === 'close') return close();
+    const text = $('fbText').value.trim(), msg = $('fbMsg');
+    if (under14(store.get('profile', {}).age)) return (msg.textContent = '만 14세 미만은 건의함을 쓸 수 없어요.');   // 처리방침 8번
+    if (!text) return (msg.textContent = '내용을 적어 주세요.');
+    const receipt = 'K-' + [...crypto.getRandomValues(new Uint8Array(2))].map(x => x.toString(16).padStart(2, '0')).join('').toUpperCase();
+    const body = { kind: 'feedback', receipt, date: new Date().toLocaleDateString('sv-SE'), appVersion: APP_VERSION, os: osName(), src: Native ? 'app' : 'web', text };
+    b.disabled = true; msg.textContent = '보내는 중…';
+    fetch(ENDPOINT, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(body) })
+      .then(() => { $('fbText').remove(); b.remove(); msg.innerHTML = `<b>보냈어요. 고마워요.</b><br>접수번호 ${receipt} · 지우고 싶으면 이 번호를 ldj000103@gmail.com으로 보내 주세요.`; },
+        () => { b.disabled = false; msg.textContent = '보내지 못했어요. 인터넷 연결을 확인하고 다시 눌러 주세요.'; });   // 글은 그대로 남겨 둠
+  });
+  $('fbText').focus();
+}
+$('fbBtn').addEventListener('click', openFeedback);
+
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v73';
+const APP_VERSION = 'v74';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -461,7 +497,8 @@ $('cMust').addEventListener('change', updateConsentBtn);
 $('cAll').addEventListener('click', () => { $('cMust').checked = $('cShare').checked = $('cHealth').checked = true; updateConsentBtn(); });
 $('cOk').addEventListener('click', () => {
   consent = { date: new Date().toISOString(), version: 1, share: $('cShare').checked && $('cHealth').checked };
-  store.set('consent', consent);
+  store.set('consent', consent); store.set('privSeen', PRIV_DATE);          // 지금 처리방침을 보고 동의함
+  $('privNote')?.remove();
   document.body.classList.remove('needConsent');
   $('consentState').textContent = consent.share ? '익명 결과 보내기: 동의함' : '익명 결과 보내기: 동의 안 함';
 });

@@ -4,17 +4,26 @@ const SHEET_ID = '19EJCFgAhHS5fOHbgu9CGx41WdPrWYRENbywh0AJbrKU';   // '걸음분
 const KEYS = ['receipt', 'date', 'appVersion', 'cadence', 'steps', 'activeS', 'regularity', 'speed', 'stepLength',
   'distance', 'position', 'practice', 'warnings', 'ageGroup', 'sex', 'os'];
 
+const FB_KEYS = ['receipt', 'date', 'appVersion', 'os', 'src', 'text'];   // 건의함 (처리방침 2-1번)
+
+// 누구나 보낼 수 있는 주소라 정해진 칸만, 짧게, 수식으로 해석되지 않게 저장
+function clean(v, n) {
+  if (typeof v === 'number') return isFinite(v) ? v : '';
+  const s = String(v ?? '').slice(0, n);
+  return /^[=+\-@]/.test(s) ? "'" + s : s;
+}
+
 function doPost(e) {
   const d = JSON.parse(e.postData.contents);
-  // 누구나 보낼 수 있는 주소라 정해진 칸만, 짧게, 수식으로 해석되지 않게 저장
-  const row = KEYS.map(k => {
-    const v = d[k];
-    if (typeof v === 'number') return isFinite(v) ? v : '';
-    const s = String(v ?? '').slice(0, 60);
-    return /^[=+\-@]/.test(s) ? "'" + s : s;
-  });
-  const sheet = SpreadsheetApp.openById(SHEET_ID).getSheets()[0];
+  const book = SpreadsheetApp.openById(SHEET_ID);
+  if (d.kind === 'feedback') {                                       // 건의함: '건의' 탭에 따로, 글은 1000자까지
+    const sh = book.getSheetByName('건의') || book.insertSheet('건의');
+    if (sh.getLastRow() === 0) sh.appendRow(['받은 날(UTC)', ...FB_KEYS]);
+    sh.appendRow([new Date().toISOString().slice(0, 10), ...FB_KEYS.map(k => clean(d[k], k === 'text' ? 1000 : 60))]);
+    return ContentService.createTextOutput('ok');
+  }
+  const sheet = book.getSheets()[0];
   if (sheet.getLastRow() === 0) sheet.appendRow(['받은 날(UTC)', ...KEYS]);
-  sheet.appendRow([new Date().toISOString().slice(0, 10), ...row]);
+  sheet.appendRow([new Date().toISOString().slice(0, 10), ...KEYS.map(k => clean(d[k], 60))]);
   return ContentService.createTextOutput('ok');
 }
