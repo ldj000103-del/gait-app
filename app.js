@@ -397,7 +397,7 @@ function send(r) {
 }
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v62';
+const APP_VERSION = 'v63';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -995,10 +995,10 @@ function spark(vals, color) {                                              // �
   const lo = Math.min(...vals), hi = Math.max(...vals), X = i => 4 + i * 64 / (vals.length - 1), Y = v => hi === lo ? 16 : 28 - 24 * (v - lo) / (hi - lo);
   return `<svg width="72" height="32" viewBox="0 0 72 32" aria-hidden="true"><polyline points="${vals.map((v, i) => `${X(i).toFixed(1)},${Y(v).toFixed(1)}`).join(' ')}" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round" opacity=".55"/><circle cx="${X(vals.length - 1)}" cy="${Y(vals[vals.length - 1])}" r="3.5" fill="${color}" stroke="var(--card)" stroke-width="1.5"/></svg>`;
 }
-function mcard({ label, color, date = '', value, unit, sub, i, vals = [] }) {
-  const top = `<div class="mtop"><span class="mlab"><i style="background:${color}"></i>${label}</span><span class="mdate">${date}${i != null && value != null ? ' ›' : ''}</span></div>`;
+function mcard({ label, color, date = '', value, unit, sub, i, vals = [], k }) {
+  const top = `<div class="mtop"><span class="mlab"><i style="background:${color}"></i>${label}</span><span class="mdate">${date}${i != null && value != null ? (k ? ' ⌄' : ' ›') : ''}</span></div>`;
   if (value == null) return `<div class="mcard empty">${top}<div class="mrow"><div class="mnum">기록 없음</div></div><div class="msub">${sub}</div></div>`;
-  return `<button class="mcard" ${i != null ? `data-i="${i}"` : ''}>${top}<div class="mrow"><div class="mnum">${value}<small>${unit}</small></div>${spark(vals, color)}</div><div class="msub">${sub}</div></button>`;
+  return `<button class="mcard" ${i != null ? `data-i="${i}"` : ''}${k ? ` data-k="${k}" aria-expanded="false"` : ''}>${top}<div class="mrow"><div class="mnum">${value}<small>${unit}</small></div>${spark(vals, color)}</div><div class="msub">${sub}</div></button>`;
 }
 const trendVals = key => store.get('history', []).filter(h => !h.practice).map(TREND[key].pick).filter(v => v != null && !Number.isNaN(v)).slice(0, 7).reverse();
 
@@ -1132,27 +1132,76 @@ async function shareSummary(kind) {
   const max = !chart ? 5 : chart.h > 300 ? 3 : 4;                          // 달력이 크면 줄 수를 줄여 글자가 겹치지 않게
   shareCanvas(await drawCard(title, label, rows.slice(0, max), chart), `걸음 분석으로 잰 내 기록 · https://${APP_URL}/`);
 }
-function renderHome() {
+// 홈 요약 카드: 누르면 그 자리에서 한 줄 전체로 펼침(한 번에 하나, 다시 누르면 접힘) · '전체 결과 보기'는 예전처럼 showRecord
+let openTile = null;
+function bigSpark(vals, color) {
+  if (vals.length < 2) return '';
+  const lo = Math.min(...vals), hi = Math.max(...vals), X = i => 4 + i * 292 / (vals.length - 1), Y = v => hi === lo ? 20 : 36 - 32 * (v - lo) / (hi - lo);
+  return `<svg class="mbig" viewBox="0 0 300 40" preserveAspectRatio="none" aria-hidden="true"><polyline points="${vals.map((v, i) => `${X(i).toFixed(1)},${Y(v).toFixed(1)}`).join(' ')}" fill="none" stroke="${color}" stroke-width="2.5" stroke-linejoin="round" vector-effect="non-scaling-stroke"/></svg>`;
+}
+function openCard(t) {
+  const n = t.vals.length, d = n > 1 ? t.vals[n - 1] - t.vals[n - 2] : null;
+  return `<div class="mcard open" data-k="${t.k}">
+    <button class="mtop mtoggle" data-k="${t.k}" aria-expanded="true"><span class="mlab"><i style="background:${t.color}"></i>${t.label}</span><span class="mdate">${t.date} ⌃</span></button>
+    <div class="mnum">${t.value}<small>${t.unit}</small></div>
+    <div class="sub">${t.ref}</div>
+    ${bigSpark(t.vals, t.color)}<div class="sub">${n > 1 ? `최근 ${n}번 · 지난번보다 ${d >= 0 ? '+' : ''}${d.toFixed(t.dp ?? 0)}` : '기록이 2번 이상 쌓이면 추세선이 보여요'}</div>
+    <p class="sub" style="margin:10px 0 0">${t.about}</p>
+    <button class="ghost" data-full="${t.i}">전체 결과 보기 ›</button></div>`;
+}
+function renderTiles() {
   const hist = store.get('history', []);
   const idx = f => hist.findIndex(f);
   const isWalk = h => (h.activity ?? 'walk') === 'walk';
-  const iw = idx(isWalk), w = hist[iw];
-  const wPrev = iw >= 0 ? hist.slice(iw + 1).find(isWalk) : null;
-  const is = idx(h => isWalk(h) && h.speed), sp = hist[is];
-  const ir = idx(isRun), rn = hist[ir];
-  const iv = idx(h => h.activity === 'video' && h.view === 'side' && h.r?.m), vd = hist[iv];
+  // 대표 값은 추세선(trendVals)처럼 연습 측정을 뺀 최근 기록, 연습뿐이면 연습 기록 (그날 첫 걷기는 늘 연습)
+  const pick = f => { const j = idx(h => !h.practice && f(h)); return j >= 0 ? j : idx(f); };
+  const iw = pick(isWalk), w = hist[iw];
+  const wPrev = iw >= 0 ? hist.slice(iw + 1).find(h => isWalk(h) && !h.practice) : null;
+  const is = pick(h => isWalk(h) && h.speed), sp = hist[is];
+  const ir = pick(isRun), rn = hist[ir];
+  const iv = pick(h => h.activity === 'video' && h.view === 'side' && h.r?.m), vd = hist[iv];
   const delta = (a, b) => b ? ` · ${a - b >= 0 ? '+' : ''}${(a - b).toFixed(0)}` : '';
   const md2 = d => d ? md(d) : '';
   // 타일 부제는 좁은 폰(320px)에서 잘리지 않게 짧게 · 케이던스 기준은 결과 화면처럼 성별 반영 (Perry 20장)
-  $('tiles').innerHTML =
-    mcard({ label: '걷기 케이던스', color: 'var(--c-walk)', date: md2(w?.date), value: w?.cadence.toFixed(0), unit: '걸음/분', i: iw, vals: trendVals('walkCad'),
-      sub: w ? `전공서적 ${(({ sex }) => sex === 'm' ? 111 : sex === 'f' ? 117 : 113)(store.get('profile', {}))}${delta(w.cadence, wPrev?.cadence)}` : '측정 탭에서 걸어요' }) +
-    mcard({ label: '걷기 속도', color: 'var(--c-walk)', date: md2(sp?.date), value: sp?.speed.toFixed(2), unit: 'm/s', i: is, vals: trendVals('walkSpeed'),
-      sub: sp ? '전공서적 1.37' : 'GPS·거리 입력 필요' }) +
-    mcard({ label: '러닝 케이던스', color: 'var(--c-run)', date: md2(rn?.date), value: rn?.cadence.toFixed(0), unit: '걸음/분', i: ir, vals: trendVals('runCad'),
-      sub: rn ? '기준선 없음 · 변화만' : '측정 탭 → 러닝' }) +
-    mcard({ label: '유각기 무릎', color: 'var(--c-video)', date: md2(vd?.date), value: vd ? vd.r.m.kneeSwingMax.toFixed(0) : null, unit: '°', i: iv, vals: trendVals('knee'),
-      sub: vd ? '전공서적 약 60°' : '분석 탭 → 옆모습' });
+  const norm = (({ sex }) => sex === 'm' ? 111 : sex === 'f' ? 117 : 113)(store.get('profile', {}));
+  const tiles = [
+    { k: 'walkCad', label: '걷기 케이던스', color: 'var(--c-walk)', h: w, i: iw, value: w?.cadence.toFixed(0), unit: '걸음/분', vals: trendVals('walkCad'),
+      sub: w ? `전공서적 ${norm}${delta(w.cadence, wPrev?.cadence)}` : '측정 탭에서 걸어요',
+      ref: `전공서적 성인 평균 ${norm}걸음/분 (남 111 · 여 117) · 출처: Perry 20장`,
+      about: '1분 동안 걸은 걸음 수예요. 휴대폰 센서로 발이 땅에 닿는 횟수를 세요.' },
+    { k: 'walkSpeed', label: '걷기 속도', color: 'var(--c-walk)', h: sp, i: is, value: sp?.speed.toFixed(2), unit: 'm/s', vals: trendVals('walkSpeed'), dp: 2,
+      sub: sp ? '전공서적 1.37' : 'GPS·거리 입력 필요',
+      ref: '전공서적 성인 평균 1.37 m/s · 출처: Perry 20장',
+      about: '1초 동안 걸어간 거리예요. GPS로 잰 거리나 직접 넣은 거리를 걸은 시간으로 나눠요.' },
+    { k: 'runCad', label: '러닝 케이던스', color: 'var(--c-run)', h: rn, i: ir, value: rn?.cadence.toFixed(0), unit: '걸음/분', vals: trendVals('runCad'),
+      sub: rn ? '기준선 없음 · 변화만' : '측정 탭 → 러닝',
+      ref: '기준선 없음 · 내 기록의 변화만 봐요',
+      about: '달릴 때 1분 동안의 걸음 수예요. 이 앱은 러닝 케이던스에 기준선을 두지 않고 내 기록끼리 비교해요.' },
+    { k: 'knee', label: '유각기 무릎', color: 'var(--c-video)', h: vd, i: iv, value: vd ? vd.r.m.kneeSwingMax.toFixed(0) : null, unit: '°', vals: trendVals('knee'),
+      sub: vd ? '전공서적 약 60°' : '걸음걸이 탭 → 옆모습',
+      ref: '전공서적 기준 약 60° · 출처: Perry 9장',
+      about: '발이 땅에서 떨어져 앞으로 나갈 때(유각기) 무릎이 가장 많이 굽혀진 각도예요. 옆모습 영상으로 재고, 정확도는 참고 수준이에요.' },
+  ];
+  if (!tiles.some(t => t.k === openTile && t.value != null)) openTile = null;
+  $('tiles').innerHTML = tiles.map(t => ({ ...t, date: md2(t.h?.date) + (t.h?.practice ? ' 연습' : '') }))
+    .map(t => t.k === openTile ? openCard(t) : mcard(t)).join('');
+}
+$('tiles').addEventListener('click', e => {
+  if (e.target.closest('.term')) return;                                     // 용어 밑줄은 풀이만 열고 카드는 그대로
+  const full = e.target.closest('[data-full]');
+  if (full) return showRecord(+full.dataset.full);
+  const t = e.target.closest('[data-k]');
+  if (!t) return;
+  const k = t.dataset.k;
+  openTile = openTile === k ? null : k;
+  renderTiles();                                                             // 새로 그리면 포커스가 사라지니 같은 카드에 다시 둠 (키보드·화면낭독)
+  const again = $('tiles').querySelector(openTile ? '.open .mtoggle' : `.mcard[data-k="${k}"]`);
+  again?.focus({ preventScroll: true });
+  if (openTile) again.closest('.open').scrollIntoView({ block: 'nearest' });
+});
+function renderHome() {
+  const hist = store.get('history', []);
+  renderTiles();
   // 링: 이번 주 슬로우 조깅 분 / 연구의 주간량 90분 (Ikenaga 2017)
   const wk = weekSlowJogMin(hist), frac = Math.min(1, wk / 90), C = 2 * Math.PI * 42;
   $('ring').innerHTML = `<svg viewBox="0 0 108 108" role="img" aria-label="이번 주 슬로우 조깅 ${wk.toFixed(0)}분, 90분 중 ${Math.round(frac * 100)}%">
@@ -1167,7 +1216,6 @@ function renderHome() {
   renderTrend();
   markTerms($('home'));
 }
-$('tiles').addEventListener('click', e => { const t = e.target.closest('.mcard[data-i]'); if (t) showRecord(+t.dataset.i); });
 
 // 변화 그래프: 선 하나 + 기준선/기준 범위(출처), 점을 누르면 값과 날짜
 const TREND = {
