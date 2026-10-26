@@ -56,6 +56,7 @@ const WARN = {
   hand: '손에 들면 팔 흔들림이 섞여 정확도가 낮아요. 바지 앞주머니를 권장해요.',
   paused: '측정 중에 화면이 꺼지거나 다른 앱(카톡·전화)으로 가서 센서가 잠시 멈췄어요. 설치형 안드로이드 앱은 다른 앱을 써도 계속 측정돼요. 끊기지 않고 가장 길게 걸은 구간만으로 계산해서 걸음 수가 실제보다 적을 수 있어요. 다음엔 전원 버튼을 누르지 말고 주머니 모드 그대로 넣어 주세요.',
 };
+const warnHtml = r => r.warnings.map(w => `<div class="warn">${w === 'paused' && r.diag ? `<b>중간에 ${Math.round(r.diag.gapS)}초 끊겼어요.</b> ` : ''}${WARN[w]}${w === 'paused' && !Native ? ' <a href="install.html">설치형 앱 받기</a>' : ''}</div>`).join('');
 
 // ── 내 정보 ──
 const store = {
@@ -92,6 +93,7 @@ showDmode();
 // ── 측정 ──
 // 설치형 안드로이드 앱이면 네이티브 기록기(화면이 꺼져도 측정), 아니면 브라우저 센서
 const Native = window.Capacitor?.isNativePlatform?.() ? window.Capacitor.Plugins.GaitRecorder : null;
+if (Native) $('webOnly')?.remove();
 let samples = [], t0 = 0, timer = null, gpsPts = [], gpsWatch = null, gpsDenied = false, wakeLock = null, hiddenDuringRec = false;
 // 휴대폰 브라우저는 화면이 꺼지면 센서·GPS를 멈춤 → 측정 중엔 화면 켜짐 유지, 그래도 꺼지면 기록해 두고 이유를 알려 줌
 // 웹앱은 다른 앱(카톡·전화)으로 가면 센서가 멈추고, 휴대폰이 브라우저를 정리하면 페이지가 닫혀 측정이 사라짐
@@ -103,7 +105,8 @@ function saveSnap() {
 }
 document.addEventListener('visibilitychange', () => {
   if (!t0) return;
-  if (document.hidden) { hiddenDuringRec = true; saveSnap(); } else store.set('recSnap', null);
+  if (document.hidden) { hiddenDuringRec = true; saveSnap(); }
+  else { store.set('recSnap', null); if (!Native) navigator.wakeLock?.request('screen').then(w => wakeLock = w, () => {}); }   // 브라우저는 다른 앱에 가면 화면 켜짐을 풀어 버림 → 돌아오면 다시 요청
 });
 addEventListener('pagehide', saveSnap);
 // 위치 좌표는 이 휴대폰 안에서 거리 계산에만 쓰고 저장·전송하지 않음
@@ -394,7 +397,7 @@ function send(r) {
 }
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v56';
+const APP_VERSION = 'v57';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -456,7 +459,7 @@ function render(r, prev) {
 
   let html = `<h2>결과 ${r.practice ? '<span class="badge b-n">연습</span>' : ''}</h2>`;
   if (r.practice) html += `<div class="warn">오늘 첫 측정은 연습으로 저장했어요. 처음 걸을 때는 보통 7% 느리게 나와요(Perry 20장). 한 번 더 걸어 주세요.</div>`;
-  html += autoNote(r) + r.warnings.map(w => `<div class="warn">${WARN[w]}</div>`).join('');
+  html += autoNote(r) + warnHtml(r);
 
   html += metric({
     title: '케이던스 (분당 걸음 수)', value: c.toFixed(0), unit: '걸음/분', grade: cadGrade,
@@ -591,7 +594,7 @@ function renderRun(r, prev) {
   const { age } = store.get('profile', {});
   const c = r.cadence;
   const easy = r.activity === 'easyrun';
-  let html = `<h2>${easy ? '천천히 달리기' : '러닝'} 결과</h2>` + autoNote(r) + r.warnings.map(w => `<div class="warn">${WARN[w]}</div>`).join('');
+  let html = `<h2>${easy ? '천천히 달리기' : '러닝'} 결과</h2>` + autoNote(r) + warnHtml(r);
   html += metric({ title: '케이던스 (분당 걸음 수)', value: c.toFixed(0), unit: '걸음/분', grade: r.warnings.includes('hand') || r.warnings.includes('irregular') ? 'o' : 'y',
     body: `<div class="sub">${prev ? `지난 러닝 ${prev.cadence.toFixed(0)} → ${c >= prev.cadence ? '+' : ''}${(c - prev.cadence).toFixed(0)}` : '러닝 케이던스는 사람·속도마다 달라 기준값 하나로 비교하지 않아요.'}</div>`,
     why: ['걷기 케이던스는 스마트폰 정확도 연구가 있지만(상관 0.997), 주머니 스마트폰의 달리기 케이던스 검증 연구는 아직 찾지 못해 "참고" 등급이에요.',
