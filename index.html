@@ -146,6 +146,10 @@
   .legend b { display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:4px; vertical-align:1px; }
   .dayrec { display:flex; justify-content:space-between; gap:8px; margin:6px 0 0; padding:10px 12px; background:var(--bg); color:var(--ink); font-weight:500; text-align:left; }
   .dayrec .sub { font-weight:400; }
+  /* 내 정보: 큰 둥근 버튼·숫자 칸 */
+  .seg { display:flex; gap:8px; margin-top:6px; } .seg button { flex:1; margin:0; border-radius:999px; background:var(--bg); color:var(--ink); border:2px solid var(--line); padding:12px 4px; }
+  .seg button[aria-pressed="true"] { border-color:var(--accent); color:var(--accent); }
+  input.bignum { width:100%; box-sizing:border-box; border-radius:999px; font-size:1.25rem; text-align:center; padding:12px; margin-top:6px; }
   /* 지표 사전 설명 카드: 아래에서 올라오는 판, 옆으로 넘기기(scroll-snap) */
   #dictOv { position:fixed; inset:0; z-index:40; background:rgba(0,0,0,.45); display:flex; align-items:flex-end; }
   .dsheet { background:var(--card); color:var(--ink); width:100%; max-width:640px; margin:0 auto; border-radius:18px 18px 0 0; padding:18px 0 calc(16px + env(safe-area-inset-bottom)); }
@@ -242,6 +246,11 @@
       <div id="dict"></div>
     </div>
     <div class="card">
+      <h2>해 볼 만한 프로그램</h2>
+      <div class="sub">연구에서 쓴 방식을 그대로 해 볼 수 있어요. 누르면 측정 화면으로 가요.</div>
+      <div id="progs"></div>
+    </div>
+    <div class="card">
       <h2>알아보기</h2>
       <div class="sub">앱이 쓰는 근거를 주제별로 모았어요. 누르면 연구 숫자와 출처가 보여요.</div>
       <div id="learn"></div>
@@ -256,12 +265,14 @@
   </section>
 
   <section class="card" id="profile" data-tab="measure">
-    <h2>내 정보 <span class="sub">(기준값 비교용, 이 휴대폰에만 저장)</span></h2>
-    <div class="row">
-      <div><label for="sex">성별</label>
-        <select id="sex"><option value="">선택 안 함</option><option value="m">남성</option><option value="f">여성</option></select></div>
-      <div><label for="age">나이</label><input id="age" type="number" inputmode="numeric" min="18" max="100" placeholder="예: 45"></div>
-    </div>
+    <h2>내 정보</h2>
+    <div class="sub">나이·성별에 맞는 기준값을 보여 주려고 써요. 이 휴대폰에만 저장돼요.</div>
+    <div class="sub" style="margin-top:12px">성별</div>
+    <div class="seg" id="sexBtns" role="group" aria-label="성별"><button data-sex="m">남성</button><button data-sex="f">여성</button><button data-sex="">안 함</button></div>
+    <input type="hidden" id="sex">
+    <label for="age" class="sub" style="display:block;margin-top:12px">나이</label>
+    <input id="age" class="bignum" type="number" inputmode="numeric" min="18" max="100" placeholder="예: 45">
+    <button id="profSave">저장</button><div id="profMsg" class="sub" role="status" style="text-align:center;margin-top:4px"></div>
     <div id="ageNote" class="sub hidden" style="margin-top:6px">만 14세 미만은 법정대리인(부모님 등) 동의가 필요해서, 동의 여부와 상관없이 결과를 운영자에게 보내지 않아요. 측정과 기록은 휴대폰 안에서 그대로 쓸 수 있어요.</div>
   </section>
 

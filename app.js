@@ -64,12 +64,14 @@ const store = {
   set: (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
 };
 const prof = store.get('profile', { sex: '', age: '' });
-$('sex').value = prof.sex; $('age').value = prof.age;
+// 내 정보: 성별은 큰 버튼 3개(숨은 #sex에 값), 나이는 큰 숫자 칸, '저장'을 눌러야 저장 (이름·사진·생년월일은 받지 않음)
+const setSex = v => { $('sex').value = v; for (const b of $('sexBtns').children) b.setAttribute('aria-pressed', b.dataset.sex === v); $('profMsg').textContent = ''; };
+setSex(prof.sex ?? ''); $('age').value = prof.age;
 const under14 = age => +age > 0 && +age < 14;
 const ageNote = () => $('ageNote').classList.toggle('hidden', !under14($('age').value));
-for (const id of ['sex', 'age']) $(id).addEventListener('change', () => {
-  store.set('profile', { sex: $('sex').value, age: $('age').value }); ageNote();
-});
+$('sexBtns').addEventListener('click', e => { const b = e.target.closest('[data-sex]'); if (b) setSex(b.dataset.sex); });
+$('age').addEventListener('input', () => { ageNote(); $('profMsg').textContent = ''; });
+$('profSave').addEventListener('click', () => { store.set('profile', { sex: $('sex').value, age: $('age').value }); ageNote(); $('profMsg').textContent = '저장했어요'; });
 ageNote();
 
 // ── 활동 종류 (선택은 이 휴대폰에 기억) ──
@@ -413,7 +415,7 @@ function send(r) {
 }
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v68';
+const APP_VERSION = 'v69';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -1721,6 +1723,20 @@ const DICT = [
 ];
 $('dict').innerHTML = DICT.map((d, i) => `<button class="dayrec" data-di="${i}"><span style="display:flex;align-items:center;gap:8px">${partIcon(d.part)}${d.name}</span><span class="sub">${d.short} ›</span></button>`).join('');
 $('dict').addEventListener('click', e => { const b = e.target.closest('[data-di]'); if (b) openDict(+b.dataset.di); });
+// ── 해 볼 만한 프로그램: 연구에서 쓴 방식으로 바로 측정 화면 열기 (처방·목표가 아님) ──
+const PROGS = [
+  { act: 'slowrun', name: '슬로우 러닝', badges: ['처음', '주 90분'], text: '조깅 1분 + 걷기 1분을 번갈아 해요 · Ikenaga 2017 연구 방식' },
+  { act: 'cooper', name: '12분 달리기 기록', badges: ['한 번'], text: '12분 동안 간 거리와 페이스만 재요' },
+  { act: 'video', name: '10초 걸음걸이 영상', badges: ['매일'], text: '옆모습을 찍어 페리의 보행 분석 기준과 나란히 봐요' },
+];
+$('progs').innerHTML = PROGS.map((p, i) => `<button class="dayrec" data-pi="${i}" style="flex-direction:column;align-items:flex-start;gap:4px">
+  <span><b>${p.name}</b> ${p.badges.map(b => `<span class="badge b-n">${b}</span>`).join(' ')}</span><span class="sub">${p.text} ›</span></button>`).join('');
+$('progs').addEventListener('click', e => {
+  const b = e.target.closest('[data-pi]'); if (!b) return;
+  const { act } = PROGS[+b.dataset.pi];
+  if (act === 'video') return (setTab('video'), scrollTo(0, 0));
+  $('act').value = act; store.set('act', act); showAct(); setTab('measure'); $('setup').scrollIntoView();
+});
 function openDict(start) {
   const o = document.createElement('div');
   o.id = 'dictOv'; o.setAttribute('role', 'dialog'); o.setAttribute('aria-modal', 'true'); o.setAttribute('aria-label', '지표 사전');
