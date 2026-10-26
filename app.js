@@ -288,6 +288,7 @@ $('stop').addEventListener('contextmenu', e => e.preventDefault());
 // 설치형 앱에서 휴대폰(절전·메모리 정리)이 측정 중인 앱을 끄면 측정이 멈춤 → 이유와 막는 방법을 알려 줌
 const BATTERY_TIP = '삼성 휴대폰은 설정 → 배터리 → 백그라운드 사용 제한 → <b>절전 예외 앱</b>에 ‘걸음 분석’을 넣으면 측정 중에 앱이 정리되지 않아요.';
 async function stopRec(killed = false) {
+  killed = killed === true;                                                // '끝' 버튼은 클릭 이벤트를 넘김 → 진짜 true일 때만
   const rec = store.get('rec', null), ran = t0, lead = rec?.lead ?? 0; clearInterval(timer); t0 = 0;
   store.set('rec', null); store.set('recSnap', null);
   document.body.classList.remove('recording');
@@ -495,7 +496,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v77';
+const APP_VERSION = 'v78';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
