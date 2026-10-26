@@ -13,7 +13,7 @@
   :root { --bg:#f2f4f3; --card:#fff; --ink:#121816; --sub:#69736f; --line:#e6eae8; --accent:#1d6b5c; --accent-weak:#e3f1ed; --top-band:#dcefe8;
           --series:#008a6e; --band:rgba(0,138,110,.10); --radius:16px; --shadow:0 1px 2px rgba(0,0,0,.04), 0 2px 8px rgba(0,0,0,.04);
           --g:#1e8e3e; --y:#b08000; --o:#c4551b; --n:#7a8380;
-          --c-walk:#008a6e; --c-run:#2f6fd1; --c-slow:#c46f1c; --c-video:#8a5cd1; }
+          --c-walk:#007a62; --c-run:#2f6fd1; --c-slow:#c46f1c; --c-video:#8a5cd1; }
   @media (prefers-color-scheme: dark) {
     :root { --bg:#111614; --card:#1a201e; --ink:#eef2f0; --sub:#9aa5a1; --line:#2a3330; --accent:#5fc2ab; --accent-weak:#1f3a33; --top-band:var(--accent-weak);
             --series:#16a383; --band:rgba(22,163,131,.14); --shadow:none;
@@ -79,6 +79,7 @@
   .homehead { display:flex; justify-content:space-between; align-items:center; margin:8px 2px 4px; }
   .homehead .sec { font-size:1.625rem; margin:0; }
   #meBtn { width:26px; height:26px; margin:0; padding:0; border-radius:50%; font-size:.75rem; line-height:26px; flex:none; color:var(--card); }   /* 다크에선 밝은 바탕에 어두운 글자 */
+  #meBtn { position:relative; } #meBtn::after { content:''; position:absolute; inset:-9px; }   /* 보이는 동그라미는 26px, 누르는 곳은 44px (검수팀) */
   #home .mcard, #home .card { box-shadow:none; border-radius:14px; }
   .grp { grid-column:1 / -1; font-size:.875rem; font-weight:700; margin:8px 0 -2px 4px; }
   .mcard { display:block; width:100%; background:var(--card); border:0; border-radius:var(--radius); padding:14px 16px; margin:10px 0 0; box-shadow:var(--shadow); text-align:left; color:var(--ink); font-weight:400; cursor:pointer; }
