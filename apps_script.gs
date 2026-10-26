@@ -11,6 +11,8 @@ const PHOTO_FOLDER = '걸음분석 건의 사진';                              
 function setupDailyPurge() {
   ScriptApp.getProjectTriggers().filter(t => t.getHandlerFunction() === 'purgeOld').forEach(t => ScriptApp.deleteTrigger(t));
   ScriptApp.newTrigger('purgeOld').timeBased().everyDays(1).atHour(4).create();
+  const it = DriveApp.getFoldersByName(PHOTO_FOLDER);                  // 드라이브 권한도 이때 함께 받고, 사진 폴더를 미리 만들어 둠
+  if (!it.hasNext()) DriveApp.createFolder(PHOTO_FOLDER);
 }
 
 // 누구나 보낼 수 있는 주소라 정해진 칸만, 짧게, 수식으로 해석되지 않게 저장
