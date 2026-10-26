@@ -413,7 +413,7 @@ function send(r) {
 }
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v66';
+const APP_VERSION = 'v67';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -1479,7 +1479,7 @@ const partIcon = k => `<svg class="picon" viewBox="-2 -2 28 28" aria-hidden="tru
 const gapTxt = (d, more, less, unit = '°') => d == null || Number.isNaN(d) ? '-' : Math.round(d) === 0 ? '페리 기준과 같음' : `${Math.abs(Math.round(d))}${unit} ${d > 0 ? more : less}`;
 function glance(rows, photo) {
   return `<div class="glance"><div class="ghead"><b>한눈에 보기</b><span class="sub">페리 기준과 차이</span></div>
-    ${rows.map(({ part, what, big, now }) => `<div class="grow"><div class="gpart">${partIcon(part)}${PART[part][0]} · ${what}</div><div class="gbig">${big}</div><div class="sub">${now}</div></div>`).join('')}
+    ${rows.map(({ part, what, big, now }) => `<div class="grow"><div class="gpart">${partIcon(part)}<span>${PART[part][0]} · ${what}</span></div><div class="gbig">${big}</div><div class="sub">${now}</div></div>`).join('')}
     <div class="sub" style="font-size:.75rem;margin-top:8px">${photo ? '그림 속 색칠한 곳이 그 부위예요. 위 사진에도 같은 그림 이름표를 붙였어요. ' : '그림 속 색칠한 곳이 그 부위예요. '}차이는 사실만 적었어요. 영상 각도는 약 3~5° 오차가 있고(Russo 2026), 원인 판단은 전문가에게.</div></div>`;
 }
 function lastSpeedRow() {                                                  // 영상엔 거리 기준(cm)이 없어 속도를 못 잼 → 센서·GPS로 잰 가장 최근 값을 같이 보여 줌
@@ -1500,7 +1500,7 @@ function glanceSide(r, photo) {
     lastSpeedRow()], photo);
 }
 // 골반 내려감 정도: 페리 기준 4° / 나 / 차이 (사용자 메모: '내려감'만 쓰면 헷갈림)
-const dropTxt = a => a == null || Number.isNaN(a) ? '페리 기준 4° / 나 -' : (d => `페리 기준 4° / 나 ${Math.round(a)}° / 차이 ${d > 0 ? '+' : ''}${d}°`)(Math.round(a) - 4);
+const dropTxt = a => a == null || Number.isNaN(a) ? '페리 기준 4° / 나 -' : (d => `페리 기준 4° / 나 ${Math.round(a)}°<br>차이 ${d > 0 ? '+' : ''}${d}°`)(Math.round(a) - 4);
 function glanceFront(r, photo) {
   const m = r.m, t = m.tilt;
   const lr = (a, b, word) => a == null || b == null ? '-' : Math.round(a - b) === 0 ? '좌우 같음' : `${a > b ? '왼쪽' : '오른쪽'}이 ${Math.abs(Math.round(a - b))}° 더 ${word}`;
