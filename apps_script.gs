@@ -7,6 +7,12 @@ const KEYS = ['receipt', 'date', 'appVersion', 'cadence', 'steps', 'activeS', 'r
 const FB_KEYS = ['receipt', 'date', 'appVersion', 'os', 'src', 'text'];   // 건의함 (처리방침 2-1번) + 마지막 칸 '사진'(드라이브 파일 주소)
 const PHOTO_FOLDER = '걸음분석 건의 사진';                               // 운영자 드라이브의 비공개 폴더 (없으면 만듦)
 
+// 매일 새벽 4시 purgeOld 예약 (편집기에서 한 번 실행. 맨 위에 둬야 실행 칸에서 기본으로 골라짐)
+function setupDailyPurge() {
+  ScriptApp.getProjectTriggers().filter(t => t.getHandlerFunction() === 'purgeOld').forEach(t => ScriptApp.deleteTrigger(t));
+  ScriptApp.newTrigger('purgeOld').timeBased().everyDays(1).atHour(4).create();
+}
+
 // 누구나 보낼 수 있는 주소라 정해진 칸만, 짧게, 수식으로 해석되지 않게 저장
 function clean(v, n) {
   if (typeof v === 'number') return isFinite(v) ? v : '';
@@ -60,9 +66,4 @@ function purgeOld() {
     const files = it.next().getFiles();
     while (files.hasNext()) { const f = files.next(); if (now - f.getDateCreated().getTime() > 90 * day) Drive.Files.remove(f.getId()); }
   }
-}
-
-function setupDailyPurge() {
-  ScriptApp.getProjectTriggers().filter(t => t.getHandlerFunction() === 'purgeOld').forEach(t => ScriptApp.deleteTrigger(t));
-  ScriptApp.newTrigger('purgeOld').timeBased().everyDays(1).atHour(4).create();
 }
