@@ -5,6 +5,7 @@ const KEYS = ['receipt', 'date', 'appVersion', 'cadence', 'steps', 'activeS', 'r
   'distance', 'position', 'practice', 'warnings', 'ageGroup', 'sex', 'os'];
 
 const FB_KEYS = ['receipt', 'date', 'appVersion', 'os', 'src', 'text'];   // 건의함 (처리방침 2-1번) + 마지막 칸 '사진'(드라이브 파일 주소)
+const RESULT_SHEET = '시트1';                                             // 측정 결과 탭 (이름으로 찾음: 탭 순서가 바뀌어도 다른 탭에 섞이지 않게)
 const PHOTO_FOLDER = '걸음분석 건의 사진';                               // 운영자 드라이브의 비공개 폴더 (없으면 만듦)
 
 // 매일 새벽 4시 purgeOld 예약 (편집기에서 한 번 실행. 맨 위에 둬야 실행 칸에서 기본으로 골라짐)
@@ -42,7 +43,7 @@ function doPost(e) {
     sh.appendRow([Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyy-MM-dd'), ...FB_KEYS.map(k => clean(d[k], k === 'text' ? 1000 : 60)), urls]);
     return ContentService.createTextOutput('ok');
   }
-  const sheet = book.getSheets()[0];
+  const sheet = book.getSheetByName(RESULT_SHEET) || book.insertSheet(RESULT_SHEET);
   if (sheet.getLastRow() === 0) sheet.appendRow(['받은 날', ...KEYS]);
   sheet.appendRow([Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyy-MM-dd'), ...KEYS.map(k => clean(d[k], 60))]);
   return ContentService.createTextOutput('ok');
@@ -61,7 +62,7 @@ function purgeOld() {
       if (t && now - t > days * day) sh.deleteRow(i + 2);
     }
   };
-  trim(book.getSheets()[0], 3 * 365);
+  trim(book.getSheetByName(RESULT_SHEET), 3 * 365);
   trim(book.getSheetByName('건의'), 365);
   const it = DriveApp.getFoldersByName(PHOTO_FOLDER);
   if (it.hasNext()) {
