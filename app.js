@@ -343,7 +343,14 @@ function finish(data, demo = false, gps = []) {
   if (!demo && durS > 0 && (diag.hz < 10 || recS < durS / 2)) {
     const mmss = x => { const t = Math.round(x); return t >= 60 ? `${Math.floor(t / 60)}분 ${t % 60}초` : `${t}초`; };   // 초를 먼저 반올림 ("1분 60초" 방지)
     const why = diag.hz < 10 ? `기록이 초당 ${diag.hz.toFixed(0)}번뿐이라(정상은 수십 번) 걸음을 셀 수 없었어요.` : `${mmss(durS)} 중 ${mmss(recS)}만 기록됐어요.`;
-    showHtml(`<h2>측정이 제대로 안 됐어요</h2><div class="warn">${Native ? '' : '<b>다음엔 손에 들고 화면을 켠 채로 재 주세요.</b> 주머니에 넣고 재려면 <a href="install.html">설치형 앱</a>을 쓰세요.<br>'}${why} 그래서 이번 측정은 기록에 저장하지 않았어요.</div>${diagHtml}`);
+    // 실패한 측정도 걸음 숫자 없이 '실패' 표시와 측정 정보만 보냄 (실패가 얼마나 잦은지 세려고, 데이터분석팀). 휴대폰 기록에는 저장 안 함
+    let sent = null;
+    if (consent?.share && ENDPOINT) {
+      const today = new Date().toLocaleDateString('sv-SE');
+      const practice = act === 'walk' && !store.get('history', []).some(h => (h.activity ?? 'walk') === 'walk' && new Date(h.date).toLocaleDateString('sv-SE') === today);
+      try { sent = send({ date: new Date().toISOString(), activity: act, position, practice, warnings: [diag.hz < 10 ? 'failed:lowHz' : 'failed:gaps'], diag }); } catch {}
+    }
+    showHtml(`<h2>측정이 제대로 안 됐어요</h2><div class="warn">${Native ? '' : '<b>다음엔 손에 들고 화면을 켠 채로 재 주세요.</b> 주머니에 넣고 재려면 <a href="install.html">설치형 앱</a>을 쓰세요.<br>'}${why} 그래서 이번 측정은 기록에 저장하지 않았어요.</div>${sent ? `<div class="sub">걸음 숫자 없이 측정 정보만 익명으로 보냈어요. 접수번호 <b>${sent}</b></div>` : ''}${diagHtml}`);
     return;
   }
   if (paused && !res.error) res.warnings.push('paused');
@@ -540,7 +547,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v80';
+const APP_VERSION = 'v81';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
