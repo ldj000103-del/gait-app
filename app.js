@@ -413,7 +413,7 @@ function send(r) {
 }
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v64';
+const APP_VERSION = 'v65';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -480,7 +480,7 @@ function render(r, prev) {
   html += metric({
     title: '케이던스 (분당 걸음 수)', value: c.toFixed(0), unit: '걸음/분', grade: cadGrade,
     body: `<div class="bar"><i style="left:calc(${pos}% - 2px)"></i></div>
-      <div class="sub">${where} · 전공서적 성인 평균 ${norm}걸음/분(±10%: ${lo.toFixed(0)}–${hi.toFixed(0)}) · 야외 평소 걸음 평균 116.7(Murtagh 2021)
+      <div class="sub">${where} · 페리의 보행 분석 성인 평균 ${norm}걸음/분(±10%: ${lo.toFixed(0)}–${hi.toFixed(0)}) · 야외 평소 걸음 평균 116.7(Murtagh 2021)
       ${prev ? `<br>지난번 ${prev.cadence.toFixed(0)} → ${c >= prev.cadence ? '+' : ''}${(c - prev.cadence).toFixed(0)}` : ''}</div>`,
     why: [
       'Perry 20장 기준값: 성인 평균 113, 남성 111·여성 117걸음/분, 건강한 성인의 편차는 평균의 약 ±10%',
@@ -513,7 +513,7 @@ function render(r, prev) {
       : '입력한 거리 ÷ 센서가 찾은 걷는 시간. 출발·정지 구간이 포함돼 실제보다 약간 느리게 나올 수 있어요 → "참고"';
     html += metric({
       title: '걷는 속도', value: r.speed.toFixed(2), unit: `m/s (${(r.speed * 60).toFixed(0)} m/분)`, grade: dGrade,
-      body: `<div class="sub">전공서적 성인 평균 1.37 m/s(82 m/분)${shortNote}${slow ? `<br>참고: JAMA 2024 지침은 65세 이상에서 걷는 속도 0.8~1.0 m/s 미만을 낙상 위험을 평가하는 기준 중 하나로 써요. 이 앱은 낙상 위험을 판정하지 않아요.` : ''}</div>`,
+      body: `<div class="sub">페리의 보행 분석 성인 평균 1.37 m/s(82 m/분)${shortNote}${slow ? `<br>참고: JAMA 2024 지침은 65세 이상에서 걷는 속도 0.8~1.0 m/s 미만을 낙상 위험을 평가하는 기준 중 하나로 써요. 이 앱은 낙상 위험을 판정하지 않아요.` : ''}</div>`,
       why: [how, '성인 평균 82 m/분 (Perry 20장)', 'JAMA 2024 지침: 65세 이상에서 지난 1년 낙상, 낙상 걱정, 걷는 속도 0.8~1.0 m/s 미만 중 하나가 있으면 낙상 예방 중재를 고려 (나이를 65 이상으로 입력하면 이 안내가 보여요)', '65세 이상에서 걷는 속도 0.1 m/s 빠를 때마다 사망 위험 12% 낮음 (관찰 연구, 연관성)'],
       refs: ['perry20', 'jama2024', 'studenski'],
     });
@@ -688,10 +688,10 @@ function cardRows(h) {
   const push = (k, v, u, n) => { if (v != null) rows.push(u === '°' ? { k, v: v + '°', u: '', n } : { k, v, u, n }); };   // 도(°)는 숫자에 붙임
   if (act === 'walk') {
     const c = h.cadence, older = +age >= 61;
-    push('케이던스', f(c), '걸음/분', `전공서적 성인 평균 ${norm}(±10% ${lo.toFixed(0)}–${hi.toFixed(0)}) · ${c < lo ? '기준 범위보다 낮은 값' : c > hi ? '기준 범위보다 높은 값' : '기준 범위 안'}`);
+    push('케이던스', f(c), '걸음/분', `페리의 보행 분석 성인 평균 ${norm}(±10% ${lo.toFixed(0)}–${hi.toFixed(0)}) · ${c < lo ? '기준 범위보다 낮은 값' : c > hi ? '기준 범위보다 높은 값' : '기준 범위 안'}`);
     const level = older ? (c >= 120 ? '약 5 MET' : c >= 110 ? '약 4 MET' : c >= 100 ? '중강도(3 MET)' : '저강도') : (c >= 130 ? '고강도(6 MET)' : c >= 100 ? '중강도(3 MET)' : '저강도');
     push('걷기 강도', level, '', older ? 'CADENCE-Adults 61세 이상 기준: 100 = 중강도' : 'CADENCE-Adults 기준: 100걸음/분 = 중강도, 130 = 고강도');
-    if (h.speed) push('걷는 속도', f(h.speed, 2), 'm/s', `전공서적 성인 평균 1.37 · 차이 ${h.speed - 1.37 >= 0 ? '+' : ''}${(h.speed - 1.37).toFixed(2)}`);
+    if (h.speed) push('걷는 속도', f(h.speed, 2), 'm/s', `페리의 보행 분석 성인 평균 1.37 · 차이 ${h.speed - 1.37 >= 0 ? '+' : ''}${(h.speed - 1.37).toFixed(2)}`);
     if (h.stepLength && sex) { const ideal = (sex === 'f' ? 0.0064 : 0.0072) * c * 100; push('걸음 길이', f(h.stepLength * 100), 'cm', `Neumann 효율 최적 약 ${ideal.toFixed(0)}cm (${vs(h.stepLength * 100, ideal, ['더 길게 디뎌도 됨', '더 짧게 디뎌도 됨'])})`); }
     push('걸음 수', String(h.steps), '걸음', `걷는 시간 ${Math.round(h.activeS)}초`);
   } else if (act === 'run' || act === 'easyrun') {
@@ -708,14 +708,14 @@ function cardRows(h) {
     if (h.cadence) push('러닝 케이던스', f(h.cadence), '걸음/분', '주머니 스마트폰으로 잰 참고값');
   } else if (h.view === 'side') {
     const m = h.r.m;
-    push('유각기 무릎 굽힘', f(m.kneeSwingMax), '°', `전공서적 기준 약 60° · ${vs(m.kneeSwingMax, 60, BEND)} — 발끝이 바닥에 걸리지 않게 하는 굽힘`);
-    push('체중 받기 무릎 굽힘', f(m.kneeLoad), '°', `전공서적 기준 15~18° · ${vs(m.kneeLoad, 16, BEND)} — 충격 흡수`);
-    push('입각기 무릎 폄', f(m.kneeStanceMin), '°', `전공서적 기준 약 5° · ${extTxt(m.kneeStanceMin).replace(/^\(|\)$/g, '')}`);
-    push('넓적다리 뒤로 젖힘', f(m.thighExt), '°', `전공서적 기준 약 20° · ${vs(m.thighExt, 20, ['더 뒤로 젖혀야 함', '덜 젖혀도 됨'])} — 한걸음 길이`);
+    push('유각기 무릎 굽힘', f(m.kneeSwingMax), '°', `페리의 보행 분석 기준 약 60° · ${vs(m.kneeSwingMax, 60, BEND)} — 발끝이 바닥에 걸리지 않게 하는 굽힘`);
+    push('체중 받기 무릎 굽힘', f(m.kneeLoad), '°', `페리의 보행 분석 기준 15~18° · ${vs(m.kneeLoad, 16, BEND)} — 충격 흡수`);
+    push('입각기 무릎 폄', f(m.kneeStanceMin), '°', `페리의 보행 분석 기준 약 5° · ${extTxt(m.kneeStanceMin).replace(/^\(|\)$/g, '')}`);
+    push('넓적다리 뒤로 젖힘', f(m.thighExt), '°', `페리의 보행 분석 기준 약 20° · ${vs(m.thighExt, 20, ['더 뒤로 젖혀야 함', '덜 젖혀도 됨'])} — 한걸음 길이`);
   } else {
     const m = h.r.m, d0 = x => f(x) ?? '-';
     const lrp = (a, b) => { if (a == null || b == null) return ''; const d = Math.abs(a - b); return `좌우 차이 ${d.toFixed(0)}° (${d <= 4 ? '비슷함' : d > 10 ? '많이 남' : '조금 남'})`; };
-    push('골반 내려감 (반대쪽)', `${d0(m.dropL)}° / ${d0(m.dropR)}°`, '왼발/오른발', `전공서적 기준 약 4° · 왼발 ${vs(m.dropL, 4, ['덜 내려가는 편', '덜 내려가야 함'])}, 오른발 ${vs(m.dropR, 4, ['덜 내려가는 편', '덜 내려가야 함'])}`);
+    push('골반 내려감 정도 (반대쪽)', `${d0(m.dropL)}° / ${d0(m.dropR)}°`, '왼발/오른발', `페리의 보행 분석 기준 약 4° · 왼발 ${vs(m.dropL, 4, ['덜 내려가는 편', '덜 내려가야 함'])}, 오른발 ${vs(m.dropR, 4, ['덜 내려가는 편', '덜 내려가야 함'])}`);
     push('무릎 안쪽 모임', `${d0(m.valgusL)}° / ${d0(m.valgusR)}°`, '왼/오른', `${lrp(m.valgusL, m.valgusR)} · 영상 기준값 없음`);
     push('몸통 옆 기울기', `${d0(m.leanL)}° / ${d0(m.leanR)}°`, '왼쪽/오른쪽', lrp(m.leanL, m.leanR));
     if (m.width != null) push('걸음 폭', f(m.width, 2), '× 골반 너비', 'Neumann 성인 걸음 폭 8~10cm (영상엔 cm 기준이 없어 비율로)');
@@ -762,14 +762,14 @@ function makeCard(h) {
   const act = h.activity ?? 'walk', what = act === 'video' ? `영상 분석 · ${VIEW[h.view]}모습` : ACT[act];
   const label = `${what} · ${new Date(h.date).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })}${h.ctx && ctxText(h.ctx) ? ' · ' + ctxText(h.ctx) : ''}`;
   const knee = act === 'video' && h.view === 'side' && h.r?.curves?.knee;
-  return drawCard('걸음 분석 결과', label, cardRows(h), knee && { h: 250, draw: (g, cx, cy, cw, chartH, F) => {   // 무릎 굽힘 곡선: 이번 영상 vs 전공서적 기준점
+  return drawCard('걸음 분석 결과', label, cardRows(h), knee && { h: 250, draw: (g, cx, cy, cw, chartH, F) => {   // 무릎 굽힘 곡선: 이번 영상 vs 페리의 보행 분석 기준점
     const ch = chartH - 70, X = q => cx + cw * q / 100, Y = d => cy + 40 + ch * (1 - d / 70);
     g.fillStyle = '#69736f'; g.font = F(500, 26); g.fillText('무릎 굽힘 곡선 (보행 주기 0~100%)', cx, cy + 22);
     g.strokeStyle = '#e6eae8'; g.lineWidth = 2; for (const d of [0, 30, 60]) { g.beginPath(); g.moveTo(cx, Y(d)); g.lineTo(cx + cw, Y(d)); g.stroke(); }
     g.setLineDash([12, 10]); g.strokeStyle = '#9aa5a1'; g.lineWidth = 4; g.beginPath();
     [[0, 5], [15, 18], [40, 5], [62, 40], [73, 60], [85, 30], [97, 2], [100, 5]].forEach(([q, d], k) => k ? g.lineTo(X(q), Y(d)) : g.moveTo(X(q), Y(d))); g.stroke(); g.setLineDash([]);
     g.strokeStyle = '#008a6e'; g.lineWidth = 6; g.beginPath(); knee.forEach((d, q) => q ? g.lineTo(X(q), Y(d)) : g.moveTo(X(q), Y(d))); g.stroke();
-    g.font = F(400, 22); g.fillStyle = '#008a6e'; g.fillText('이번 영상', cx + cw - 300, cy + 22); g.fillStyle = '#9aa5a1'; g.fillText('- - 전공서적 기준', cx + cw - 185, cy + 22);
+    g.font = F(400, 22); g.fillStyle = '#008a6e'; g.fillText('이번 영상', cx + cw - 300, cy + 22); g.fillStyle = '#9aa5a1'; g.fillText('- - 페리 기준', cx + cw - 185, cy + 22);
   } });
 }
 async function shareCanvas(canvas, text) {
@@ -867,8 +867,9 @@ $('recMapBtn').addEventListener('click', async () => {
 function showHtml(html) {
   const el = $('result'); el.innerHTML = html;
   el.querySelector('details.howto')?.insertAdjacentHTML('beforebegin', routeBox());
-  if (shownDate) el.querySelector('h2')?.insertAdjacentHTML('afterend', shareBtn(shownDate) + ctxBox(shownDate));
+  if (shownDate) el.querySelector('h2')?.insertAdjacentHTML('afterend', shareBtn(shownDate));
   el.insertAdjacentHTML('beforeend', glossList(markTerms(el)));
+  if (shownDate) el.insertAdjacentHTML('beforeend', ctxBox(shownDate));   // 지표 먼저, 그때 상황 남기기는 맨 아래 (사용자 메모)
   el.classList.remove('hidden'); el.scrollIntoView({ behavior: 'smooth' });
   if (shownDate) heartBox(shownDate);
 }
@@ -935,7 +936,8 @@ const GLOSS = {
   '보행 주기': '한 발이 땅에 닿은 뒤 같은 발이 다시 닿을 때까지의 한 번의 걸음 동작(두 걸음)이에요. 0~100%로 나눠 봐요.',
   '첫 닿기': '발이 땅에 처음 닿는 순간이에요(보행 주기 0%).',
   '체중 받기': '발이 닿은 직후 몸무게가 그 다리로 실리는 구간이에요(보행 주기 0~10%).',
-  'Perry': '물리치료사들이 보행을 배울 때 쓰는 전공서적 『Gait Analysis』(1992)의 저자예요. 이 앱의 기준 각도·값은 주로 이 책에서 가져와요.',
+  '페리': 'Jacquelin Perry. 물리치료사들이 보행을 배울 때 쓰는 책 『Gait Analysis(보행 분석)』(1992)의 저자예요. 이 앱의 기준 각도·값은 주로 이 책에서 가져와요.',
+  'Perry': '물리치료사들이 보행을 배울 때 쓰는 책 『Gait Analysis(보행 분석)』(1992)의 저자예요. 이 앱의 기준 각도·값은 주로 이 책에서 가져와요.',
   '입각기': '발이 땅에 닿아 몸을 받치는 구간이에요(보행 주기 약 0~60%). 새 용어로 "디딤기", 영어로 Stance phase라고도 해요.',
   '유각기': '발이 땅에서 떨어져 앞으로 나가는 구간이에요(보행 주기 약 60~100%). 새 용어로 "흔듦기", 영어로 Swing phase라고도 해요.',
   '넓적다리 각도': '허벅지가 수직선에서 앞(굽힘)이나 뒤(폄)로 기운 각도예요. Perry는 골반 움직임이 섞이지 않는 이 각도를 임상에서 더 쓸모 있다고 해요.',
@@ -1091,8 +1093,8 @@ const plusDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); 
 const paceText = sp => { const s = Math.round(1000 / sp); return `${Math.floor(s / 60)}'${String(s % 60).padStart(2, '0')}"`; };   // 초를 먼저 반올림해야 5'60" 같은 값이 안 나옴
 function sumRows(st, month) {
   const rows = [{ k: '측정', v: `${st.n}회`, u: '', n: `측정한 날 ${st.days}일 · 연습 측정 제외` }];
-  if (st.walkCad != null) rows.push({ k: '걷기 케이던스 평균', v: st.walkCad.toFixed(0), u: '걸음/분', n: '전공서적 성인 평균 113 (남 111 / 여 117)' });
-  if (st.speed != null) rows.push({ k: '걷는 속도 평균', v: st.speed.toFixed(2), u: 'm/s', n: '전공서적 성인 평균 1.37' });
+  if (st.walkCad != null) rows.push({ k: '걷기 케이던스 평균', v: st.walkCad.toFixed(0), u: '걸음/분', n: '페리의 보행 분석 성인 평균 113 (남 111 / 여 117)' });
+  if (st.speed != null) rows.push({ k: '걷는 속도 평균', v: st.speed.toFixed(2), u: 'm/s', n: '페리의 보행 분석 성인 평균 1.37' });
   if (st.jog) rows.push({ k: month ? '슬로우 조깅 합계' : '슬로우 조깅', v: st.jog.toFixed(0), u: '분', n: 'Ikenaga 2017 연구의 주간 조깅량 90분' });
   if (st.runCad != null) rows.push({ k: '러닝 케이던스 평균', v: st.runCad.toFixed(0), u: '걸음/분', n: '사람·속도마다 달라 기준선 없이 기록만' });
   return rows;
@@ -1121,7 +1123,7 @@ function bestRows() {
   const top = (list, key) => list.reduce((b, h) => !b || key(h) > key(b) ? h : b, null);
   const walk = hist.filter(h => (h.activity ?? 'walk') === 'walk');
   const sp = top(walk.filter(h => h.speed), h => h.speed);
-  if (sp) rows.push({ k: '가장 빠른 걷는 속도', v: sp.speed.toFixed(2), u: 'm/s', n: `${md(sp.date)} · 전공서적 성인 평균 1.37` });
+  if (sp) rows.push({ k: '가장 빠른 걷는 속도', v: sp.speed.toFixed(2), u: 'm/s', n: `${md(sp.date)} · 페리의 보행 분석 성인 평균 1.37` });
   const lg = top(walk, h => h.activeS);
   if (lg) rows.push({ k: '가장 오래 걸은 측정', v: (lg.activeS / 60).toFixed(1), u: '분', n: `${md(lg.date)} · 케이던스 ${lg.cadence.toFixed(0)}걸음/분` });
   const rn = top(hist.filter(h => isRun(h) && h.speed), h => h.speed);
@@ -1182,20 +1184,20 @@ function renderTiles() {
   const norm = (({ sex }) => sex === 'm' ? 111 : sex === 'f' ? 117 : 113)(store.get('profile', {}));
   const tiles = [
     { k: 'walkCad', label: '걷기 케이던스', color: 'var(--c-walk)', h: w, i: iw, value: w?.cadence.toFixed(0), unit: '걸음/분', vals: trendVals('walkCad'),
-      sub: w ? `전공서적 ${norm}${delta(w.cadence, wPrev?.cadence)}` : '측정 탭에서 걸어요',
-      ref: `전공서적 성인 평균 ${norm}걸음/분 (남 111 · 여 117) · 출처: Perry 20장`,
+      sub: w ? `페리 ${norm}${delta(w.cadence, wPrev?.cadence)}` : '측정 탭에서 걸어요',
+      ref: `페리의 보행 분석 성인 평균 ${norm}걸음/분 (남 111 · 여 117) · 출처: Perry 20장`,
       about: '1분 동안 걸은 걸음 수예요. 휴대폰 센서로 발이 땅에 닿는 횟수를 세요.' },
     { k: 'walkSpeed', label: '걷기 속도', color: 'var(--c-walk)', h: sp, i: is, value: sp?.speed.toFixed(2), unit: 'm/s', vals: trendVals('walkSpeed'), dp: 2,
-      sub: sp ? '전공서적 1.37' : 'GPS·거리 입력 필요',
-      ref: '전공서적 성인 평균 1.37 m/s · 출처: Perry 20장',
+      sub: sp ? '페리 1.37' : 'GPS·거리 입력 필요',
+      ref: '페리의 보행 분석 성인 평균 1.37 m/s · 출처: Perry 20장',
       about: '1초 동안 걸어간 거리예요. GPS로 잰 거리나 직접 넣은 거리를 걸은 시간으로 나눠요.' },
     { k: 'runCad', label: '러닝 케이던스', color: 'var(--c-run)', h: rn, i: ir, value: rn?.cadence.toFixed(0), unit: '걸음/분', vals: trendVals('runCad'),
       sub: rn ? '기준선 없음 · 변화만' : '측정 탭 → 러닝',
       ref: '기준선 없음 · 내 기록의 변화만 봐요',
       about: '달릴 때 1분 동안의 걸음 수예요. 이 앱은 러닝 케이던스에 기준선을 두지 않고 내 기록끼리 비교해요.' },
     { k: 'knee', label: '유각기 무릎', color: 'var(--c-video)', h: vd, i: iv, value: vd ? vd.r.m.kneeSwingMax.toFixed(0) : null, unit: '°', vals: trendVals('knee'),
-      sub: vd ? '전공서적 약 60°' : '걸음걸이 탭 → 옆모습',
-      ref: '전공서적 기준 약 60° · 출처: Perry 9장',
+      sub: vd ? '페리 약 60°' : '걸음걸이 탭 → 옆모습',
+      ref: '페리의 보행 분석 기준 약 60° · 출처: Perry 9장',
       about: '발이 땅에서 떨어져 앞으로 나갈 때(유각기) 무릎이 가장 많이 굽혀진 각도예요. 옆모습 영상으로 재고, 정확도는 참고 수준이에요.' },
   ];
   if (!tiles.some(t => t.k === openTile && t.value != null)) openTile = null;
@@ -1236,10 +1238,10 @@ function renderHome() {
 // 변화 그래프: 선 하나 + 기준선/기준 범위(출처), 점을 누르면 값과 날짜
 const TREND = {
   walkCad: { label: '걷기 케이던스', unit: '걸음/분', pick: h => (h.activity ?? 'walk') === 'walk' ? h.cadence : null,
-    ref: () => { const { sex } = store.get('profile', {}); const n = sex === 'm' ? 111 : sex === 'f' ? 117 : 113; return { band: [n * 0.9, n * 1.1], text: `회색 띠 = 전공서적 성인 평균 ${n}걸음/분 ±10%` }; } },
-  walkSpeed: { label: '걷는 속도', unit: 'm/s', dec: 2, pick: h => (h.activity ?? 'walk') === 'walk' ? h.speed ?? null : null, ref: () => ({ line: 1.37, text: '점선 = 전공서적 성인 평균 1.37 m/s' }) },
+    ref: () => { const { sex } = store.get('profile', {}); const n = sex === 'm' ? 111 : sex === 'f' ? 117 : 113; return { band: [n * 0.9, n * 1.1], text: `회색 띠 = 페리의 보행 분석 성인 평균 ${n}걸음/분 ±10%` }; } },
+  walkSpeed: { label: '걷는 속도', unit: 'm/s', dec: 2, pick: h => (h.activity ?? 'walk') === 'walk' ? h.speed ?? null : null, ref: () => ({ line: 1.37, text: '점선 = 페리의 보행 분석 성인 평균 1.37 m/s' }) },
   runCad: { label: '러닝 케이던스', unit: '걸음/분', pick: h => isRun(h) ? h.cadence : null, ref: () => ({ text: '러닝 케이던스는 사람·속도마다 달라 기준선 없이 변화만 봐요' }) },
-  knee: { label: '영상: 유각기 무릎 굽힘', unit: '°', pick: h => h.activity === 'video' && h.view === 'side' ? h.r?.m?.kneeSwingMax ?? null : null, ref: () => ({ line: 60, text: '점선 = 전공서적 기준 초기 유각 약 60° · 영상 각도는 같은 조건으로 찍어야 비교돼요' }) },
+  knee: { label: '영상: 유각기 무릎 굽힘', unit: '°', pick: h => h.activity === 'video' && h.view === 'side' ? h.r?.m?.kneeSwingMax ?? null : null, ref: () => ({ line: 60, text: '점선 = 페리의 보행 분석 기준 초기 유각 약 60° · 영상 각도는 같은 조건으로 찍어야 비교돼요' }) },
 };
 $('tmetric').value = store.get('tmetric', 'walkCad');
 $('tmetric').addEventListener('change', () => { store.set('tmetric', $('tmetric').value); renderTrend(); });
@@ -1344,8 +1346,9 @@ async function runVideo(file) {
 
 function showV(html) {
   const el = $('vresult'); el.innerHTML = html;
-  if (shownDate) el.querySelector('h2')?.insertAdjacentHTML('afterend', shareBtn(shownDate) + ctxBox(shownDate));
+  if (shownDate) el.querySelector('h2')?.insertAdjacentHTML('afterend', shareBtn(shownDate));
   el.insertAdjacentHTML('beforeend', glossList(markTerms(el)));
+  if (shownDate) el.insertAdjacentHTML('beforeend', ctxBox(shownDate));
   el.classList.remove('hidden'); el.scrollIntoView({ behavior: 'smooth' });
 }
 const f0 = x => x == null || Number.isNaN(x) ? '-' : `${x.toFixed(0)}°`;
@@ -1401,16 +1404,16 @@ function cmpFigs(q) {
 }
 function cmpNums(q) {
   const ph = PHASES.find(p => p[1] === q), c = cmpCurves;
-  const row = (name, k, key) => { const m = num(c?.[key]?.[q]); return `${name} 이번 ${m == null ? '-' : `${Math.round(m)}°`} / 전공서적 기준 약 ${Math.round(perryAt(q, k))}°`; };
+  const row = (name, k, key) => { const m = num(c?.[key]?.[q]); return `${name} 이번 ${m == null ? '-' : `${Math.round(m)}°`} / 페리의 보행 분석 기준 약 ${Math.round(perryAt(q, k))}°`; };
   return `<b>${ph ? ph[0] : '보행 주기'} (${q}%)</b><br>${row('넓적다리 각도(앞 +)', 2, 'thigh')}<br>${row('무릎 굽힘', 3, 'knee')}<br>${row('발목(발등굽힘 +)', 4, 'ankle')}`;
 }
 function compareFigures(curves) {
   cmpCurves = curves;
   const q = PHASES[0][1];
-  return `<div class="cmp"><svg class="chart" viewBox="0 0 320 160" role="img" aria-label="보행 전공서적 기준 걸음과 내 걸음 뼈대 비교">
+  return `<div class="cmp"><svg class="chart" viewBox="0 0 320 160" role="img" aria-label="페리의 보행 분석 기준 걸음과 내 걸음 뼈대 비교">
       <g class="cmpFigs">${cmpFigs(q)}</g>
       <line x1="10" x2="310" y1="148" y2="148" stroke="currentColor" opacity=".2"/>
-      <text x="80" y="158" font-size="10" text-anchor="middle" fill="currentColor" opacity=".75">보행 전공서적 기준 걸음</text><text x="240" y="158" font-size="10" text-anchor="middle" fill="currentColor" opacity=".75">나 (이번 영상)</text></svg>
+      <text x="80" y="158" font-size="10" text-anchor="middle" fill="currentColor" opacity=".75">페리의 보행 분석 기준 걸음</text><text x="240" y="158" font-size="10" text-anchor="middle" fill="currentColor" opacity=".75">나 (이번 영상)</text></svg>
     <div style="display:flex;flex-wrap:wrap;gap:6px;margin:8px 0">${PHASES.map((p, i) => `<button class="chip" data-ph="${p[1]}" aria-pressed="${i === 0}">${p[0]}</button>`).join('')}<button class="chip" data-play>▶ 재생</button></div>
     <div class="calc cmpNum">${cmpNums(q)}</div>
     <div class="sub">걷는 방향 → · 왼쪽 뼈대 = Perry 9장 표의 단계별 각도로 앱이 직접 그린 그림(단계 사이는 직선으로 이은 근사) · 오른쪽 = 이번 영상 평균</div></div>`;
@@ -1433,29 +1436,29 @@ document.addEventListener('click', e => {
 function videoRecs(r) {
   const m = r.m, lim = '카메라 1대로 찍은 2D 영상이라 다리가 돌아가 있으면 굽힘 각도가 작게 찍혀요(Perry 17장). 원인 판단은 전문가에게.';
   if (r.view === 'side') return [
-    recCard({ title: '유각기 무릎 굽힘 (발 들어 올리기)', calc: [`이번 − 전공서적 기준 약 60° → ${dif(m.kneeSwingMax, 60, ['더 굽혀야 함', '덜 굽혀도 됨'])}`],
+    recCard({ title: '유각기 무릎 굽힘 (발 들어 올리기)', calc: [`이번 − 페리의 보행 분석 기준 약 60° → ${dif(m.kneeSwingMax, 60, ['더 굽혀야 함', '덜 굽혀도 됨'])}`],
       facts: [`Perry 4·5장: 초기 유각에 무릎이 약 60° 굽혀져야${hw(m.kneeSwingMax, 60, BEND)} 발끝이 바닥에 걸리지 않음. 이 굽힘은 거의 근육 없이 관성으로 만들어짐`,
         'Perry 4장: 유각 전에 발목이 빠르게 발바닥굽힘 20°가 되면서 무릎 굽힘을 이끔',
         'Perry 5장: 초기 유각에 굽힘이 15°에 못 미치면 다리가 덜 나가고 발끝이 바닥에 끌릴 수 있음'], limit: lim, refs: ['perry9', 'perry17'] }),
-    recCard({ title: '체중 받기 무릎 굽힘 (충격 흡수)', calc: [`이번 − 전공서적 기준 약 16° → ${dif(m.kneeLoad, 16, ['더 굽혀야 함(충격 흡수)', '덜 굽혀도 됨'])} · 기준 범위 15~18°`],
+    recCard({ title: '체중 받기 무릎 굽힘 (충격 흡수)', calc: [`이번 − 페리의 보행 분석 기준 약 16° → ${dif(m.kneeLoad, 16, ['더 굽혀야 함(충격 흡수)', '덜 굽혀도 됨'])} · 기준 범위 15~18°`],
       facts: [`Perry 4장: 발이 닿고 0.02초 만에 체중 60%가 실림. 무릎 약 15° 굽힘${hw(m.kneeLoad, 16, ['더 굽혀야 함', '덜 굽혀도 됨'])}, 발목 발바닥굽힘 10°, 반대쪽 골반 4° 내려감으로 충격을 흡수`,
         'Perry 5장: 이 굽힘은 허벅지 앞 근육(대퇴사두근)이 늘어나며 버티는 힘으로 무릎이 "뚝 꺾이지 않게 천천히" 조절해서 생겨요. 그 덕분에 바닥에서 받는 힘이 체중의 약 120%로 줄어요',
         'Perry 5장의 구분: 체중 받기 때 25° 넘게 굽으면 "굽힘 과다"로 봄'], limit: lim, refs: ['perry9', 'perry5'] }),
-    recCard({ title: '입각기 무릎 펴기', calc: [m.kneeStanceMin < 0 ? `이번 최소 ${m.kneeStanceMin.toFixed(0)}° ${extTxt(m.kneeStanceMin)}` : `이번 최소 − 전공서적 기준 약 5° → ${dif(m.kneeStanceMin, 5, ['덜 펴도 됨', '더 펴야 함'])}`],
+    recCard({ title: '입각기 무릎 펴기', calc: [m.kneeStanceMin < 0 ? `이번 최소 ${m.kneeStanceMin.toFixed(0)}° ${extTxt(m.kneeStanceMin)}` : `이번 최소 − 페리의 보행 분석 기준 약 5° → ${dif(m.kneeStanceMin, 5, ['덜 펴도 됨', '더 펴야 함'])}`],
       facts: [`Perry 5장: 말기 입각에 무릎이 약 5°까지 펴짐${extTxt(m.kneeStanceMin)}. 10° 이내로 펴지지 않으면 "폄 부족"으로 봄`, 'Perry 5장: 말기 유각에 덜 펴지면 걸음 길이가 짧아짐',
         ...(m.kneeStanceMin < -4 ? ['Perry 12장: 입각기에 무릎이 0°보다 더 펴져 뒤로 젖혀지는 것을 "과신전(반장슬)"이라고 해요. 원인은 여러 가지라 이 앱은 판단하지 않아요'] : [])],
       limit: lim, refs: ['perry9', ...(m.kneeStanceMin < -4 ? ['perry12'] : [])] }),
-    recCard({ title: '넓적다리 뒤로 젖히기 (한걸음 길이)', grade: 'o', calc: [`뒤로 젖힘: 이번 − 전공서적 기준 약 20° → ${dif(m.thighExt, 20, ['더 뒤로 젖혀야 함', '덜 젖혀도 됨'])}`, `앞으로 굽힘: 이번 − 전공서적 기준 약 20° → ${dif(m.thighFlex, 20, ['더 앞으로 들어야 함', '덜 들어도 됨'])}`],
+    recCard({ title: '넓적다리 뒤로 젖히기 (한걸음 길이)', grade: 'o', calc: [`뒤로 젖힘: 이번 − 페리의 보행 분석 기준 약 20° → ${dif(m.thighExt, 20, ['더 뒤로 젖혀야 함', '덜 젖혀도 됨'])}`, `앞으로 굽힘: 이번 − 페리의 보행 분석 기준 약 20° → ${dif(m.thighFlex, 20, ['더 앞으로 들어야 함', '덜 들어도 됨'])}`],
       facts: [`Perry 6장: 말기 입각에 넓적다리가 수직에서 뒤로 약 20° 젖혀짐${hw(m.thighExt, 20, ['더 뒤로 젖혀야 함', '덜 젖혀도 됨'])}`, 'Perry 6장: 이 젖힘이 부족하면 한걸음 길이가 짧아짐', 'Perry 6장: 첫 닿기 때 고관절 굽힘 약 30°(넓적다리 약 20°)는 미끄러짐과 안정성 사이의 최적 타협'],
       limit: lim + ' 넓적다리 각도는 영상 정확도가 낮은 편이에요(Wegner 2026).', refs: ['perry9', 'wegner2026'] }),
-    recCard({ title: '발목 (밀어내기)', grade: 'o', calc: [`발등굽힘: 이번 − 전공서적 기준 약 10° → ${dif(m.ankleDF, 10, ['더 발등 쪽으로 굽혀야 함(정강이를 앞으로)', '덜 굽혀도 됨'])}`, `발바닥굽힘: 이번 − 전공서적 기준 약 20° → ${dif(m.anklePF, 20, ['더 발끝으로 밀어내야 함', '덜 밀어내도 됨'])}`],
+    recCard({ title: '발목 (밀어내기)', grade: 'o', calc: [`발등굽힘: 이번 − 페리의 보행 분석 기준 약 10° → ${dif(m.ankleDF, 10, ['더 발등 쪽으로 굽혀야 함(정강이를 앞으로)', '덜 굽혀도 됨'])}`, `발바닥굽힘: 이번 − 페리의 보행 분석 기준 약 20° → ${dif(m.anklePF, 20, ['더 발끝으로 밀어내야 함', '덜 밀어내도 됨'])}`],
       facts: ['Perry 4장: 뒤꿈치가 닿은 뒤에는 정강이 앞 근육이 발이 "탁" 떨어지지 않게 천천히 내려놓아요(뒤꿈치 흔들의자)', `Perry 4장: 말기 입각에 뒤꿈치가 들리며 발목 발등굽힘 약 10°${hw(m.ankleDF, 10, ['더 발등 쪽으로 굽혀야 함', '덜 굽혀도 됨'])}. 앞발을 축으로 굴러가는 이 동작(앞발 흔들의자)이 가장 강한 추진력`, 'Perry 4장: 중간 입각 30%까지 발등굽힘이 5° 이상 되는지 봄'],
       limit: lim + ' 발목 각도는 영상 정확도가 낮아요(Russo 2026, Cheng 2025).', refs: ['perry9', 'russo2026', 'cheng2025'] }),
   ];
   const lr = (a, b) => { if (a == null || b == null) return '-'; const d = Math.abs(a - b);
     return `|${a.toFixed(0)}° − ${b.toFixed(0)}°| = <b>${d.toFixed(0)}°</b> (${d <= 4 ? '좌우 비슷함' : d > 10 ? '좌우 차이 많이 남' : '좌우 차이 조금 남'})`; };
   return [
-    recCard({ title: '골반 내려감 (엉덩이 옆 근육)', grade: 'n', calc: [`왼발 디딜 때 − 전공서적 기준 약 4° → ${dif(m.dropL, 4, ['덜 내려가는 편', '덜 내려가야 함(엉덩이 옆 근육으로 잡아 주기)'])}`, `오른발 디딜 때 − 전공서적 기준 약 4° → ${dif(m.dropR, 4, ['덜 내려가는 편', '덜 내려가야 함(엉덩이 옆 근육으로 잡아 주기)'])}`, `좌우 차이 ${lr(m.dropL, m.dropR)}`],
+    recCard({ title: '골반 내려감 정도 (엉덩이 옆 근육)', grade: 'n', calc: [`왼발 디딜 때 − 페리의 보행 분석 기준 약 4° → ${dif(m.dropL, 4, ['덜 내려가는 편', '덜 내려가야 함(엉덩이 옆 근육으로 잡아 주기)'])}`, `오른발 디딜 때 − 페리의 보행 분석 기준 약 4° → ${dif(m.dropR, 4, ['덜 내려가는 편', '덜 내려가야 함(엉덩이 옆 근육으로 잡아 주기)'])}`, `좌우 차이 ${lr(m.dropL, m.dropR)}`],
       facts: [`Perry 4장: 체중 받기 때 반대쪽 골반이 약 4° 내려가며 충격을 나눠 받음 — 이번: 왼발 ${m.dropL == null ? '-' : hint(m.dropL - 4, ['덜 내려가는 편', '덜 내려가야 함'])}, 오른발 ${m.dropR == null ? '-' : hint(m.dropR - 4, ['덜 내려가는 편', '덜 내려가야 함'])}`, 'Perry 6·9장: 엉덩이 벌림근(중둔근 등)이 체중의 약 1.5배 힘으로 골반 처짐을 5° 이하로 잡아 줌'],
       limit: '휴대폰 앞·뒤 영상의 골반 각도는 검증 연구를 찾지 못했어요. 같은 조건으로 찍어 변화를 보세요.', refs: ['perry9'] }),
     recCard({ title: '왼쪽·오른쪽 비교', grade: 'n', calc: [`무릎 안쪽 모임 ${lr(m.valgusL, m.valgusR)}`, `몸통 옆 기울기 ${lr(m.leanL, m.leanR)}`],
@@ -1464,41 +1467,43 @@ function videoRecs(r) {
   ];
 }
 
-// ── 한눈에 보기: 부위마다 색 점(영상 사진의 같은 색 동그라미) + 전공서적 기준과의 차이를 숫자로 (판정 없이 사실만) ──
+// ── 한눈에 보기: 부위마다 색 점(영상 사진의 같은 색 동그라미) + 페리의 보행 분석 기준과의 차이를 숫자로 (판정 없이 사실만) ──
 const PART = { pelvis: ['골반', 'var(--c-video)', '#8a5cd1'], thigh: ['넓적다리', 'var(--c-slow)', '#c46f1c'], knee: ['무릎', 'var(--c-walk)', '#008a6e'], ankle: ['발목', 'var(--c-run)', '#2f6fd1'], body: ['몸통', 'var(--sub)', '#69736f'], step: ['걸음', 'var(--sub)', '#69736f'] };
 const partIcon = k => `<svg class="picon" viewBox="-2 -2 28 28" aria-hidden="true"><circle cx="12" cy="12" r="13" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="${PART_ICON[k]}" fill="${PART[k][1]}" fill-rule="${k === 'pelvis' ? 'evenodd' : 'nonzero'}"/></svg>`;
 // d = 이번 − 기준, more/less = 기준보다 클 때/작을 때 말 (예: '더 굽혀짐' / '덜 굽혀짐')
-const gapTxt = (d, more, less, unit = '°') => d == null || Number.isNaN(d) ? '-' : Math.round(d) === 0 ? '전공서적 기준과 같음' : `${Math.abs(Math.round(d))}${unit} ${d > 0 ? more : less}`;
+const gapTxt = (d, more, less, unit = '°') => d == null || Number.isNaN(d) ? '-' : Math.round(d) === 0 ? '페리 기준과 같음' : `${Math.abs(Math.round(d))}${unit} ${d > 0 ? more : less}`;
 function glance(rows, photo) {
-  return `<div class="glance"><div class="ghead"><b>한눈에 보기</b><span class="sub">전공서적 기준과 차이</span></div>
+  return `<div class="glance"><div class="ghead"><b>한눈에 보기</b><span class="sub">페리 기준과 차이</span></div>
     ${rows.map(({ part, what, big, now }) => `<div class="grow"><div class="gpart">${partIcon(part)}${PART[part][0]} · ${what}</div><div class="gbig">${big}</div><div class="sub">${now}</div></div>`).join('')}
     <div class="sub" style="font-size:.75rem;margin-top:8px">${photo ? '그림 속 색칠한 곳이 그 부위예요. 위 사진에도 같은 그림 이름표를 붙였어요. ' : '그림 속 색칠한 곳이 그 부위예요. '}차이는 사실만 적었어요. 영상 각도는 약 3~5° 오차가 있고(Russo 2026), 원인 판단은 전문가에게.</div></div>`;
 }
 function lastSpeedRow() {                                                  // 영상엔 거리 기준(cm)이 없어 속도를 못 잼 → 센서·GPS로 잰 가장 최근 값을 같이 보여 줌
   const h = store.get('history', []).find(x => (x.activity ?? 'walk') === 'walk' && x.speed);
   const d = h && h.speed - 1.37;
-  return h ? { part: 'step', what: '걷는 속도 (측정 탭 GPS)', big: Math.abs(d) < 0.005 ? '전공서적 기준과 같음' : `${Math.abs(d).toFixed(2)} m/s ${d > 0 ? '빠름' : '느림'}`, now: `${md(h.date)} 측정 ${h.speed.toFixed(2)} m/s · 전공서적 성인 평균 1.37 m/s` }
+  return h ? { part: 'step', what: '걷는 속도 (측정 탭 GPS)', big: Math.abs(d) < 0.005 ? '페리 기준과 같음' : `${Math.abs(d).toFixed(2)} m/s ${d > 0 ? '빠름' : '느림'}`, now: `${md(h.date)} 측정 ${h.speed.toFixed(2)} m/s · 페리의 보행 분석 성인 평균 1.37 m/s` }
     : { part: 'step', what: '걷는 속도', big: '-', now: '영상에는 거리 기준이 없어 속도를 못 재요. 측정 탭에서 GPS로 걸으면 여기 같이 보여요.' };
 }
 function glanceSide(r, photo) {
   const m = r.m, { sex } = store.get('profile', {}), norm = sex === 'm' ? 111 : sex === 'f' ? 117 : 113;
   return glance([
-    { part: 'knee', what: '디딜 때 가장 펴진 각도', big: gapTxt(5 - m.kneeStanceMin, '더 펴짐', '덜 펴짐'), now: `이번 ${f0(m.kneeStanceMin)} · 전공서적 기준 약 5°${m.kneeStanceMin < -4 ? ` · 0°보다 ${Math.round(-m.kneeStanceMin)}° 더 펴져 뒤로 젖혀짐` : ''}` },
-    { part: 'knee', what: '발 디딜 때 굽힘(충격 흡수)', big: gapTxt(m.kneeLoad - 16, '더 굽혀짐', '덜 굽혀짐'), now: `이번 ${f0(m.kneeLoad)} · 전공서적 기준 15~18°(가운데 16°와 비교)` },
-    { part: 'knee', what: '발 들 때 굽힘', big: gapTxt(m.kneeSwingMax - 60, '더 굽혀짐', '덜 굽혀짐'), now: `이번 ${f0(m.kneeSwingMax)} · 전공서적 기준 약 60°` },
-    { part: 'thigh', what: '뒤로 젖혀진 각도', big: gapTxt(m.thighExt - 20, '더 젖혀짐', '덜 젖혀짐'), now: `이번 ${f0(m.thighExt)} · 전공서적 기준 약 20° · 정확도 낮음` },
-    { part: 'ankle', what: '발등 쪽 굽힘', big: gapTxt(m.ankleDF - 10, '더 굽혀짐', '덜 굽혀짐'), now: `이번 ${f0(m.ankleDF)} · 전공서적 기준 약 10° · 정확도 낮음` },
-    { part: 'step', what: '케이던스 (영상)', big: gapTxt(r.cadence - norm, '걸음/분 많음', '걸음/분 적음', ''), now: `이번 ${r.cadence.toFixed(0)}걸음/분 · 전공서적 성인 평균 ${norm}` },
+    { part: 'knee', what: '디딜 때 가장 펴진 각도', big: gapTxt(5 - m.kneeStanceMin, '더 펴짐', '덜 펴짐'), now: `이번 ${f0(m.kneeStanceMin)} · 페리의 보행 분석 기준 약 5°${m.kneeStanceMin < -4 ? ` · 0°보다 ${Math.round(-m.kneeStanceMin)}° 더 펴져 뒤로 젖혀짐` : ''}` },
+    { part: 'knee', what: '발 디딜 때 굽힘(충격 흡수)', big: gapTxt(m.kneeLoad - 16, '더 굽혀짐', '덜 굽혀짐'), now: `이번 ${f0(m.kneeLoad)} · 페리의 보행 분석 기준 15~18°(가운데 16°와 비교)` },
+    { part: 'knee', what: '발 들 때 굽힘', big: gapTxt(m.kneeSwingMax - 60, '더 굽혀짐', '덜 굽혀짐'), now: `이번 ${f0(m.kneeSwingMax)} · 페리의 보행 분석 기준 약 60°` },
+    { part: 'thigh', what: '뒤로 젖혀진 각도', big: gapTxt(m.thighExt - 20, '더 젖혀짐', '덜 젖혀짐'), now: `이번 ${f0(m.thighExt)} · 페리의 보행 분석 기준 약 20° · 정확도 낮음` },
+    { part: 'ankle', what: '발등 쪽 굽힘', big: gapTxt(m.ankleDF - 10, '더 굽혀짐', '덜 굽혀짐'), now: `이번 ${f0(m.ankleDF)} · 페리의 보행 분석 기준 약 10° · 정확도 낮음` },
+    { part: 'step', what: '케이던스 (영상)', big: gapTxt(r.cadence - norm, '걸음/분 많음', '걸음/분 적음', ''), now: `이번 ${r.cadence.toFixed(0)}걸음/분 · 페리의 보행 분석 성인 평균 ${norm}` },
     lastSpeedRow()], photo);
 }
+// 골반 내려감 정도: 페리 기준 4° / 나 / 차이 (사용자 메모: '내려감'만 쓰면 헷갈림)
+const dropTxt = a => a == null || Number.isNaN(a) ? '페리 기준 4° / 나 -' : (d => `페리 기준 4° / 나 ${Math.round(a)}° / 차이 ${d > 0 ? '+' : ''}${d}°`)(Math.round(a) - 4);
 function glanceFront(r, photo) {
   const m = r.m, t = m.tilt;
   const lr = (a, b, word) => a == null || b == null ? '-' : Math.round(a - b) === 0 ? '좌우 같음' : `${a > b ? '왼쪽' : '오른쪽'}이 ${Math.abs(Math.round(a - b))}° 더 ${word}`;
   return glance([
     { part: 'pelvis', what: '어느 쪽 골반이 높은지', big: t == null ? '-' : Math.round(t) === 0 ? '좌우 높이 같음' : `${t > 0 ? '오른쪽' : '왼쪽'}이 ${Math.abs(Math.round(t))}° 높음`, now: '걷는 동안 양쪽 엉덩이 점을 이은 선의 기울기(중앙값). 휴대폰이 기울게 찍히면 같이 기울어요' },
-    { part: 'pelvis', what: '왼발 디딜 때 오른쪽 골반 내려감', big: gapTxt(m.dropL - 4, '더 내려감', '덜 내려감'), now: `이번 ${f0(m.dropL)} · 전공서적 기준 약 4°` },
-    { part: 'pelvis', what: '오른발 디딜 때 왼쪽 골반 내려감', big: gapTxt(m.dropR - 4, '더 내려감', '덜 내려감'), now: `이번 ${f0(m.dropR)} · 전공서적 기준 약 4°` },
-    { part: 'knee', what: '무릎 안쪽 모임', big: lr(m.valgusL, m.valgusR, '안쪽'), now: `왼 ${f0(m.valgusL)} · 오른 ${f0(m.valgusR)} · 전공서적 기준값 없음` },
+    { part: 'pelvis', what: '왼발 디딜 때 오른쪽 골반 내려감 정도', big: dropTxt(m.dropL), now: '한 발로 디딜 때 반대쪽 골반이 내려간 각도' },
+    { part: 'pelvis', what: '오른발 디딜 때 왼쪽 골반 내려감 정도', big: dropTxt(m.dropR), now: '한 발로 디딜 때 반대쪽 골반이 내려간 각도' },
+    { part: 'knee', what: '무릎 안쪽 모임', big: lr(m.valgusL, m.valgusR, '안쪽'), now: `왼 ${f0(m.valgusL)} · 오른 ${f0(m.valgusR)} · 페리의 보행 분석 기준값 없음` },
     { part: 'body', what: '몸통 옆 기울기', big: lr(m.leanL, m.leanR, '기욺').replace(/쪽이 (\d+)° 더/, '쪽으로 $1° 더'), now: `왼쪽으로 ${f0(m.leanL)} · 오른쪽으로 ${f0(m.leanR)}` },
     lastSpeedRow()], photo);
 }
@@ -1519,7 +1524,7 @@ function renderVideo(r, dur) {
     const m = r.m;
     html += `<h2>영상 분석 결과 · 옆모습</h2><div class="sub">${r.side === 'l' ? '왼' : '오른'}쪽 다리(카메라 쪽) · 보행 주기 ${r.nCycles}개 평균 · 다리가 잡힌 장면 ${Math.round(r.validFrac * 100)}%</div>`;
     html += glanceSide(r, dur != null);
-    html += `<div class="metric"><div class="mhead"><div><b>보행 전공서적 기준 걸음과 나란히</b></div><span class="badge b-y">참고</span></div>${compareFigures(r.curves)}<div class="sub">무릎은 영상 오차 약 3~5°(참고), 넓적다리·발목은 정확도가 더 낮아요. 각도 값: ${REF.perry9}</div></div>`;
+    html += `<div class="metric"><div class="mhead"><div><b>페리의 보행 분석 기준 걸음과 나란히</b></div><span class="badge b-y">참고</span></div>${compareFigures(r.curves)}<div class="sub">무릎은 영상 오차 약 3~5°(참고), 넓적다리·발목은 정확도가 더 낮아요. 각도 값: ${REF.perry9}</div></div>`;
     html += metric({ title: '무릎 각도', value: f0(m.kneeSwingMax), unit: `유각기 최대 굽힘 (보행 주기 ${m.kneeSwingAt}%)`, grade: 'y',
       body: `${kneeChart(r.curves.knee)}<div class="calc">이번 값 / Perry 9장 기준<br>첫 닿기 ${f0(m.kneeIC)} / 0~5°<br>체중 받기 최대 ${f0(m.kneeLoad)} / 15~18°<br>입각기 최소 ${f0(m.kneeStanceMin)} / 약 5° ${extTxt(m.kneeStanceMin)}<br>유각기 최대 ${f0(m.kneeSwingMax)} / 약 60°(초기 유각)</div>`,
       why: ['무릎 각도 = 180° − (엉덩이·무릎·발목 세 점이 이루는 각). Perry 17장: 영상에서 가장 잘 잡히는 관절',
@@ -1528,12 +1533,12 @@ function renderVideo(r, dur) {
         '첫 닿기는 "발이 엉덩이보다 가장 앞에 있는 순간"으로 근사해서 실제보다 몇 % 일찍 잡힐 수 있어요'],
       refs: ['perry9', 'perry17', 'russo2026', 'wegner2026'] });
     html += metric({ title: '넓적다리 각도', value: f0(m.thighFlex), unit: `앞으로 최대 · 뒤로 최대 ${f0(m.thighExt)}`, grade: 'o',
-      body: `<div class="calc">이번 값 / 전공서적 기준<br>앞으로(굽힘) ${f0(m.thighFlex)} / 약 20°<br>뒤로(폄) ${f0(m.thighExt)} / 약 20°(말기 입각)</div>`,
+      body: `<div class="calc">이번 값 / 페리의 보행 분석 기준<br>앞으로(굽힘) ${f0(m.thighFlex)} / 약 20°<br>뒤로(폄) ${f0(m.thighExt)} / 약 20°(말기 입각)</div>`,
       why: ['넓적다리 각도 = 수직선과 허벅지(엉덩이→무릎)가 이루는 각. 골반 움직임이 섞이지 않아 Perry가 임상에서 권하는 지표',
         'Cheng 2025: 2D 영상의 엉덩관절 각도 오차는 5° 안쪽이지만, Wegner 2026에선 일치도가 낮았어요 → "부정확할 수 있음"'],
       refs: ['perry9', 'cheng2025', 'wegner2026'] });
     html += metric({ title: '발목 각도', value: f0(m.ankleDF), unit: `입각기 최대 발등굽힘 · 최대 발바닥굽힘 ${f0(m.anklePF)}`, grade: 'o',
-      body: `<div class="calc">이번 값 / 전공서적 기준<br>발등굽힘 ${f0(m.ankleDF)} / 10°(말기 입각)<br>발바닥굽힘 ${f0(m.anklePF)} / 20°(유각 전)</div>`,
+      body: `<div class="calc">이번 값 / 페리의 보행 분석 기준<br>발등굽힘 ${f0(m.ankleDF)} / 10°(말기 입각)<br>발바닥굽힘 ${f0(m.anklePF)} / 20°(유각 전)</div>`,
       why: ['발목 각도 = 정강이(무릎→발목)와 발(뒤꿈치→발끝) 사이 각도 − 90°',
         'Russo 2026, Cheng 2025: 영상의 발목 각도는 정확도가 낮음 → 참고만 하세요'],
       refs: ['perry9', 'russo2026', 'cheng2025'] });
@@ -1544,7 +1549,7 @@ function renderVideo(r, dur) {
     const diff = (a, b) => a != null && b != null ? `좌우 차이 ${Math.abs(a - b).toFixed(0)}°` : '';
     html += `<h2>영상 분석 결과 · ${side}</h2><div class="sub">몸이 잡힌 장면 ${Math.round(r.validFrac * 100)}% · 앞·뒤 각도는 휴대폰 영상으로 검증된 연구를 찾지 못해 모두 "검증 안 됨"이에요. 같은 조건으로 찍어 좌우 비교·변화 추적에 쓰세요.</div>`;
     html += glanceFront(r, dur != null);
-    html += metric({ title: '골반 내려감 (반대쪽)', value: `왼발 ${f0(m.dropL)} · 오른발 ${f0(m.dropR)}`, unit: '', grade: 'n',
+    html += metric({ title: '골반 내려감 정도 (반대쪽)', value: `왼발 ${f0(m.dropL)} · 오른발 ${f0(m.dropR)}`, unit: '', grade: 'n',
       body: `<div class="calc">한 발로 디딜 때 반대쪽 골반이 내려간 각도 (상위 10% 값)<br>${diff(m.dropL, m.dropR)}<br>Perry 4·9장: 체중 받기 때 반대쪽 골반 약 4°, 엉덩이 벌림근이 5° 이하로 제한</div>`,
       why: ['양쪽 엉덩이 점을 잇는 선이 수평에서 기운 각도', '입각기 다리는 "발목이 화면에서 더 아래에 있는 다리"로 근사', '휴대폰 2D 영상의 정확도 연구는 찾지 못함'], refs: ['perry9'] });
     html += metric({ title: '무릎 안쪽 모임', value: `왼 ${f0(m.valgusL)} · 오른 ${f0(m.valgusR)}`, unit: '', grade: 'n',
