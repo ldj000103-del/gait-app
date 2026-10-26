@@ -186,6 +186,19 @@ function haversine(a, b) {
   return 2 * R * Math.asin(Math.sqrt(h));
 }
 
+// 경로 지도의 km 표시: [[위도, 경도], …] 경로를 따라 누적 거리가 1km(10km 넘으면 2km)마다 되는 지점 → [[위도, 경도, km], …]
+export function routeMarks(pts) {
+  const seg = pts.slice(1).map((p, i) => haversine({ lat: pts[i][0], lon: pts[i][1] }, { lat: p[0], lon: p[1] }));
+  const total = seg.reduce((s, d) => s + d, 0), step = total > 10000 ? 2000 : 1000, out = [];
+  let done = 0, next = step;
+  seg.forEach((d, i) => {
+    while (d > 0 && done + d >= next) { const f = (next - done) / d, a = pts[i], b = pts[i + 1];
+      out.push([a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f, next / 1000]); next += step; }
+    done += d;
+  });
+  return out;
+}
+
 // points: [{t: ms(samples와 같은 시계), lat, lon, acc(m)}] → 꾸준히 걸은 구간의 GPS 속도
 // 위치 떨림이 거리로 쌓이지 않게 10초씩 묶어 평균 낸 점들을 이음
 // ponytail: 10초보다 짧게 꺾이는 길은 모서리가 잘려 조금 짧게 나옴 → 필요하면 칼만 필터·도플러 속도로 교체

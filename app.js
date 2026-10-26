@@ -1,4 +1,4 @@
-import { analyzeWalk, fastMinutes, withDistance, gpsSpeed, gpsDistance, guessActivity, guessPosition, RUN_CAD } from './gait.js';
+import { analyzeWalk, fastMinutes, withDistance, gpsSpeed, gpsDistance, guessActivity, guessPosition, routeMarks, RUN_CAD } from './gait.js';
 import { analyzeSide, analyzeFrontal, extractPose, drawSnapshot, PART_ICON } from './video.js';
 
 const $ = id => document.getElementById(id);
@@ -622,7 +622,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v94';
+const APP_VERSION = 'v95';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -1146,13 +1146,29 @@ document.addEventListener('click', e => {
   if (h) { delete h.route; store.set('history', hist); }
   route = null; $('routeBox')?.remove();
 });
-async function drawRoute(box, pts) {
+// 경로 그리기 (디자인 팀 10/27): 흰 테두리 초록 선, 출발·도착(측정 중엔 '지금') 점과 말풍선, 1km(10km 넘으면 2km)마다 숫자, 경로 전체 보기 버튼
+const ROUTE_C = '#008a6e';
+const dotHtml = (fill, ring) => `<div style="width:16px;height:16px;border-radius:50%;background:${fill};border:3px solid ${ring};box-sizing:border-box"></div>`;
+const tagHtml = t => `<div style="margin-left:14px;background:#121816;color:#fff;font:700 11px/18px sans-serif;padding:0 8px;border-radius:9px;white-space:nowrap">${t}</div>`;
+const kmHtml = n => `<div style="width:22px;height:22px;border-radius:50%;background:#fff;border:2px solid ${ROUTE_C};box-sizing:border-box;color:#005c49;font:700 11px/18px sans-serif;text-align:center">${n}</div>`;
+async function drawRoute(box, pts, live = false) {
   try { await loadKakao(); } catch { kakaoLoad = null; return false; }
   const K = kakao.maps, path = pts.map(([lat, lon]) => new K.LatLng(lat, lon));
-  box.innerHTML = ''; box.classList.remove('hidden');
+  box.innerHTML = ''; box.classList.remove('hidden'); box.style.position = 'relative';
   const map = new K.Map(box, { center: path[0], level: 4 }), b = new K.LatLngBounds();
-  new K.Polyline({ path, strokeWeight: 5, strokeColor: '#1d6b5c', strokeOpacity: 0.9 }).setMap(map);
+  new K.Polyline({ map, path, strokeWeight: 9, strokeColor: '#ffffff', strokeOpacity: 1 });
+  new K.Polyline({ map, path, strokeWeight: 5, strokeColor: ROUTE_C, strokeOpacity: 1 });
+  const pin = (p, html, x = 0.5, z = 3) => new K.CustomOverlay({ map, position: p, content: html, xAnchor: x, yAnchor: 0.5, zIndex: z });
+  for (const [lat, lon, km] of routeMarks(pts)) pin(new K.LatLng(lat, lon), kmHtml(km), 0.5, 2);
+  const end = path[path.length - 1];
+  pin(path[0], dotHtml('#fff', ROUTE_C)); pin(path[0], tagHtml('출발'), 0);
+  pin(end, dotHtml(ROUTE_C, '#fff'), 0.5, 4); pin(end, tagHtml(live ? '지금' : '도착'), 0, 4);
   path.forEach(p => b.extend(p)); map.setBounds(b);
+  const fit = document.createElement('button');                           // 오른쪽 아래: 카카오 로고(왼쪽 아래)를 가리지 않게
+  fit.type = 'button'; fit.textContent = '경로 전체 보기';
+  fit.style.cssText = 'position:absolute;right:8px;bottom:8px;z-index:3;width:auto;margin:0;padding:6px 12px;border-radius:999px;background:#fff;color:#121816;border:1px solid #d5dbd8;font-size:.75rem;font-weight:700;box-shadow:0 1px 4px rgba(0,0,0,.15)';
+  fit.addEventListener('click', () => map.setBounds(b));
+  box.append(fit);
   return true;
 }
 document.addEventListener('click', async e => {
@@ -1174,7 +1190,7 @@ $('recMapBtn').addEventListener('click', async () => {
   if (!pts) return (btn.textContent = '아직 경로가 없어요 · 야외에서 조금 더 간 뒤 다시 눌러요');
   btn.textContent = '지도 불러오는 중…';
   $('rec').classList.add('mapOpen');
-  if (await drawRoute($('recMap'), pts)) { btn.textContent = '지도 접기'; $('recMap').scrollIntoView({ block: 'nearest' }); }
+  if (await drawRoute($('recMap'), pts, true)) { btn.textContent = '지도 접기'; $('recMap').scrollIntoView({ block: 'nearest' }); }
   else { closeRecMap(); btn.textContent = '지도를 못 불러왔어요 · 다시 누르기'; }
 });
 

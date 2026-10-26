@@ -1,7 +1,7 @@
 // 걸음 분석 자체 점검: node test_gait.mjs
 // 가짜 걷기 신호(앞뒤 3초 서 있기 포함)를 만들어 케이던스를 2% 안으로 맞히는지 확인
 import assert from 'node:assert/strict';
-import { analyzeWalk, fastMinutes, withDistance, gpsSpeed, gpsDistance, guessActivity, guessPosition } from './gait.js';
+import { analyzeWalk, fastMinutes, withDistance, gpsSpeed, gpsDistance, guessActivity, guessPosition, routeMarks } from './gait.js';
 
 function fakeWalk({ cadence, walkS = 20, position, hz = 60, seed = 1, amp = 1 }) {   // amp: 달리기는 흔들림이 큼
   let r = seed;
@@ -101,4 +101,13 @@ console.log('모든 점검 통과');
   assert.deepEqual(slow, { fastMin: 0, minutes: 2 }, `빠르게 걸은 분 95: ${JSON.stringify(slow)}`);
   assert.equal(fastMinutes(fakeWalk({ cadence: 110, walkS: 40, position: 'pocket' }), { position: 'pocket' }).minutes, 0);
   console.log('빠르게 걸은 분 점검 통과');
+}
+{ // 경로 km 표시: 북쪽으로 0.001°(약 111m)씩 → 2.5km면 1·2km, 12km면 2km 간격
+  const line = n => Array.from({ length: n + 1 }, (_, i) => [37 + i * 0.001, 127]);
+  assert.deepEqual(routeMarks(line(5)), []);
+  const m = routeMarks(line(23));
+  assert.deepEqual(m.map(x => x[2]), [1, 2]);
+  assert.ok(Math.abs(m[0][0] - (37 + 1000 / 111195)) < 1e-4, `1km 지점 위도: ${m[0][0]}`);
+  assert.deepEqual(routeMarks(line(108)).map(x => x[2]), [2, 4, 6, 8, 10, 12]);
+  console.log('경로 km 표시 점검 통과');
 }
