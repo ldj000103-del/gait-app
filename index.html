@@ -159,7 +159,7 @@
 <body data-tab="home">
 <main>
   <h1>걸음 분석</h1>
-  <div class="sub">휴대폰 센서로 케이던스(분당 걸음 수)를 잽니다. 의료 진단이 아닙니다.</div>
+  <div class="sub">10초 걷는 영상을 찍으면, 책 기준 걸음과 내 걸음을 단계별로 나란히 보여 줘요. 평소 걸음 수는 앱을 켜지 않아도 쌓여요(설치형 앱). 의료 진단이 아니에요.</div>
 
   <section class="card" id="consent">
     <h2>시작하기 전에</h2>
@@ -336,13 +336,13 @@
   </section>
 
   <section class="card" id="community" data-tab="community" style="text-align:center;padding:40px 16px">
-    <h2>커뮤니티</h2>
+    <h2>함께</h2>
     <p class="sub" style="font-size:1.25rem;font-weight:600">Coming soon</p>
   </section>
 
   <section class="card sub" id="about" data-tab="home">
     <h2>이 앱의 근거</h2>
-    정상 보행 기준은 Perry 『Gait Analysis』(1992)를 기본으로 하고, 최신 학술지 연구를 함께 씁니다.
+    Perry 기준 걸음은 Perry 『Gait Analysis』(1992)를 기본으로 하고, 최신 학술지 연구를 함께 씁니다.
     각 결과의 <b>정확도 등급</b>: <span class="badge b-g">정확</span> <span class="badge b-y">참고</span>
     <span class="badge b-o">부정확할 수 있음</span> <span class="badge b-n">검증 안 됨</span>
     — 결과마다 "근거 보기"에서 출처를 확인할 수 있어요.
@@ -353,9 +353,9 @@
 </main>
 <nav id="tabbar" role="tablist" aria-label="화면 이동">
   <button role="tab" data-go="home"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20h14V9.5"/><path d="M10 20v-5h4v5"/></svg>홈</button>
-  <button role="tab" data-go="measure"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h4l2.5-6 4 12 2.5-6H21"/></svg>측정</button>
-  <button role="tab" data-go="community"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6"/><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8M18 14.3c2.1.7 3.5 2.8 3.5 5.7"/></svg>커뮤니티</button>
-  <button role="tab" data-go="video"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="6" width="13" height="12" rx="2"/><path d="m16 10 5-3v10l-5-3"/></svg>보행분석</button>
+  <button role="tab" data-go="measure"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h4l2.5-6 4 12 2.5-6H21"/></svg>직접 재기</button>
+  <button role="tab" data-go="community"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6"/><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8M18 14.3c2.1.7 3.5 2.8 3.5 5.7"/></svg>함께</button>
+  <button role="tab" data-go="video"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="6" width="13" height="12" rx="2"/><path d="m16 10 5-3v10l-5-3"/></svg>걸음 비교</button>
   <button role="tab" data-go="records"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h12M8 12h12M8 18h12"/><circle cx="4" cy="6" r=".8"/><circle cx="4" cy="12" r=".8"/><circle cx="4" cy="18" r=".8"/></svg>기록</button>
 </nav>
 <div id="tip" class="hidden" role="status"></div>

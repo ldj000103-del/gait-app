@@ -397,7 +397,7 @@ function send(r) {
 }
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v58';
+const APP_VERSION = 'v59';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -424,7 +424,7 @@ const ro = w => { const c = (w.charCodeAt(w.length - 1) - 0xac00) % 28; return w
 function autoNote(r) {
   const a = r.auto ?? {};
   if (!a.act && !a.pos) return '';
-  return `<div class="metric"><div class="sub">${a.act ? `활동: <b>${ro(ACT[a.act])}</b> 자동 구분 <span class="badge b-y">참고</span><br>` : ''}${a.pos ? `휴대폰 위치: <b>${ro(POS[a.pos])}</b> 짐작 <span class="badge b-n">검증 안 됨</span><br>` : ''}다르면 다음엔 측정 탭에서 직접 골라 주세요.</div>
+  return `<div class="metric"><div class="sub">${a.act ? `활동: <b>${ro(ACT[a.act])}</b> 자동 구분 <span class="badge b-y">참고</span><br>` : ''}${a.pos ? `휴대폰 위치: <b>${ro(POS[a.pos])}</b> 짐작 <span class="badge b-n">검증 안 됨</span><br>` : ''}다르면 다음엔 직접 재기 탭에서 골라 주세요.</div>
     <details><summary>어떻게 골랐나요?</summary><ul>
     ${a.act ? `<li>달리기 방식으로 센 케이던스가 ${RUN_CAD}걸음/분 이상이고 흔들림도 크면 달리기, 아니면 걷기로 봐요. 이 선은 이 앱이 정한 것이고 연구로 확인하지 않았어요.</li><li>30초씩 나눠 보고 걷기와 달리기가 각각 1분 넘게 섞여 있으면 슬로우 러닝으로 봐요.</li>` : ''}
     ${a.pos ? '<li>화면이 하늘을 보고 있으면 손, 같은 다리가 돌아올 때만 신호가 크게 반복되면 바지 앞주머니(허벅지), 걸음마다 비슷하면 허리로 짐작해요(Perry 7장: 몸통 움직임은 걸음마다 반복). 정확도를 확인한 연구가 없어요.</li>' : ''}</ul></details></div>`;
@@ -568,7 +568,7 @@ function recsRun(r, { age }) {
   cards.push(recCard({ title: '케이던스를 5~10% 올릴 때 연구 결과',
     calc: [`${c.toFixed(0)} × 1.05 = <b>${c5}걸음/분</b> (+5%)`, `${c.toFixed(0)} × 1.10 = <b>${c10}걸음/분</b> (+10%)`],
     facts: ['Heiderscheit 2011(취미 러너 45명, 같은 속도): +5%에서 무릎이 흡수하는 에너지 감소, +10%에서 엉덩관절 흡수와 엉덩관절 모음 각도·모멘트도 감소. 한걸음 길이·몸의 위아래 움직임·제동충격량·무릎 굽힘 정점 감소',
-      'Neumann 16장(책 p.795): 케이던스 10% 증가 → 디딤기 무릎넙다리관절 힘 정점 14% 감소',
+      'Neumann 16장(책 p.795): 케이던스 10% 증가 → 입각기 무릎넙다리관절 힘 정점 14% 감소',
       'Neumann 16장(p.787~788): 느린 케이던스는 충격력을 키우고, 발이 몸 앞쪽 멀리 닿을수록 제동충격량이 커짐'],
     limit: 'Anderson 2022 메타분석: 손상 예방 효과는 아직 근거 부족. 평소보다 올리면 힘든 느낌·에너지 소비가 늘 수 있음(매우 제한된 근거)',
     refs: ['heiderscheit', 'neumann16', 'anderson2022'] }));
@@ -890,8 +890,6 @@ const GLOSS = {
   'walk ratio': '걸음 길이(m)를 케이던스(걸음/분)로 나눈 값이에요. Neumann 책은 이 값이 일정할 때 에너지 효율이 좋다고 해요.',
   '페이스': '1km를 가는 데 걸리는 시간이에요(예: 6분 30초/km).',
   'GPS': '위성 신호로 휴대폰 위치를 찾는 기능이에요. 위치가 보통 몇 m씩 어긋나요.',
-  '디딤기': '발이 땅에 닿아 있는 동안이에요.',
-  '흔들기': '발이 땅에서 떨어져 공중에 있는 동안이에요.',
   '제동충격량': '발이 땅에 닿을 때 몸을 뒤로 잡아끄는 브레이크 힘이 쌓인 양(힘 × 시간)이에요.',
   '충격정점': '발이 땅에 닿는 순간 땅이 몸을 밀어 올리는 첫 번째 큰 힘이에요.',
   '충격력': '발이 땅에 닿을 때 몸에 전해지는 힘이에요.',
@@ -921,8 +919,8 @@ const GLOSS = {
   '보행 주기': '한 발이 땅에 닿은 뒤 같은 발이 다시 닿을 때까지의 한 번의 걸음 동작(두 걸음)이에요. 0~100%로 나눠 봐요.',
   '첫 닿기': '발이 땅에 처음 닿는 순간이에요(보행 주기 0%).',
   '체중 받기': '발이 닿은 직후 몸무게가 그 다리로 실리는 구간이에요(보행 주기 0~10%).',
-  '입각기': '발이 땅에 닿아 몸을 받치는 구간이에요(보행 주기 약 0~60%).',
-  '유각기': '발이 땅에서 떨어져 앞으로 나가는 구간이에요(보행 주기 약 60~100%).',
+  '입각기': '발이 땅에 닿아 몸을 받치는 구간이에요(보행 주기 약 0~60%). 새 용어로 "디딤기", 영어로 Stance phase라고도 해요.',
+  '유각기': '발이 땅에서 떨어져 앞으로 나가는 구간이에요(보행 주기 약 60~100%). 새 용어로 "흔듦기", 영어로 Swing phase라고도 해요.',
   '넓적다리 각도': '허벅지가 수직선에서 앞(굽힘)이나 뒤(폄)로 기운 각도예요. Perry는 골반 움직임이 섞이지 않는 이 각도를 임상에서 더 쓸모 있다고 해요.',
   '발등굽힘': '발끝이 정강이 쪽으로 올라가는 발목 움직임이에요.',
   '발바닥굽힘': '발끝이 아래로 내려가는 발목 움직임이에요(까치발 방향).',
@@ -1144,13 +1142,13 @@ function renderHome() {
   const md2 = d => d ? md(d) : '';
   $('tiles').innerHTML =
     mcard({ label: '걷기 케이던스', color: 'var(--c-walk)', date: md2(w?.date), value: w?.cadence.toFixed(0), unit: '걸음/분', i: iw, vals: trendVals('walkCad'),
-      sub: w ? `Perry 평균 113${delta(w.cadence, wPrev?.cadence)}` : '측정 탭에서 걸어요' }) +
+      sub: w ? `Perry 평균 113${delta(w.cadence, wPrev?.cadence)}` : '직접 재기 탭에서 걸어요' }) +
     mcard({ label: '걷기 속도', color: 'var(--c-walk)', date: md2(sp?.date), value: sp?.speed.toFixed(2), unit: 'm/s', i: is, vals: trendVals('walkSpeed'),
       sub: sp ? 'Perry 평균 1.37' : 'GPS·거리 입력 필요' }) +
     mcard({ label: '러닝 케이던스', color: 'var(--c-run)', date: md2(rn?.date), value: rn?.cadence.toFixed(0), unit: '걸음/분', i: ir, vals: trendVals('runCad'),
-      sub: rn ? '기준선 없음 · 변화만' : '측정 탭 → 러닝' }) +
+      sub: rn ? '기준선 없음 · 변화만' : '직접 재기 탭 → 러닝' }) +
     mcard({ label: '유각기 무릎', color: 'var(--c-video)', date: md2(vd?.date), value: vd ? vd.r.m.kneeSwingMax.toFixed(0) : null, unit: '°', i: iv, vals: trendVals('knee'),
-      sub: vd ? 'Perry 약 60° · 영상' : '보행분석 탭 → 옆모습' });
+      sub: vd ? 'Perry 약 60° · 영상' : '걸음 비교 탭 → 옆모습' });
   // 링: 이번 주 슬로우 조깅 분 / 연구의 주간량 90분 (Ikenaga 2017)
   const wk = weekSlowJogMin(hist), frac = Math.min(1, wk / 90), C = 2 * Math.PI * 42;
   $('ring').innerHTML = `<svg viewBox="0 0 108 108" role="img" aria-label="이번 주 슬로우 조깅 ${wk.toFixed(0)}분, 90분 중 ${Math.round(frac * 100)}%">
@@ -1309,26 +1307,61 @@ const dif = (a, ref, w) => a == null || Number.isNaN(a) ? '-'
 const BEND = ['더 굽혀야 함', '덜 굽혀도 됨'];
 // 입각기 무릎 폄: 0°보다 더 펴지면(음수) "뒤로 젖혀짐"이라고 사실만 (영상 오차 약 4° 안은 0°로 봄)
 const extTxt = a => a == null || Number.isNaN(a) ? '' : a < -4 ? `(0°보다 ${Math.round(-a)}° 더 펴짐 · 뒤로 젖혀짐)` : a < 0 ? '(거의 0°, 영상 오차 안)' : hw(a, 5, ['덜 펴도 됨', '더 펴야 함']);
-// 보행 8단계 막대 인형: Perry 9장 표의 단계별 넓적다리·무릎·발목 각도로 앱이 직접 그림 + 그 단계의 내 무릎 굽힘
+// 보행 8단계: Perry 9장 표의 단계별 넓적다리·무릎·발목 각도 (나란히 보기의 기준 뼈대에 씀)
 const PHASES = [   // [이름, 보행 주기 %, 넓적다리(앞 +), 무릎 굽힘, 발목(발등 +)]
   ['첫 닿기', 1, 20, 3, 0], ['체중 받기', 6, 20, 16, -10], ['중간 입각', 20, 0, 5, 5], ['말기 입각', 40, -20, 3, 10],
   ['유각 전', 55, 0, 40, -20], ['초기 유각', 67, 20, 60, -10], ['중간 유각', 79, 25, 30, 0], ['말기 유각', 93, 20, 3, 0]];
-function phaseFigures(curve) {
-  const r = d => d * Math.PI / 180, pt = (p, a, L) => [p[0] + L * Math.sin(r(a)), p[1] + L * Math.cos(r(a))];
-  const cells = PHASES.map(([name, q, th, kn, an], i) => {
-    const ox = (i % 4) * 80, oy = Math.floor(i / 4) * 140, hip = [ox + 36, oy + 44];
-    const knee = pt(hip, th, 30), ankle = pt(knee, th - kn, 30), toe = pt(ankle, th - kn + 90 + an, 12);
-    const mine = curve?.[q], f = n => n.map(v => v.toFixed(1)).join(',');
-    return `<g><circle cx="${hip[0]}" cy="${oy + 8}" r="5" fill="none" stroke="currentColor" stroke-width="1.5"/>
-      <polyline points="${f(hip)} ${hip[0]},${oy + 14}" stroke="currentColor" stroke-width="2"/>
-      <polyline points="${f(hip)} ${f(knee)} ${f(ankle)} ${f(toe)}" fill="none" stroke="var(--accent)" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
-      <line x1="${ox + 6}" x2="${ox + 74}" y1="${oy + 106}" y2="${oy + 106}" stroke="currentColor" opacity=".2"/>
-      <text x="${ox + 40}" y="${oy + 120}" font-size="10" font-weight="700" text-anchor="middle" fill="currentColor">${name}</text>
-      <text x="${ox + 40}" y="${oy + 133}" font-size="9" text-anchor="middle" fill="currentColor" opacity=".75">Perry ${kn}°${mine == null || Number.isNaN(mine) ? '' : ` · 나 ${Math.round(mine)}°`}</text></g>`;
-  }).join('');
-  return `<svg class="chart" viewBox="0 0 320 280" role="img" aria-label="보행 8단계 자세와 단계별 무릎 굽힘">${cells}</svg>
-    <div class="sub">걷는 방향 → · 초록 다리 = Perry 9장 표의 단계별 기준 자세(앱이 각도로 직접 그린 그림) · 숫자 = 그 단계의 무릎 굽힘 (Perry 기준 · 이번 영상)</div>`;
+// 기준 걸음과 내 걸음 나란히: 왼쪽 = Perry 9장 표의 단계별 각도로 앱이 직접 그린 뼈대(책 그림 아님), 오른쪽 = 이번 영상 평균 곡선
+// 단계 버튼으로 멈춰 비교하고, 재생으로 한 주기를 움직여 봄. 단계 사이 Perry 각도는 직선으로 이음(근사)
+function perryAt(q, k) {   // k: 2 넓적다리, 3 무릎, 4 발목
+  let i = -1; PHASES.forEach((p, j) => { if (p[1] <= q) i = j; });   // findLastIndex는 옛 휴대폰 브라우저에 없음
+  const a = PHASES[i < 0 ? PHASES.length - 1 : i], b = PHASES[(i + 1) % PHASES.length];
+  const qa = i < 0 ? a[1] - 100 : a[1], qb = b[1] <= qa ? b[1] + 100 : b[1];
+  return a[k] + (b[k] - a[k]) * (q - qa) / (qb - qa);
 }
+let cmpCurves = null, cmpAnim = 0;
+const num = x => x == null || Number.isNaN(x) ? null : x;
+function cmpFigs(q) {
+  const r = d => d * Math.PI / 180, pt = (p, a, L) => [p[0] + L * Math.sin(r(a)), p[1] + L * Math.cos(r(a))], f = n => n.map(v => v.toFixed(1)).join(',');
+  const fig = (x, th, kn, an, color) => {
+    const hip = [x, 62], knee = pt(hip, th, 40), ankle = pt(knee, th - kn, 40), toe = an == null ? null : pt(ankle, th - kn + 90 + an, 15);   // 발이 안 잡히면 발은 안 그림
+    return `<circle cx="${x}" cy="14" r="8" fill="none" stroke="currentColor" stroke-width="2"/><line x1="${x}" y1="22" x2="${x}" y2="62" stroke="currentColor" stroke-width="2.5"/>
+      <polyline points="${f(hip)} ${f(knee)} ${f(ankle)}${toe ? ` ${f(toe)}` : ''}" fill="none" stroke="${color}" stroke-width="4" stroke-linejoin="round" stroke-linecap="round"/>`;
+  };
+  const c = cmpCurves, mine = k => num(c?.[k]?.[q]);
+  return fig(80, perryAt(q, 2), perryAt(q, 3), perryAt(q, 4), 'currentColor') + fig(240, mine('thigh') ?? 0, mine('knee') ?? 0, mine('ankle'), 'var(--accent)');
+}
+function cmpNums(q) {
+  const ph = PHASES.find(p => p[1] === q), c = cmpCurves;
+  const row = (name, k, key) => { const m = num(c?.[key]?.[q]); return `${name} 이번 ${m == null ? '-' : `${Math.round(m)}°`} / Perry 기준 약 ${Math.round(perryAt(q, k))}°`; };
+  return `<b>${ph ? ph[0] : '보행 주기'} (${q}%)</b><br>${row('넓적다리 각도(앞 +)', 2, 'thigh')}<br>${row('무릎 굽힘', 3, 'knee')}<br>${row('발목(발등굽힘 +)', 4, 'ankle')}`;
+}
+function compareFigures(curves) {
+  cmpCurves = curves;
+  const q = PHASES[0][1];
+  return `<div class="cmp"><svg class="chart" viewBox="0 0 320 160" role="img" aria-label="Perry 기준 걸음과 내 걸음 뼈대 비교">
+      <g class="cmpFigs">${cmpFigs(q)}</g>
+      <line x1="10" x2="310" y1="148" y2="148" stroke="currentColor" opacity=".2"/>
+      <text x="80" y="158" font-size="10" text-anchor="middle" fill="currentColor" opacity=".75">Perry 기준 걸음</text><text x="240" y="158" font-size="10" text-anchor="middle" fill="currentColor" opacity=".75">나 (이번 영상)</text></svg>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin:8px 0">${PHASES.map((p, i) => `<button class="chip" data-ph="${p[1]}" aria-pressed="${i === 0}">${p[0]}</button>`).join('')}<button class="chip" data-play>▶ 재생</button></div>
+    <div class="calc cmpNum">${cmpNums(q)}</div>
+    <div class="sub">걷는 방향 → · 왼쪽 뼈대 = Perry 9장 표의 단계별 각도로 앱이 직접 그린 그림(단계 사이는 직선으로 이은 근사) · 오른쪽 = 이번 영상 평균</div></div>`;
+}
+function cmpShow(box, q) {
+  box.querySelector('.cmpFigs').innerHTML = cmpFigs(q);
+  box.querySelector('.cmpNum').innerHTML = cmpNums(q);
+}
+document.addEventListener('click', e => {
+  const b = e.target.closest('.cmp [data-ph], .cmp [data-play]');
+  if (!b) return;
+  const box = b.closest('.cmp');
+  cancelAnimationFrame(cmpAnim);
+  for (const x of box.querySelectorAll('[data-ph]')) x.setAttribute('aria-pressed', x === b);
+  if (b.dataset.ph) return cmpShow(box, +b.dataset.ph);
+  const t0 = performance.now(), T = 1100;   // 한 주기 약 1.1초(케이던스 약 110), 2주기 재생
+  const step = now => { const k = (now - t0) / T; cmpShow(box, Math.round((k % 1) * 100)); if (k < 2) cmpAnim = requestAnimationFrame(step); else { cmpShow(box, PHASES[0][1]); box.querySelector('[data-ph]').setAttribute('aria-pressed', true); } };
+  cmpAnim = requestAnimationFrame(step);
+});
 function videoRecs(r) {
   const m = r.m, lim = '카메라 1대로 찍은 2D 영상이라 다리가 돌아가 있으면 굽힘 각도가 작게 찍혀요(Perry 17장). 원인 판단은 전문가에게.';
   if (r.view === 'side') return [
@@ -1376,8 +1409,8 @@ function glance(rows, photo) {
 function lastSpeedRow() {                                                  // 영상엔 거리 기준(cm)이 없어 속도를 못 잼 → 센서·GPS로 잰 가장 최근 값을 같이 보여 줌
   const h = store.get('history', []).find(x => (x.activity ?? 'walk') === 'walk' && x.speed);
   const d = h && h.speed - 1.37;
-  return h ? { part: 'step', what: '걷는 속도 (측정 탭 GPS)', big: Math.abs(d) < 0.005 ? 'Perry 기준과 같음' : `${Math.abs(d).toFixed(2)} m/s ${d > 0 ? '빠름' : '느림'}`, now: `${md(h.date)} 측정 ${h.speed.toFixed(2)} m/s · Perry 성인 평균 1.37 m/s` }
-    : { part: 'step', what: '걷는 속도', big: '-', now: '영상에는 거리 기준이 없어 속도를 못 재요. 측정 탭에서 GPS로 걸으면 여기 같이 보여요.' };
+  return h ? { part: 'step', what: '걷는 속도 (직접 재기 탭 GPS)', big: Math.abs(d) < 0.005 ? 'Perry 기준과 같음' : `${Math.abs(d).toFixed(2)} m/s ${d > 0 ? '빠름' : '느림'}`, now: `${md(h.date)} 측정 ${h.speed.toFixed(2)} m/s · Perry 성인 평균 1.37 m/s` }
+    : { part: 'step', what: '걷는 속도', big: '-', now: '영상에는 거리 기준이 없어 속도를 못 재요. 직접 재기 탭에서 GPS로 걸으면 여기 같이 보여요.' };
 }
 function glanceSide(r, photo) {
   const m = r.m, { sex } = store.get('profile', {}), norm = sex === 'm' ? 111 : sex === 'f' ? 117 : 113;
@@ -1418,8 +1451,9 @@ function renderVideo(r, dur) {
     const m = r.m;
     html += `<h2>영상 분석 결과 · 옆모습</h2><div class="sub">${r.side === 'l' ? '왼' : '오른'}쪽 다리(카메라 쪽) · 보행 주기 ${r.nCycles}개 평균 · 다리가 잡힌 장면 ${Math.round(r.validFrac * 100)}%</div>`;
     html += glanceSide(r, dur != null);
+    html += `<div class="metric"><div class="mhead"><div><b>Perry 기준 걸음과 나란히</b></div><span class="badge b-y">참고</span></div>${compareFigures(r.curves)}<div class="sub">무릎은 영상 오차 약 3~5°(참고), 넓적다리·발목은 정확도가 더 낮아요. 각도 값: ${REF.perry9}</div></div>`;
     html += metric({ title: '무릎 각도', value: f0(m.kneeSwingMax), unit: `유각기 최대 굽힘 (보행 주기 ${m.kneeSwingAt}%)`, grade: 'y',
-      body: `${kneeChart(r.curves.knee)}${phaseFigures(r.curves.knee)}<div class="calc">이번 값 / Perry 9장 기준<br>첫 닿기 ${f0(m.kneeIC)} / 0~5°<br>체중 받기 최대 ${f0(m.kneeLoad)} / 15~18°<br>입각기 최소 ${f0(m.kneeStanceMin)} / 약 5° ${extTxt(m.kneeStanceMin)}<br>유각기 최대 ${f0(m.kneeSwingMax)} / 약 60°(초기 유각)</div>`,
+      body: `${kneeChart(r.curves.knee)}<div class="calc">이번 값 / Perry 9장 기준<br>첫 닿기 ${f0(m.kneeIC)} / 0~5°<br>체중 받기 최대 ${f0(m.kneeLoad)} / 15~18°<br>입각기 최소 ${f0(m.kneeStanceMin)} / 약 5° ${extTxt(m.kneeStanceMin)}<br>유각기 최대 ${f0(m.kneeSwingMax)} / 약 60°(초기 유각)</div>`,
       why: ['무릎 각도 = 180° − (엉덩이·무릎·발목 세 점이 이루는 각). Perry 17장: 영상에서 가장 잘 잡히는 관절',
         'Russo 2026: 스마트폰 + 같은 종류의 자세 인식(MediaPipe)으로 무릎 굽힘 평균 오차 3.2~4.1°',
         'Wegner 2026: 무릎 곡선 모양은 잘 맞지만 정확한 절대 각도보다 같은 사람의 변화 추적에 알맞음',
@@ -1444,7 +1478,7 @@ function renderVideo(r, dur) {
     html += glanceFront(r, dur != null);
     html += metric({ title: '골반 내려감 (반대쪽)', value: `왼발 ${f0(m.dropL)} · 오른발 ${f0(m.dropR)}`, unit: '', grade: 'n',
       body: `<div class="calc">한 발로 디딜 때 반대쪽 골반이 내려간 각도 (상위 10% 값)<br>${diff(m.dropL, m.dropR)}<br>Perry 4·9장: 체중 받기 때 반대쪽 골반 약 4°, 엉덩이 벌림근이 5° 이하로 제한</div>`,
-      why: ['양쪽 엉덩이 점을 잇는 선이 수평에서 기운 각도', '디딤 다리는 "발목이 화면에서 더 아래에 있는 다리"로 근사', '휴대폰 2D 영상의 정확도 연구는 찾지 못함'], refs: ['perry9'] });
+      why: ['양쪽 엉덩이 점을 잇는 선이 수평에서 기운 각도', '입각기 다리는 "발목이 화면에서 더 아래에 있는 다리"로 근사', '휴대폰 2D 영상의 정확도 연구는 찾지 못함'], refs: ['perry9'] });
     html += metric({ title: '무릎 안쪽 모임', value: `왼 ${f0(m.valgusL)} · 오른 ${f0(m.valgusR)}`, unit: '', grade: 'n',
       body: `<div class="calc">디딜 때 무릎이 엉덩이-발목 선보다 안쪽(+)·바깥쪽(−)으로 간 각도 (상위 10% 값)<br>${diff(m.valgusL, m.valgusR)}</div>`,
       why: ['Perry 책에는 이 각도의 영상 기준값이 없어요 → 기준값 없이 좌우만 비교', 'Perry 17장: 다리가 돌아가 있으면 카메라 1대의 각도는 실제와 달라질 수 있어요'], refs: ['perry17'] });
@@ -1531,7 +1565,7 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden) { lo
 const LEARN = [
   ['케이던스는 무엇을 보여 주나요?', ['1분 동안 걷거나 달린 걸음 수예요. 발이 땅에 닿는 횟수를 세요.', 'Perry 20장: 성인 평균 113걸음/분 (남 111 / 여 117)', 'CADENCE-Adults(21~60세): 100걸음/분 ≈ 3 MET(중강도), 130 ≈ 6 MET(고강도)', 'CADENCE-Adults(61~85세): 100걸음/분 ≈ 3 MET(중강도), 110 ≈ 4 MET, 120 ≈ 5 MET'], '', ['perry20', 'cadenceAdults']],
   ['하루 7,000걸음', ['Ding 2025 메타분석(57개 연구): 하루 2,000걸음 대비 7,000걸음에서 전체 사망 위험 47% 낮음, 낙상 28%·치매 38% 낮음', '사망·낙상 등은 약 5,000~7,000걸음 이후 이득이 완만해짐'], '관찰 연구라 인과관계는 아님', ['ding2025']],
-  ['러닝 케이던스를 5~10% 올린 연구', ['Heiderscheit 2011(취미 러너 45명, 같은 속도): +5%에서 무릎이 흡수하는 에너지 감소, +10%에서 엉덩관절 흡수와 엉덩관절 모음 각도·모멘트도 감소. 한걸음 길이·몸의 위아래 움직임·제동충격량·무릎 굽힘 정점 감소', 'Neumann 16장(책 p.795): 케이던스 10% 증가 → 디딤기 무릎넙다리관절 힘 정점 14% 감소', 'Petri 2026 우산 고찰: 연구들의 주된 방법 = 케이던스 5~10%를 점진적으로 올리고 소리·화면 피드백을 서서히 줄이기'], 'Anderson 2022 메타분석: 손상 예방 효과는 아직 근거 부족. 대부분 단기 연구', ['heiderscheit', 'neumann16', 'petri2026', 'anderson2022']],
+  ['러닝 케이던스를 5~10% 올린 연구', ['Heiderscheit 2011(취미 러너 45명, 같은 속도): +5%에서 무릎이 흡수하는 에너지 감소, +10%에서 엉덩관절 흡수와 엉덩관절 모음 각도·모멘트도 감소. 한걸음 길이·몸의 위아래 움직임·제동충격량·무릎 굽힘 정점 감소', 'Neumann 16장(책 p.795): 케이던스 10% 증가 → 입각기 무릎넙다리관절 힘 정점 14% 감소', 'Petri 2026 우산 고찰: 연구들의 주된 방법 = 케이던스 5~10%를 점진적으로 올리고 소리·화면 피드백을 서서히 줄이기'], 'Anderson 2022 메타분석: 손상 예방 효과는 아직 근거 부족. 대부분 단기 연구', ['heiderscheit', 'neumann16', 'petri2026', 'anderson2022']],
   ['느리게 달려도 될까요?', ['Lee 2014(55,137명, 평균 15년): 하루 5~10분, 시속 9.7km 미만으로 달려도 달리지 않는 사람보다 전체 사망 30%, 심혈관 사망 45% 낮음', 'Pedisic 2020 메타분석(232,149명): 달리기 참여 시 전체 사망 27% 낮음. 빈도·시간·속도·총량이 늘어도 추가 이득은 확인되지 않음'], '관찰 연구라 인과관계는 아님', ['lee2014', 'pedisic2019']],
   ['슬로우 러닝 (조깅 1분 + 걷기 1분)', ['Ikenaga 2017 무작위 연구(평균 70.8세, 81명): 걷기 속도의 조깅 1분 + 걷기 1분 반복, 주 90분 조깅 + 90분 걷기를 12주', '결과: 무산소역치(지구력) +15.7%(대조군 +4.9%), 앉았다 일어서기 +12.9%(대조군 +4.5%), 허벅지 근육 속 지방 감소'], '노인 대상 12주 소규모 연구', ['ikenaga2017']],
   ['영상으로 본 무릎 각도', ['Perry 4·5장: 초기 유각에 무릎이 약 60° 굽혀져야 발끝이 바닥에 걸리지 않음. 이 굽힘은 거의 근육 없이 관성으로 만들어짐', 'Perry 4장: 발이 닿고 0.02초 만에 체중 60%가 실림. 무릎 약 15° 굽힘으로 충격을 흡수', 'Perry 17장: 다리가 돌아가 있으면 카메라 1대의 각도는 실제와 달라질 수 있어요'], '휴대폰 카메라 1대의 각도는 참고값', ['perry9', 'perry17']],
