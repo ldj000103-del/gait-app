@@ -125,9 +125,21 @@
   .ghostlike { background:transparent; color:var(--accent); border:1px solid var(--accent); }
   .bar2 { height:10px; border-radius:6px; background:var(--line); overflow:hidden; margin-top:12px; } .bar2 i { display:block; height:100%; width:0; background:var(--accent); }
   svg.chart { width:100%; height:auto; margin-top:8px; }
-  details.recs > summary { list-style:none; font-weight:600; padding:13px 14px; margin-top:16px; border:1px solid var(--accent); border-radius:12px; color:var(--accent); text-align:center; }
-  details.recs > summary::-webkit-details-marker { display:none; }
-  details.recs[open] > summary { background:var(--accent); color:#fff; } details.recs[open] > summary .sub { color:#fff; }
+  /* 결과 한눈에 보기: 대표 값 큰 카드 + 2칸 작은 카드 (홈 카드와 같은 모양) */
+  .rhero .mnum { font-size:1.875rem; margin-top:10px; }
+  .rgrid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:10px; }
+  .rgrid .mcard { margin:0; min-width:0; padding:12px 14px; }
+  .rhero .mtop, .rgrid .mtop { flex-wrap:wrap; gap:4px; }
+  .rhero .badge, .rgrid .badge { font-size:.6875rem; padding:2px 7px; }
+  .rnum { font-size:1.25rem; font-weight:700; letter-spacing:-.02em; margin-top:8px; } .rnum small { font-size:.75rem; font-weight:500; color:var(--sub); letter-spacing:0; margin-left:3px; }
+  .rgrid .msub { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-top:4px; }
+  details.more { color:var(--ink); font-size:1rem; }   /* 접은 안쪽은 원래 결과 화면 글씨 그대로 */
+  .rbar { position:relative; height:8px; border-radius:4px; background:var(--line); margin:12px 0 4px; }
+  .rbar b { position:absolute; top:0; bottom:0; border-radius:4px; background:color-mix(in srgb, var(--c-walk) 35%, transparent); }
+  .rbar i { position:absolute; top:-4px; width:4px; height:16px; margin-left:-2px; border-radius:2px; background:var(--ink); }
+  details.more > summary, details.recs > summary { list-style:none; font-weight:600; padding:13px 14px; margin-top:16px; border:1px solid var(--accent); border-radius:12px; color:var(--accent); text-align:center; }
+  details.more > summary::-webkit-details-marker, details.recs > summary::-webkit-details-marker { display:none; }
+  details.more[open] > summary, details.recs[open] > summary { background:var(--accent); color:#fff; } details.more[open] > summary .sub, details.recs[open] > summary .sub { color:#fff; }
   tr.clickable { cursor:pointer; } tr.clickable:hover td { background:var(--bg); }
   .ctx { background:var(--bg); border-radius:12px; padding:10px 12px; margin:6px 0 12px; }
   .ctxrow { display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin:6px 0; } .ctxk { font-size:.75rem; color:var(--sub); width:44px; flex:none; }
@@ -146,6 +158,10 @@
   .legend b { display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:4px; vertical-align:1px; }
   .dayrec { display:flex; justify-content:space-between; gap:8px; margin:6px 0 0; padding:10px 12px; background:var(--bg); color:var(--ink); font-weight:500; text-align:left; }
   .dayrec .sub { font-weight:400; }
+  [hidden] { display:none !important; }   /* display를 준 칸(.sumrow 등)도 hidden이면 숨김 */
+  /* 측정 탭: 저장된 내 정보·설정은 한 줄로 접고, 큰 시작 버튼을 위로 */
+  .sumrow { display:flex; justify-content:space-between; align-items:center; gap:8px; } .sumrow .chip { flex:none; }
+  button.bigstart { font-size:1.25rem; min-height:56px; margin-top:12px; }
   /* 내 정보: 큰 둥근 버튼·숫자 칸 */
   .seg { display:flex; gap:8px; margin-top:6px; } .seg button { flex:1; margin:0; border-radius:999px; background:var(--bg); color:var(--ink); border:2px solid var(--line); padding:12px 4px; }
   .seg button[aria-pressed="true"] { border-color:var(--accent); color:var(--accent); }
@@ -270,6 +286,8 @@
   </section>
 
   <section class="card" id="profile" data-tab="measure">
+    <div class="sumrow" id="profSum" hidden><span><b>내 정보</b> <span id="profSumTxt"></span></span><button class="chip" id="profOpen" aria-expanded="false" aria-controls="profEdit">바꾸기</button></div>
+    <div id="profEdit">
     <h2>내 정보</h2>
     <div class="sub">나이·성별에 맞는 기준값을 보여 주려고 써요. 이 휴대폰에만 저장돼요.</div>
     <div class="sub" style="margin-top:12px">성별</div>
@@ -278,18 +296,15 @@
     <label for="age" class="sub" style="display:block;margin-top:12px">나이</label>
     <input id="age" class="bignum" type="number" inputmode="numeric" min="18" max="100" placeholder="예: 45">
     <button id="profSave">저장</button><div id="profMsg" class="sub" role="status" style="text-align:center;margin-top:4px"></div>
+    </div>
     <div id="ageNote" class="sub hidden" style="margin-top:6px">만 14세 미만은 법정대리인(부모님 등) 동의가 필요해서, 동의 여부와 상관없이 결과를 운영자에게 보내지 않아요. 측정과 기록은 휴대폰 안에서 그대로 쓸 수 있어요.</div>
   </section>
 
   <section class="card" id="setup" data-tab="measure">
     <h2>측정하기</h2>
-    <details class="howto" id="firstGuide"><summary>처음 쓰는 법</summary><ol>
-      <li>(선택) 위 <b>내 정보</b>에 성별·나이를 넣으면 나이·성별에 맞는 기준값과 나란히 보여 줘요.</li>
-      <li><b>무엇을 할까요</b>는 잘 모르겠으면 <b>자동</b>으로 두세요. 걷기·러닝·슬로우 러닝을 알아서 나눠요.</li>
-      <li>휴대폰은 <b>바지 앞주머니</b>에 넣을 때 가장 정확해요.</li>
-      <li><b>시작</b>을 누르고 3초 안에 주머니에 넣은 뒤, 평소처럼 걷거나 달려요.</li>
-      <li>다 했으면 멈춰서 휴대폰을 꺼내 <b>끝</b>을 눌러요. 결과는 휴대폰에 저절로 저장돼요.</li>
-      <li>결과 화면 아래 <b>이 숫자 읽는 법</b>을 눌러 보세요.</li></ol></details>
+    <div class="sumrow" id="setSum" hidden><span id="setSumTxt"></span><button class="chip" id="setOpen" aria-expanded="false" aria-controls="setEdit">바꾸기</button></div>
+    <div class="sub" id="setSumNote" hidden>지난번과 같은 설정이에요</div>
+    <div id="setEdit">
     <label for="act">무엇을 할까요?</label>
     <select id="act">
       <option value="auto">자동 (걷기·러닝·슬로우 러닝을 알아서 구분)</option>
@@ -310,7 +325,6 @@
       <option value="hand">손에 들고</option>
       <option value="auto">자동 짐작 (검증 안 된 방법)</option>
     </select>
-    <div class="warn hidden" id="pocketNote">웹은 주머니에 넣으면 화면이 꺼져 기록이 끊겨요. 주머니·허리 측정은 <a href="install.html">설치형 앱</a>을 쓰세요. 웹에서는 손에 들고 화면을 켠 채로 재는 게 가장 잘 기록돼요.</div>
     <div id="dmodeBox">
     <label for="dmode">걸은 거리 재는 방법 (속도·걸음 길이 계산용)</label>
     <select id="dmode">
@@ -326,13 +340,23 @@
       위치 권한을 물어봐요. 위치는 이 휴대폰 안에서 거리 계산에만 쓰고 저장하거나 보내지 않아요.</div>
     </div>
     <div id="locBox" class="sub hidden" style="margin-top:8px"><label><input type="checkbox" id="locOk"> <a href="location-terms.html" target="_blank">위치기반서비스 이용약관</a>에 동의해요</label> (GPS로 거리·경로를 잴 때 필요해요. 체크를 풀면 언제든 철회돼요)</div>
+    </div>
+    <button id="start" class="bigstart">시작</button>
+    <div class="sub" style="text-align:center;margin-top:4px">누르고 3초 안에 주머니에 넣어요</div>
+    <div class="warn hidden" id="pocketNote">웹은 주머니에 넣으면 화면이 꺼져 기록이 끊겨요. 주머니·허리 측정은 <a href="install.html">설치형 앱</a>을 쓰세요. 웹에서는 손에 들고 화면을 켠 채로 재는 게 가장 잘 기록돼요.</div>
+    <details class="howto" id="firstGuide"><summary>처음 쓰는 법</summary><ol>
+      <li>(선택) 위 <b>내 정보</b>에 성별·나이를 넣으면 나이·성별에 맞는 기준값과 나란히 보여 줘요.</li>
+      <li><b>무엇을 할까요</b>는 잘 모르겠으면 <b>자동</b>으로 두세요. 걷기·러닝·슬로우 러닝을 알아서 나눠요.</li>
+      <li>휴대폰은 <b>바지 앞주머니</b>에 넣을 때 가장 정확해요.</li>
+      <li><b>시작</b>을 누르고 3초 안에 주머니에 넣은 뒤, 평소처럼 걷거나 달려요.</li>
+      <li>다 했으면 멈춰서 휴대폰을 꺼내 <b>끝</b>을 눌러요. 결과는 휴대폰에 저절로 저장돼요.</li>
+      <li>결과 화면 아래 <b>이 숫자 읽는 법</b>을 눌러 보세요.</li></ol></details>
     <ol class="guide sub">
       <li><b>시작</b>을 누르고 3초 안에 주머니에 넣어요. 화면이 까맣게 바뀌는 <b>주머니 모드</b>가 돼요. <b>전원 버튼은 누르지 마세요</b> — 누르면 휴대폰이 센서를 멈춰요.</li>
       <li id="webOnly"><b>측정 중에는 화면을 켜 둔 채 다른 앱·탭으로 넘어가지 마세요.</b> 넘어가면 웹에서는 기록이 끊겨요. <a href="install.html">설치형 앱</a>은 끊기지 않아요.</li>
       <li><b>평소처럼</b> 걸어요. 케이던스만 볼 땐 20초 이상, GPS로 속도까지 볼 땐 <b>야외에서 1분 이상</b>. 특정 지점을 밟으려고 하지 마세요.</li>
       <li>멈춰서 휴대폰을 꺼내 <b>끝을 1초 길게</b> 눌러요.</li>
     </ol>
-    <button id="start">시작</button>
     <button id="demo" class="ghost hidden">데모 데이터로 보기</button>
   </section>
 
