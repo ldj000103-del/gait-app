@@ -1,6 +1,6 @@
 {
-  "name": "걸음 분석",
-  "short_name": "걸음분석",
+  "name": "스텝미러 StepMirror",
+  "short_name": "스텝미러",
   "start_url": "./",
   "display": "standalone",
   "background_color": "#f6f7f5",

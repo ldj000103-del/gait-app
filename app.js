@@ -331,7 +331,7 @@ for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) $('stop').addEv
 }
 $('stop').addEventListener('contextmenu', e => e.preventDefault());
 // 설치형 앱에서 휴대폰(절전·메모리 정리)이 측정 중인 앱을 끄면 측정이 멈춤 → 이유와 막는 방법을 알려 줌
-const BATTERY_TIP = '삼성 휴대폰은 설정 → 배터리 → 백그라운드 사용 제한 → <b>절전 예외 앱</b>에 ‘걸음 분석’을 넣으면 측정 중에 앱이 정리되지 않아요.';
+const BATTERY_TIP = '삼성 휴대폰은 설정 → 배터리 → 백그라운드 사용 제한 → <b>절전 예외 앱</b>에 ‘스텝미러’(예전 이름 ‘걸음 분석’)를 넣으면 측정 중에 앱이 정리되지 않아요.';
 // 결과가 안 나온 측정도 이유만 한 줄 보냄 (시작한 측정 중 몇 번 성공했나 = 수율의 분모, 데이터분석팀). 걸음 숫자 칸은 빈칸,
 // warnings = 이유 표시(end:… / failed:…) + 측정 정보. 익명 전송 동의자만, 14세 미만은 send()가 막음. 휴대폰 기록에는 저장 안 함
 function sendEnd(tags, act, position, diag) {
@@ -621,7 +621,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v90';
+const APP_VERSION = 'v91';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -1059,7 +1059,7 @@ function makeCard(h) {
   const act = h.activity ?? 'walk', what = act === 'video' ? `영상 분석 · ${VIEW[h.view]}모습` : ACT[act];
   const label = `${what} · ${new Date(h.date).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })}${h.ctx && ctxText(h.ctx) ? ' · ' + ctxText(h.ctx) : ''}`;
   const knee = act === 'video' && h.view === 'side' && h.r?.curves?.knee;
-  return drawCard('걸음 분석 결과', label, cardRows(h), knee && { h: 250, draw: (g, cx, cy, cw, chartH, F) => {   // 무릎 굽힘 곡선: 이번 영상 vs 페리의 보행 분석 기준점
+  return drawCard('스텝미러 결과', label, cardRows(h), knee && { h: 250, draw: (g, cx, cy, cw, chartH, F) => {   // 무릎 굽힘 곡선: 이번 영상 vs 페리의 보행 분석 기준점
     const ch = chartH - 70, X = q => cx + cw * q / 100, Y = d => cy + 40 + ch * (1 - d / 70);
     g.fillStyle = '#69736f'; g.font = F(500, 26); g.fillText('무릎 굽힘 곡선 (보행 주기 0~100%)', cx, cy + 22);
     g.strokeStyle = '#e6eae8'; g.lineWidth = 2; for (const d of [0, 30, 60]) { g.beginPath(); g.moveTo(cx, Y(d)); g.lineTo(cx + cw, Y(d)); g.stroke(); }
@@ -1076,26 +1076,26 @@ async function shareFile(dataUrl, name, text) {
   try {
     if (P?.Share && P?.Filesystem) {                                    // 설치형 앱: 파일로 저장해서 안드로이드 공유 창
       const { uri } = await P.Filesystem.writeFile({ path: `${Date.now()}-${name}`, data: dataUrl.split(',')[1], directory: 'CACHE' });
-      await P.Share.share({ title: '걸음 분석', text, files: [uri] });
+      await P.Share.share({ title: '스텝미러', text, files: [uri] });
       return;
     }
     const blob = await (await fetch(dataUrl)).blob(), file = new File([blob], name, { type: blob.type });
-    if (navigator.canShare?.({ files: [file] })) { await navigator.share({ files: [file], title: '걸음 분석', text }); return; }
+    if (navigator.canShare?.({ files: [file] })) { await navigator.share({ files: [file], title: '스텝미러', text }); return; }
   } catch (e) { if (e?.name === 'AbortError' || /cancel/i.test(e?.message || '')) return; }
   const a = document.createElement('a'); a.href = dataUrl; a.download = name; a.click();   // 공유가 안 되면 내려받기
 }
 async function shareRecord(date) {
   const h = store.get('history', []).find(x => x.date === date);
-  if (h) shareCanvas(await makeCard(h), `걸음 분석으로 잰 내 걸음 · https://${APP_URL}/`);
+  if (h) shareCanvas(await makeCard(h), `스텝미러로 잰 내 걸음 · https://${APP_URL}/`);
 }
 document.addEventListener('click', e => { const b = e.target.closest?.('.sharebtn'); if (b) shareRecord(b.dataset.date); });
 // 친구에게 설치 안내 링크 보내기 (카톡은 apk 파일을 막아서 링크로)
 $('invite').addEventListener('click', async () => {
-  const url = `https://${APP_URL}/install.html`, text = `걸음 분석 앱: 걸음을 재고 결과마다 책·논문 근거를 보여 줘요. 설치 안내 👉 ${url}`;
+  const url = `https://${APP_URL}/install.html`, text = `스텝미러 앱: 걸음을 재고 결과마다 책·논문 근거를 보여 줘요. 설치 안내 👉 ${url}`;
   const P = window.Capacitor?.isNativePlatform?.() ? window.Capacitor.Plugins : null;
   try {
-    if (P?.Share) return await P.Share.share({ title: '걸음 분석', text });     // 링크는 text 안에 있음 (url도 넘기면 카톡에 두 번 붙음)
-    if (navigator.share) return await navigator.share({ title: '걸음 분석', text });
+    if (P?.Share) return await P.Share.share({ title: '스텝미러', text });     // 링크는 text 안에 있음 (url도 넘기면 카톡에 두 번 붙음)
+    if (navigator.share) return await navigator.share({ title: '스텝미러', text });
   } catch (e) { if (e?.name === 'AbortError' || /cancel/i.test(e?.message || '')) return; }
   try { await navigator.clipboard.writeText(text); alert('설치 안내 링크를 복사했어요. 카톡에 붙여 넣어 보내세요.'); }
   catch { prompt('이 링크를 복사해 보내세요', url); }
@@ -1174,7 +1174,7 @@ $('result').addEventListener('click', async e => {
   const csv = 't_ms,ax,ay,az\n' + rows.map(r => r.join(',')).join('\n') + '\n';
   const name = `gait-raw-${new Date(b.dataset.raw).toLocaleString('sv-SE').slice(0, 16).replace(/[- :]/g, '')}.csv`;   // 휴대폰 시간 기준 YYYYMMDDHHMM
   // ponytail: 문자열을 base64로 한 번에 만듦. 3시간(약 16MB) 측정은 저사양 폰에서 느릴 수 있음 → 필요하면 Blob + Filesystem utf8 쓰기로
-  shareFile('data:text/csv;base64,' + btoa(csv), name, '걸음 분석 센서 원본');   // CSV는 숫자·쉼표만이라 btoa 그대로 됨
+  shareFile('data:text/csv;base64,' + btoa(csv), name, '스텝미러 센서 원본');   // CSV는 숫자·쉼표만이라 btoa 그대로 됨
 });
 function showHtml(html) {
   const el = $('result'); el.innerHTML = html;
@@ -1456,8 +1456,8 @@ function bestRows() {
 }
 async function shareSummary(kind) {
   const hist = store.get('history', []);
-  let title = '걸음 분석 요약', label, rows, chart;
-  if (kind === 'best') { title = '걸음 분석 최고 기록'; label = '지금까지 내 기록'; rows = bestRows(); }
+  let title = '스텝미러 요약', label, rows, chart;
+  if (kind === 'best') { title = '스텝미러 최고 기록'; label = '지금까지 내 기록'; rows = bestRows(); }
   else if (kind === 'week') {
     const mon = monOf(new Date(calSel + 'T00:00')), next = plusDays(mon, 7);
     label = `${md(mon)}~${md(plusDays(mon, 6))} 한 주`; rows = sumRows(statOf(inRange(hist, mon, next))); chart = calChart(mon, next);
@@ -1468,7 +1468,7 @@ async function shareSummary(kind) {
   }
   if (!rows.length) return alert('아직 기록이 없어요.');
   const max = !chart ? 5 : chart.h > 300 ? 3 : 4;                          // 달력이 크면 줄 수를 줄여 글자가 겹치지 않게
-  shareCanvas(await drawCard(title, label, rows.slice(0, max), chart), `걸음 분석으로 잰 내 기록 · https://${APP_URL}/`);
+  shareCanvas(await drawCard(title, label, rows.slice(0, max), chart), `스텝미러로 잰 내 기록 · https://${APP_URL}/`);
 }
 // 홈 요약 카드: 누르면 그 자리에서 한 줄 전체로 펼침(한 번에 하나, 다시 누르면 접힘) · '전체 결과 보기'는 예전처럼 showRecord
 let openTile = null;
@@ -2047,7 +2047,7 @@ async function scheduleReminders() {
     if (!r.days.length) return;
     const { cur } = weekSummary(store.get('history', [])), [hour, minute] = r.time.split(':').map(Number);
     const body = `이번 주 측정 ${cur.n}회 · 슬로우 조깅 ${weekSlowJogMin(store.get('history', [])).toFixed(0)}/90분 (앱을 마지막으로 연 때 기준)`;
-    await LN.schedule({ notifications: r.days.map(d => ({ id: 100 + d, title: '걸음 분석', body, schedule: { on: { weekday: d, hour, minute }, allowWhileIdle: true } })) });
+    await LN.schedule({ notifications: r.days.map(d => ({ id: 100 + d, title: '스텝미러', body, schedule: { on: { weekday: d, hour, minute }, allowWhileIdle: true } })) });
   } catch (e) { $('remindNote').textContent = `알림을 예약하지 못했어요. (${e?.message || e})`; }
 }
 function renderRemind() {
