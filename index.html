@@ -39,6 +39,9 @@
   button.ghost { background:transparent; color:var(--accent); border:1px solid var(--accent); }
   .big { font-size:2.6rem; font-weight:700; letter-spacing:-.03em; }
   .metric { border-top:1px solid var(--line); padding:12px 0; }
+  .cmp3 { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; margin:8px 0 4px; text-align:center; font-variant-numeric:tabular-nums; }
+  .cmp3 div { background:var(--bg); border-radius:10px; padding:6px 4px; } .cmp3 small { display:block; color:var(--sub); font-size:.75rem; } .cmp3 b { font-size:1.125rem; }
+  .metric details li { overflow-wrap:anywhere; }   /* 출처의 긴 doi 주소가 좁은 폰에서 넘치지 않게 */
   .metric:first-of-type { border-top:0; }
   .mhead { display:flex; justify-content:space-between; align-items:center; gap:8px; } .mhead b { font-weight:600; font-size:.9375rem; }
   .mval { font-size:1.75rem; font-weight:700; letter-spacing:-.03em; margin-top:2px; } .mval .sub { font-size:.8125rem; font-weight:400; letter-spacing:0; }
@@ -143,6 +146,14 @@
   .legend b { display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:4px; vertical-align:1px; }
   .dayrec { display:flex; justify-content:space-between; gap:8px; margin:6px 0 0; padding:10px 12px; background:var(--bg); color:var(--ink); font-weight:500; text-align:left; }
   .dayrec .sub { font-weight:400; }
+  /* 지표 사전 설명 카드: 아래에서 올라오는 판, 옆으로 넘기기(scroll-snap) */
+  #dictOv { position:fixed; inset:0; z-index:40; background:rgba(0,0,0,.45); display:flex; align-items:flex-end; }
+  .dsheet { background:var(--card); color:var(--ink); width:100%; max-width:640px; margin:0 auto; border-radius:18px 18px 0 0; padding:18px 0 calc(16px + env(safe-area-inset-bottom)); }
+  .dtrack { display:flex; overflow-x:auto; scroll-snap-type:x mandatory; scrollbar-width:none; } .dtrack::-webkit-scrollbar { display:none; }
+  .dcard { flex:0 0 100%; scroll-snap-align:start; padding:0 20px; box-sizing:border-box; } .dcard .picon { width:44px; height:44px; }
+  .dcard h3 { margin:8px 0 4px; } .dcard p { margin:2px 0 10px; color:var(--sub); }
+  .ddots { text-align:center; margin:4px 0 10px; } .ddots i { display:inline-block; width:7px; height:7px; border-radius:50%; background:var(--line); margin:0 3px; } .ddots i.on { background:var(--accent); }
+  .drow { display:flex; gap:8px; padding:0 20px; } .drow button { margin:0; }
   .calsec { margin:14px 0 4px; font-weight:700; font-size:.875rem; }
   table.wk { width:100%; border-collapse:collapse; font-size:.875rem; } table.wk td { padding:7px 2px; border-top:1px solid var(--line); }
   table.wk tr:first-child td { border-top:0; font-size:.75rem; } table.wk .num { text-align:right; } table.wk small { color:var(--sub); font-size:.75rem; }
@@ -224,6 +235,11 @@
         <option value="knee">영상: 유각기 무릎 굽힘</option>
       </select>
       <div id="tchart"></div>
+    </div>
+    <div class="card">
+      <h2>지표 사전</h2>
+      <div class="sub">앱에 나오는 숫자가 무엇인지 쉬운 말로 모았어요.</div>
+      <div id="dict"></div>
     </div>
     <div class="card">
       <h2>알아보기</h2>

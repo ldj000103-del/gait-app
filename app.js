@@ -413,7 +413,7 @@ function send(r) {
 }
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v67';
+const APP_VERSION = 'v68';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -452,11 +452,57 @@ const READ_GUIDE = `<details class="howto"><summary>이 숫자 읽는 법</summa
   <li><b>근거 보기</b>를 누르면 어느 책·논문의 숫자인지 나와요.</li>
   <li>한 번보다 여러 번 재서 <b>변화</b>를 보세요. 같은 길·같은 신발·같은 휴대폰 위치로 재야 비교가 돼요. 지난 기록은 홈 달력에 있어요.</li>
   <li>궁금한 점은 이 화면을 전문가에게 보여 주고 물어보세요.</li></ul></details>`;
-function metric({ title, value, unit, grade, body = '', why = [], refs = [] }) {
+// 근거 보기: 맨 위 [페리 기준 | 나 | 차이] 세 칸 → 각도면 뼈 그림(회색 = 페리 기준, 초록 = 나) → 쉬운 문장 → 한계 한 줄 → 출처
+// 문장 앞 "Perry 4장:", "Russo 2026:" 같은 머리말과 "(Perry 20장)"은 빼고 출처 목록에만 둠 (사용자 메모: 근거 보기 가독성)
+const plain = w => w.replace(/(^|\. )[A-Z][A-Za-z]*( et al\.?)?(, [A-Z][A-Za-z]* \d{4})* (\d{4}|[\d·]+장)(\([^)]*\))?[^:.]{0,15}: /g, '$1').replace(/ ?\((Perry|Neumann) [\d·]+장\)/g, '');
+const signed = (d, dp = 0) => `${d > 0 ? '+' : ''}${d.toFixed(dp)}`;
+function cmpCells({ unit, dp = 0, rows }) {
+  const v = x => x == null || Number.isNaN(x) ? '-' : x.toFixed(dp);
+  return rows.map(({ label, ref, mine }) => `${label ? `<div class="sub" style="margin-top:6px">${label}</div>` : ''}<div class="cmp3">
+    <div><small>페리 기준</small><b>${v(ref)}</b></div><div><small>나</small><b>${v(mine)}</b></div>
+    <div><small>차이</small><b>${mine == null || Number.isNaN(mine) ? '-' : signed(+mine.toFixed(dp) - ref, dp)}</b></div></div>`).join('')
+    + `<div class="sub" style="font-size:.75rem">단위: ${unit}</div>`;
+}
+// 관절 각도 그림: 관절 J에서 기준선(점선)과 움직이는 마디가 이루는 각을 호로. 방향 θ는 아래 = 0°, 걷는 방향(오른쪽) = +90°
+function angleFig(kind, ref, mine) {
+  const R = d => d * Math.PI / 180, P = (p, th, L) => [p[0] + L * Math.sin(R(th)), p[1] + L * Math.cos(R(th))], f = p => p.map(n => n.toFixed(1)).join(',');
+  const arc = (J, a, b, r) => { const s = P(J, a, r), e = P(J, b, r); return `M${f(s)} A${r},${r} 0 0 ${b > a ? 0 : 1} ${f(e)}`; };
+  const G = { knee: { J: [150, 70], base: 0, dir: -1, fixed: [[150, 10]] },          // 넓적다리(위) 고정, 정강이가 뒤로 굽힘
+    thigh: { J: [150, 50], base: 0, dir: 1, fixed: [[150, 5]] },                   // 몸통(위) 고정, 넓적다리가 앞으로
+    ankle: { J: [130, 90], base: 90, dir: 1, fixed: [[130, 20]] } }[kind];           // 정강이(위) 고정, 발이 발등 쪽으로
+  const L = kind === 'ankle' ? 60 : 80, seg = (a, color, r, txt) => {
+    if (a == null || Number.isNaN(a)) return '';
+    const th = G.base + G.dir * a, end = P(G.J, th, L), lab = P(G.J, G.base + G.dir * a / 2, r + 12);
+    return `<line x1="${G.J[0]}" y1="${G.J[1]}" x2="${end[0].toFixed(1)}" y2="${end[1].toFixed(1)}" stroke="${color}" stroke-width="4" stroke-linecap="round"/>
+      <path d="${arc(G.J, G.base, th, r)}" fill="none" stroke="${color}" stroke-width="2"/>
+      <text x="${lab[0].toFixed(1)}" y="${lab[1].toFixed(1)}" font-size="11" font-weight="700" fill="${color}" text-anchor="middle" dominant-baseline="middle">${txt}</text>`;
+  };
+  const dash = P(G.J, G.base, L);
+  return `<svg class="chart" viewBox="0 0 300 ${kind === 'ankle' ? 130 : 160}" role="img" aria-label="각도 그림: 페리 기준 ${ref}°, 나 ${mine == null ? '-' : Math.round(mine)}°">
+    ${G.fixed.map(q => `<line x1="${G.J[0]}" y1="${G.J[1]}" x2="${q[0]}" y2="${q[1]}" stroke="currentColor" stroke-width="4" stroke-linecap="round" opacity=".5"/>`).join('')}
+    <line x1="${G.J[0]}" y1="${G.J[1]}" x2="${dash[0].toFixed(1)}" y2="${dash[1].toFixed(1)}" stroke="currentColor" stroke-dasharray="4 4" opacity=".4"/>
+    ${seg(ref, '#9aa5a1', 26, `${ref}°`)}${seg(mine, 'var(--accent)', 46, mine == null ? '' : `${Math.round(mine)}°`)}
+    <circle cx="${G.J[0]}" cy="${G.J[1]}" r="5" fill="currentColor"/></svg>`;
+}
+// 골반 내려감 그림: 앞에서 본 골반 선. 수평 점선 + 페리 기준 4°(회색) + 나(초록)
+function pelvisFig(rows) {                                                 // 앞모습 기준: 왼발로 디디면 화면 왼쪽(사람의 오른쪽) 골반이 내려감
+  const one = ({ label, ref, mine }, x, sg) => {
+    const line = (a, color, ty) => { const r = sg * a * Math.PI / 180, dx = 50 * Math.cos(r), dy = 50 * Math.sin(r);
+      return `<line x1="${(x - dx).toFixed(1)}" y1="${(55 + dy).toFixed(1)}" x2="${(x + dx).toFixed(1)}" y2="${(55 - dy).toFixed(1)}" stroke="${color}" stroke-width="4" stroke-linecap="round"/>
+        <text x="${x - sg * 62}" y="${ty}" font-size="11" font-weight="700" fill="${color}" text-anchor="middle">${Math.round(a)}°</text>`; };
+    return `<line x1="${x - 60}" y1="55" x2="${x + 60}" y2="55" stroke="currentColor" stroke-dasharray="4 4" opacity=".4"/>${line(ref, '#9aa5a1', 40)}${mine == null || Number.isNaN(mine) ? '' : line(mine, 'var(--accent)', 88)}
+      <text x="${x}" y="108" font-size="11" text-anchor="middle" fill="currentColor" opacity=".8">${label}</text>`;
+  };
+  return `<svg class="chart" viewBox="0 0 300 115" role="img" aria-label="골반 내려감 그림">${rows.map((row, i) => one(row, 80 + i * 140, i ? -1 : 1)).join('')}</svg>`;
+}
+function metric({ title, value, unit, grade, body = '', why = [], refs = [], cmp, limit }) {
   const [cls, label] = GRADE[grade];
+  const fig = !cmp?.fig ? '' : cmp.fig === 'pelvis' ? pelvisFig(cmp.rows) : angleFig(cmp.fig, cmp.rows[0].ref, cmp.rows[0].mine);
   return `<div class="metric"><div class="mhead"><div><b>${title}</b></div><span class="badge ${cls}">${label}</span></div>
     <div class="mval">${value}<span class="sub"> ${unit}</span></div>${body}
-    <details><summary>근거 보기</summary><ul>${why.map(w => `<li>${w}</li>`).join('')}</ul>
+    <details><summary>근거 보기</summary>${cmp ? cmpCells(cmp) + fig + (cmp.fig ? '<div class="sub" style="font-size:.75rem">회색 = 페리 기준 · 초록 = 나 · 점선 = 기준선</div>' : '') : ''}
+    <ul>${why.map(w => `<li>${plain(w)}</li>`).join('')}</ul>
+    ${limit ? `<div class="sub" style="font-size:.8125rem">${limit}</div>` : ''}
     <div>출처</div><ul>${refs.map(r => `<li>${REF[r]}</li>`).join('')}</ul></details></div>`;
 }
 
@@ -488,7 +534,7 @@ function render(r, prev) {
       '스마트폰 케이던스는 기준 장비와 거의 같음: 상관 0.997, 오차 범위 1.4% (허벅지에 고정한 연구)',
       cadGrade === 'o' ? '이번 측정은 손에 들었거나 신호가 불규칙해 등급을 낮췄어요.' : '권장 위치(허벅지 밀착)에서 측정한 값이에요.',
     ],
-    refs: ['perry20', 'murtagh', 'shema'],
+    refs: ['perry20', 'murtagh', 'shema'], cmp: { unit: '걸음/분', rows: [{ ref: norm, mine: c }] },
   });
   html += metric({
     title: '걷기 강도', value: intensity, unit: '', grade: 'y',
@@ -515,7 +561,7 @@ function render(r, prev) {
       title: '걷는 속도', value: r.speed.toFixed(2), unit: `m/s (${(r.speed * 60).toFixed(0)} m/분)`, grade: dGrade,
       body: `<div class="sub">페리의 보행 분석 성인 평균 1.37 m/s(82 m/분)${shortNote}${slow ? `<br>참고: JAMA 2024 지침은 65세 이상에서 걷는 속도 0.8~1.0 m/s 미만을 낙상 위험을 평가하는 기준 중 하나로 써요. 이 앱은 낙상 위험을 판정하지 않아요.` : ''}</div>`,
       why: [how, '성인 평균 82 m/분 (Perry 20장)', 'JAMA 2024 지침: 65세 이상에서 지난 1년 낙상, 낙상 걱정, 걷는 속도 0.8~1.0 m/s 미만 중 하나가 있으면 낙상 예방 중재를 고려 (나이를 65 이상으로 입력하면 이 안내가 보여요)', '65세 이상에서 걷는 속도 0.1 m/s 빠를 때마다 사망 위험 12% 낮음 (관찰 연구, 연관성)'],
-      refs: ['perry20', 'jama2024', 'studenski'],
+      refs: ['perry20', 'jama2024', 'studenski'], cmp: { unit: 'm/s', dp: 2, rows: [{ ref: 1.37, mine: r.speed }] },
     });
     const ideal = sex === 'f' ? 0.0064 : sex === 'm' ? 0.0072 : null;
     html += metric({
@@ -1531,32 +1577,36 @@ function renderVideo(r, dur) {
     html += glanceSide(r, dur != null);
     html += `<div class="metric"><div class="mhead"><div><b>페리의 보행 분석 기준 걸음과 나란히</b></div><span class="badge b-y">참고</span></div>${compareFigures(r.curves)}<div class="sub">무릎은 영상 오차 약 3~5°(참고), 넓적다리·발목은 정확도가 더 낮아요. 각도 값: ${REF.perry9}</div></div>`;
     html += metric({ title: '무릎 각도', value: f0(m.kneeSwingMax), unit: `유각기 최대 굽힘 (보행 주기 ${m.kneeSwingAt}%)`, grade: 'y',
-      body: `${kneeChart(r.curves.knee)}<div class="calc">이번 값 / Perry 9장 기준<br>첫 닿기 ${f0(m.kneeIC)} / 0~5°<br>체중 받기 최대 ${f0(m.kneeLoad)} / 15~18°<br>입각기 최소 ${f0(m.kneeStanceMin)} / 약 5° ${extTxt(m.kneeStanceMin)}<br>유각기 최대 ${f0(m.kneeSwingMax)} / 약 60°(초기 유각)</div>`,
+      body: `${kneeChart(r.curves.knee)}<div class="calc">이번 값 / 페리의 보행 분석 기준<br>첫 닿기 ${f0(m.kneeIC)} / 0~5°<br>체중 받기 최대 ${f0(m.kneeLoad)} / 15~18°<br>입각기 최소 ${f0(m.kneeStanceMin)} / 약 5° ${extTxt(m.kneeStanceMin)}<br>유각기 최대 ${f0(m.kneeSwingMax)} / 약 60°(초기 유각)</div>`,
       why: ['무릎 각도 = 180° − (엉덩이·무릎·발목 세 점이 이루는 각). Perry 17장: 영상에서 가장 잘 잡히는 관절',
         'Russo 2026: 스마트폰 + 같은 종류의 자세 인식(MediaPipe)으로 무릎 굽힘 평균 오차 3.2~4.1°',
         'Wegner 2026: 무릎 곡선 모양은 잘 맞지만 정확한 절대 각도보다 같은 사람의 변화 추적에 알맞음',
         '첫 닿기는 "발이 엉덩이보다 가장 앞에 있는 순간"으로 근사해서 실제보다 몇 % 일찍 잡힐 수 있어요'],
-      refs: ['perry9', 'perry17', 'russo2026', 'wegner2026'] });
+      refs: ['perry9', 'perry17', 'russo2026', 'wegner2026'], cmp: { unit: '° (유각기 최대 굽힘)', fig: 'knee', rows: [{ ref: 60, mine: m.kneeSwingMax }] }, limit: '휴대폰 2D 영상이라 카메라 각도·거리에 따라 몇 도 달라질 수 있어요.' });
     html += metric({ title: '넓적다리 각도', value: f0(m.thighFlex), unit: `앞으로 최대 · 뒤로 최대 ${f0(m.thighExt)}`, grade: 'o',
       body: `<div class="calc">이번 값 / 페리의 보행 분석 기준<br>앞으로(굽힘) ${f0(m.thighFlex)} / 약 20°<br>뒤로(폄) ${f0(m.thighExt)} / 약 20°(말기 입각)</div>`,
-      why: ['넓적다리 각도 = 수직선과 허벅지(엉덩이→무릎)가 이루는 각. 골반 움직임이 섞이지 않아 Perry가 임상에서 권하는 지표',
+      why: ['넓적다리 각도 = 수직선과 허벅지(엉덩이→무릎)가 이루는 각. 골반 움직임이 섞이지 않아 페리가 임상에서 권하는 지표',
         'Cheng 2025: 2D 영상의 엉덩관절 각도 오차는 5° 안쪽이지만, Wegner 2026에선 일치도가 낮았어요 → "부정확할 수 있음"'],
-      refs: ['perry9', 'cheng2025', 'wegner2026'] });
+      refs: ['perry9', 'cheng2025', 'wegner2026'], limit: '휴대폰 2D 영상이라 카메라 각도·거리에 따라 몇 도 달라질 수 있어요.',
+      cmp: { unit: '° (수직선 기준)', fig: 'thigh', rows: [{ label: '앞으로(굽힘)', ref: 20, mine: m.thighFlex }, { label: '뒤로(폄)', ref: 20, mine: m.thighExt }] } });
     html += metric({ title: '발목 각도', value: f0(m.ankleDF), unit: `입각기 최대 발등굽힘 · 최대 발바닥굽힘 ${f0(m.anklePF)}`, grade: 'o',
       body: `<div class="calc">이번 값 / 페리의 보행 분석 기준<br>발등굽힘 ${f0(m.ankleDF)} / 10°(말기 입각)<br>발바닥굽힘 ${f0(m.anklePF)} / 20°(유각 전)</div>`,
       why: ['발목 각도 = 정강이(무릎→발목)와 발(뒤꿈치→발끝) 사이 각도 − 90°',
         'Russo 2026, Cheng 2025: 영상의 발목 각도는 정확도가 낮음 → 참고만 하세요'],
-      refs: ['perry9', 'russo2026', 'cheng2025'] });
+      refs: ['perry9', 'russo2026', 'cheng2025'], limit: '휴대폰 2D 영상이라 카메라 각도·거리에 따라 몇 도 달라질 수 있어요.',
+      cmp: { unit: '°', fig: 'ankle', rows: [{ label: '발등굽힘(말기 입각)', ref: 10, mine: m.ankleDF }, { label: '발바닥굽힘(유각 전)', ref: 20, mine: m.anklePF }] } });
     html += metric({ title: '영상으로 잰 케이던스', value: r.cadence.toFixed(0), unit: '걸음/분', grade: 'y',
-      why: ['보행 주기 시간으로 계산(케이던스 = 120 ÷ 주기 초)', 'Wegner 2026: 2D 영상의 케이던스는 기준 장비와 일치도 높음(ICC 0.74~0.95 범위)'], refs: ['wegner2026'] });
+      why: ['보행 주기 시간으로 계산(케이던스 = 120 ÷ 주기 초)', 'Wegner 2026: 2D 영상의 케이던스는 기준 장비와 일치도 높음(ICC 0.74~0.95 범위)'], refs: ['wegner2026', 'perry20'],
+      cmp: { unit: '걸음/분', rows: [{ ref: (({ sex }) => sex === 'm' ? 111 : sex === 'f' ? 117 : 113)(store.get('profile', {})), mine: r.cadence }] } });
   } else {
     const m = r.m, side = r.view === 'front' ? '앞모습' : '뒷모습';
     const diff = (a, b) => a != null && b != null ? `좌우 차이 ${Math.abs(a - b).toFixed(0)}°` : '';
     html += `<h2>영상 분석 결과 · ${side}</h2><div class="sub">몸이 잡힌 장면 ${Math.round(r.validFrac * 100)}% · 앞·뒤 각도는 휴대폰 영상으로 검증된 연구를 찾지 못해 모두 "검증 안 됨"이에요. 같은 조건으로 찍어 좌우 비교·변화 추적에 쓰세요.</div>`;
     html += glanceFront(r, dur != null);
     html += metric({ title: '골반 내려감 정도 (반대쪽)', value: `왼발 ${f0(m.dropL)} · 오른발 ${f0(m.dropR)}`, unit: '', grade: 'n',
-      body: `<div class="calc">한 발로 디딜 때 반대쪽 골반이 내려간 각도 (상위 10% 값)<br>${diff(m.dropL, m.dropR)}<br>Perry 4·9장: 체중 받기 때 반대쪽 골반 약 4°, 엉덩이 벌림근이 5° 이하로 제한</div>`,
-      why: ['양쪽 엉덩이 점을 잇는 선이 수평에서 기운 각도', '입각기 다리는 "발목이 화면에서 더 아래에 있는 다리"로 근사', '휴대폰 2D 영상의 정확도 연구는 찾지 못함'], refs: ['perry9'] });
+      body: `<div class="calc">한 발로 디딜 때 반대쪽 골반이 내려간 각도 (상위 10% 값)<br>${diff(m.dropL, m.dropR)}<br>페리의 보행 분석 기준: 체중 받기 때 반대쪽 골반 약 4°, 엉덩이 벌림근이 5° 이하로 제한</div>`,
+      why: ['양쪽 엉덩이 점을 잇는 선이 수평에서 기운 각도', '입각기 다리는 "발목이 화면에서 더 아래에 있는 다리"로 근사', '휴대폰 2D 영상의 정확도 연구는 찾지 못함'], refs: ['perry9'], limit: '휴대폰 2D 영상이라 카메라 각도·거리에 따라 몇 도 달라질 수 있어요.',
+      cmp: { unit: '°', fig: 'pelvis', rows: [{ label: '왼발 디딜 때', ref: 4, mine: m.dropL }, { label: '오른발 디딜 때', ref: 4, mine: m.dropR }] } });
     html += metric({ title: '무릎 안쪽 모임', value: `왼 ${f0(m.valgusL)} · 오른 ${f0(m.valgusR)}`, unit: '', grade: 'n',
       body: `<div class="calc">디딜 때 무릎이 엉덩이-발목 선보다 안쪽(+)·바깥쪽(−)으로 간 각도 (상위 10% 값)<br>${diff(m.valgusL, m.valgusR)}</div>`,
       why: ['Perry 책에는 이 각도의 영상 기준값이 없어요 → 기준값 없이 좌우만 비교', 'Perry 17장: 다리가 돌아가 있으면 카메라 1대의 각도는 실제와 달라질 수 있어요'], refs: ['perry17'] });
@@ -1652,6 +1702,46 @@ const LEARN = [
 ];
 $('learn').innerHTML = LEARN.map(([t, facts, limit, refs]) => `<details style="margin-top:10px"><summary>${t}</summary><ul class="sub" style="padding-left:18px;margin:6px 0">${facts.map(f => `<li>${f}</li>`).join('')}</ul>${limit ? `<div class="sub">한계: ${limit}</div>` : ''}<div class="sub" style="font-size:.75rem;margin-top:4px">출처: ${refs.map(k => REF[k]).join(' / ')}</div></details>`).join('');
 markTerms($('learn'));
+// ── 지표 사전: 앱 숫자의 뜻과 왜 보는지만 (연구 숫자는 '알아보기', 재는 방법은 '처음 쓰는 법'). 누르면 옆으로 넘기는 설명 카드 ──
+const DICT = [
+  { part: 'step', name: '케이던스', short: '1분 걸음 수', mean: '1분 동안 걸은 걸음 수예요. 휴대폰이 발이 땅에 닿는 흔들림을 세요.',
+    why: '걷는 리듬을 숫자 하나로 보여 줘요. 같은 조건에서 여러 번 재면 변화가 보여요.', where: '홈 · 측정 결과 · 걸음걸이 탭(영상)' },
+  { part: 'step', name: '걷기 속도', short: '1초에 가는 거리', mean: '1초 동안 걸어간 거리(m)예요. GPS나 직접 넣은 거리를 걸은 시간으로 나눠요.',
+    why: '같은 길을 같은 방식으로 재면 내 걷는 속도가 어떻게 달라지는지 볼 수 있어요.', where: '홈 · 측정 결과(GPS나 거리 입력)' },
+  { part: 'knee', name: '무릎 각도', short: '발 보낼 때 굽힘', mean: '발이 땅에서 떨어져 앞으로 갈 때(유각기) 무릎이 가장 많이 굽혀진 각도예요.',
+    why: '발을 앞으로 보낼 때 무릎을 얼마나 굽히는지 숫자로 봐요. 페리의 보행 분석 기준과 나란히 볼 수 있어요.', where: '홈 · 걸음걸이 탭(옆모습 영상)' },
+  { part: 'thigh', name: '넓적다리 각도', short: '허벅지 앞뒤 기울기', mean: '허벅지가 수직선에서 앞(굽힘)이나 뒤(폄)로 기운 각도예요.',
+    why: '걸을 때 다리를 앞뒤로 얼마나 보내는지 봐요.', where: '걸음걸이 탭(옆모습 영상)' },
+  { part: 'ankle', name: '발목 각도', short: '발끝 올리고 내리기', mean: '정강이와 발 사이 각도예요. 발끝이 정강이 쪽으로 올라가면 발등굽힘, 내려가면 발바닥굽힘이에요.',
+    why: '발을 디디고 뗄 때 발목이 얼마나 움직이는지 봐요.', where: '걸음걸이 탭(옆모습 영상)' },
+  { part: 'pelvis', name: '골반 내려감 정도', short: '좌우 높이 차이', mean: '한 발로 디딜 때 반대쪽 골반이 수평에서 내려간 각도예요.',
+    why: '왼발로 디딜 때와 오른발로 디딜 때를 나란히 놓고 비교해요.', where: '걸음걸이 탭(앞·뒤모습 영상)' },
+  { part: 'knee', name: '무릎 안쪽 모임', short: '디딜 때 무릎 방향', mean: '디딜 때 무릎이 엉덩이와 발목을 잇는 선보다 안쪽(+)이나 바깥쪽(−)으로 간 각도예요.',
+    why: '왼쪽과 오른쪽을 비교해 봐요. 이 각도는 페리의 보행 분석 기준값이 없어요.', where: '걸음걸이 탭(앞·뒤모습 영상)' },
+];
+$('dict').innerHTML = DICT.map((d, i) => `<button class="dayrec" data-di="${i}"><span style="display:flex;align-items:center;gap:8px">${partIcon(d.part)}${d.name}</span><span class="sub">${d.short} ›</span></button>`).join('');
+$('dict').addEventListener('click', e => { const b = e.target.closest('[data-di]'); if (b) openDict(+b.dataset.di); });
+function openDict(start) {
+  const o = document.createElement('div');
+  o.id = 'dictOv'; o.setAttribute('role', 'dialog'); o.setAttribute('aria-modal', 'true'); o.setAttribute('aria-label', '지표 사전');
+  o.innerHTML = `<div class="dsheet"><div class="dtrack">${DICT.map(d => `<section class="dcard">${partIcon(d.part)}<h3>${d.name}</h3><p>${d.mean}</p>
+      <b>왜 보나요?</b><p>${d.why}</p><b>어디서 보나요?</b><p>${d.where}</p></section>`).join('')}</div>
+    <div class="ddots" aria-hidden="true">${DICT.map(() => '<i></i>').join('')}</div>
+    <div class="drow"><button class="ghost" data-dx="skip">건너뛰기</button><button data-dx="next">다음</button></div></div>`;
+  document.body.append(o);
+  const tr = o.querySelector('.dtrack'), cur = () => Math.round(tr.scrollLeft / tr.clientWidth), last = DICT.length - 1;
+  const sync = () => { const c = cur(); o.querySelectorAll('.ddots i').forEach((e, k) => e.classList.toggle('on', k === c)); o.querySelector('[data-dx=next]').textContent = c === last ? '닫기' : '다음'; };
+  const close = () => { o.remove(); $('dict').querySelector(`[data-di="${start}"]`)?.focus(); };
+  tr.scrollLeft = start * tr.clientWidth; sync();
+  tr.addEventListener('scroll', sync, { passive: true });
+  o.addEventListener('click', e => {
+    const b = e.target.closest('[data-dx]');
+    if (e.target === o || b?.dataset.dx === 'skip' || (b?.dataset.dx === 'next' && cur() === last)) return close();
+    if (b) tr.scrollTo({ left: (cur() + 1) * tr.clientWidth, behavior: 'smooth' });
+  });
+  o.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
+  o.querySelector('[data-dx=next]').focus();
+}
 
 // ── 측정 알림: 고른 요일·시간에 이번 주 기록 알림 (설치형 앱, 앱을 열거나 기록할 때마다 숫자를 새로 넣어 다시 예약) ──
 const LN = window.Capacitor?.isNativePlatform?.() ? window.Capacitor.Plugins.LocalNotifications : null;
