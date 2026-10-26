@@ -229,7 +229,7 @@ const INTRO_HC = ['걸음 수를 가져올까요?', [['가져오는 것', '삼�
 $('start').addEventListener('click', async () => {
   const act = $('act').value;
   const useGps = usesGps(act);
-  if (useGps && !store.get('locConsent', null)) return alert('GPS로 거리·경로를 재려면 위치기반서비스 이용약관에 동의해 주세요(시작 버튼 위 체크). 동의하지 않으려면 거리 재는 방법을 "재지 않음"으로 바꿔 주세요.');
+  if (useGps && !store.get('locConsent', null)) { openSet(true); $('locBox').scrollIntoView({ block: 'center' }); $('locOk').focus({ preventScroll: true }); return alert('GPS로 거리·경로를 재려면 위치기반서비스 이용약관에 동의해 주세요(시작 버튼 위 체크). 동의하지 않으려면 거리 재는 방법을 "재지 않음"으로 바꿔 주세요.'); }
   if (Native) {
     if (!await permIntro(useGps ? 'introLoc' : 'introNoti', ...(useGps ? INTRO_LOC : INTRO_NOTI))) return;   // 나중에 → 측정 시작 안 함
     const st = await Native.requestPermissions({ permissions: useGps ? ['location', 'notifications'] : ['notifications'] }).catch(() => ({}));
@@ -496,8 +496,8 @@ function finishCooper(data, gps, demo, position) {
 function renderCooper(r) {
   let head = `<h2>12분 달리기 테스트 결과</h2>`;
   if (r.full === false) head += `<div class="warn">12분을 다 채우지 않았어요(${(r.durS / 60).toFixed(1)}분). 거리는 그 시간 동안의 값이에요.</div>`;
-  head += topCards(r, { label: '달린 거리', value: Math.round(r.distance).toLocaleString(), unit: 'm', grade: r.medAcc > 10 ? 'o' : 'y', sub: `GPS · 위치 오차 약 ${Math.round(r.medAcc)}m` }, [
-    { label: '페이스', value: paceText(r.speed), unit: '/km', grade: r.medAcc > 10 ? 'o' : 'y', sub: `${r.speed.toFixed(2)} m/s` },
+  head += topCards(r, { label: '달린 거리', value: Math.round(r.distance).toLocaleString(), unit: 'm', grade: r.medAcc > 10 ? 'o' : 'y', sub: `GPS · 위치 오차 약 ${Math.round(r.medAcc)}m`,
+    stats: [{ icon: 'time', value: clock(r.durS), label: '시간' }, { icon: 'dist', value: (r.distance / 1000).toFixed(2), label: '거리 km' }, { icon: 'pace', value: paceText(r.speed), label: '페이스 /km' }, { icon: 'steps', value: r.steps, label: '걸음' }] }, [
     { label: '케이던스', value: r.cadence ? r.cadence.toFixed(0) : '-', unit: '걸음/분', grade: 'y', sub: r.cadence ? '기준선 없음' : '걸음 신호 못 찾음' }]);
   let html = metric({ title: '달린 거리', value: Math.round(r.distance).toLocaleString(), unit: `m · 평균 페이스 ${paceText(r.speed)}/km`, grade: r.medAcc > 10 ? 'o' : 'y',
     body: `<div class="sub">${(r.durS / 60).toFixed(1)}분 · 위치 오차 약 ${Math.round(r.medAcc)}m · 10초씩 묶은 GPS 점을 이은 거리</div>`,
@@ -621,7 +621,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v91';
+const APP_VERSION = 'v92';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -668,13 +668,20 @@ const signed = (d, dp = 0) => `${d > 0 ? '+' : ''}${d.toFixed(dp)}`;
 const mmss = x => { const t = Math.round(x); return t >= 60 ? `${Math.floor(t / 60)}분 ${t % 60}초` : `${t}초`; };   // 초를 먼저 반올림 ("1분 60초" 방지)
 // 결과 한눈에 보기 (홈 카드 모양, 디자인 팀 10/26): 맨 위 한 줄 → 대표 값 큰 카드 → 2칸 작은 카드. 긴 설명은 그 아래 '자세히 보기'에 접어 둠
 const badge = g => { if (!g) return ''; const [cls, label] = GRADE[g]; return `<span class="badge ${cls}">${label}</span>`; };
+// 대표 카드 아래 아이콘 숫자 줄 (디자인 팀 10/27): 탭 막대와 같은 선 아이콘, 값이 없는 칸은 빼고 남은 칸을 같은 폭으로
+const STAT_ICON = { time: '<circle cx="12" cy="13" r="8"/><path d="M12 9v4l3 2M9 2h6"/>', dist: '<path d="M6 20c-2 0-3-1.5-3-3s1-3 3-3h12c1.7 0 3-1.3 3-3s-1.3-3-3-3H9"/><circle cx="6" cy="5" r="2"/><circle cx="18" cy="20" r="1.5"/>',
+  steps: '<path d="M7 3c2 0 3 2.5 3 5.5S9 13 7 13s-3-1.5-3-4.5S5 3 7 3zM5 16h4v1.5a2 2 0 0 1-4 0zM17 7c2 0 3 2.5 3 5.5S19 17 17 17s-3-1.5-3-4.5S15 7 17 7zM15 20h4v.5a2 2 0 0 1-4 0z"/>',
+  stride: '<path d="M3 17 17 3l4 4L7 21z"/><path d="M7 13l2 2M10 10l2 2M13 7l2 2"/>', pace: '<path d="M4 18a8 8 0 1 1 16 0"/><path d="M12 18l4-6"/>', jog: '<path d="M4 12h3l2-5 4 10 2-5h5"/>' };
+const clock = s => { const t = Math.round(s); return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`; };
+const statRow = stats => { const ok = stats.filter(s => s.value != null && s.value !== ''); return ok.length ? `<div class="rstats" style="grid-template-columns:repeat(${ok.length},1fr)">${ok.map(s =>
+  `<div><svg viewBox="0 0 24 24" aria-hidden="true">${STAT_ICON[s.icon]}</svg><b>${s.value}</b><small>${s.label}</small></div>`).join('')}</div>` : ''; };
 function topCards(r, hero, cells) {
   const dur = r.diag?.durS ?? r.durS;
   const top = [new Date(r.date).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }), ACT[r.activity ?? 'walk'], dur && `측정 ${mmss(dur)}`].filter(Boolean).join(' · ');
   const color = ACT_C[r.activity ?? 'walk'] ?? 'var(--c-run)';
   return `<div class="sub">${top}</div>
     <div class="mcard static rhero"><div class="mtop"><span class="mlab"><i style="background:${color}"></i>${hero.label}</span>${badge(hero.grade)}</div>
-    <div class="mnum">${hero.value}<small>${hero.unit}</small></div>${hero.bar ?? ''}<div class="msub">${hero.sub}</div></div>
+    <div class="mnum">${hero.value}<small>${hero.unit}</small></div>${hero.bar ?? ''}<div class="msub">${hero.sub}</div>${statRow(hero.stats ?? [])}</div>
     <div class="rgrid">${cells.map(c => `<div class="mcard static"><div class="mtop"><span class="mlab">${c.label}</span>${c.value === '-' ? '' : badge(c.grade)}</div>
       <div class="rnum">${c.value}<small>${c.value === '-' ? '' : c.unit}</small></div><div class="msub">${c.sub}</div></div>`).join('')}</div>`;
 }
@@ -751,11 +758,12 @@ function render(r, prev) {
   const ideal = sex === 'f' ? 0.0064 : sex === 'm' ? 0.0072 : null;
   html += topCards(r, { label: '케이던스', value: c.toFixed(0), unit: '걸음/분', grade: cadGrade,
     bar: `<div class="rbar" aria-hidden="true"><b style="left:${lo - 60}%;width:${hi - lo}%"></b><i style="left:${pos}%"></i></div>`,
-    sub: `페리 기준 ${norm} · 차이 ${signed(+c.toFixed(0) - norm)}${prev ? ` · 지난번보다 ${signed(c - prev.cadence)}` : ''}` }, [
+    sub: `페리 기준 ${norm} · 차이 ${signed(+c.toFixed(0) - norm)}${prev ? ` · 지난번보다 ${signed(c - prev.cadence)}` : ''}`,
+    stats: [{ icon: 'time', value: clock(r.diag?.durS ?? r.activeS), label: '시간' }, { icon: 'dist', value: r.distance && (r.distance / 1000).toFixed(2), label: '거리 km' },
+      { icon: 'steps', value: r.steps, label: '걸음' }, { icon: 'stride', value: r.stepLength && r.stepLength.toFixed(2), label: '보폭 m' }] }, [
     { label: '걷기 속도', value: r.speed ? r.speed.toFixed(2) : '-', unit: 'm/s', grade: dGrade, sub: r.speed ? `페리 1.37 · 차이 ${signed(+r.speed.toFixed(2) - 1.37, 2)}` : 'GPS·거리 입력 필요' },
     { label: '걸음 길이', value: r.stepLength ? (r.stepLength * 100).toFixed(0) : '-', unit: 'cm', grade: dGrade, sub: !r.stepLength ? 'GPS·거리 입력 필요' : ideal ? `효율 기준 약 ${(ideal * c * 100).toFixed(0)}cm` : '성별을 넣으면 기준이 보여요' },
-    { label: '걸음 수', value: r.steps, unit: '걸음', grade: r.warnings.includes('slow') ? 'o' : 'g', sub: `걷는 시간 ${Math.round(r.activeS)}초` },
-    ...r.distance ? [{ label: '거리', value: Math.round(r.distance), unit: 'm', grade: gps && r.medAcc > 10 ? 'o' : 'y', sub: gps ? `GPS · 오차 약 ${Math.round(r.medAcc)}m` : '직접 입력' }] : []]);
+  ]);   // 걸음 수·거리는 위 아이콘 줄에 있어서 작은 카드에서 뺌 (등급·근거는 자세히 보기에)
   const head = html; html = '';
 
   html += metric({
@@ -900,10 +908,11 @@ function renderRun(r, prev) {
   const easy = r.activity === 'easyrun';
   const cGrade = r.warnings.includes('hand') || r.warnings.includes('irregular') ? 'o' : 'y';
   const head = `<h2>${easy ? '천천히 달리기' : '러닝'} 결과</h2>` + autoNote(r) + warnHtml(r)
-    + topCards(r, { label: '케이던스', value: c.toFixed(0), unit: '걸음/분', grade: cGrade, sub: prev ? `기준선 없음 · 지난 러닝보다 ${signed(c - prev.cadence)}` : '기준선 없음 · 내 기록의 변화만 봐요' }, [
+    + topCards(r, { label: '케이던스', value: c.toFixed(0), unit: '걸음/분', grade: cGrade, sub: prev ? `기준선 없음 · 지난 러닝보다 ${signed(c - prev.cadence)}` : '기준선 없음 · 내 기록의 변화만 봐요',
+      stats: [{ icon: 'time', value: clock(r.diag?.durS ?? r.activeS), label: '시간' }, { icon: 'dist', value: r.distance && (r.distance / 1000).toFixed(2), label: '거리 km' },
+        { icon: 'pace', value: r.speed && paceText(r.speed), label: '페이스 /km' }, { icon: 'steps', value: r.steps, label: '걸음' }] }, [
       { label: '속도', value: r.speed ? r.speed.toFixed(2) : '-', unit: 'm/s', grade: r.medAcc > 10 ? 'o' : 'y', sub: r.speed ? `페이스 ${paceText(r.speed)}/km` : 'GPS 조건 안 됨' },
-      { label: '걸음 수', value: r.steps, unit: '걸음', grade: 'y', sub: `달린 시간 ${Math.round(r.activeS)}초` },
-      ...r.distance ? [{ label: '거리', value: Math.round(r.distance), unit: 'm', grade: r.medAcc > 10 ? 'o' : 'y', sub: `GPS · 오차 약 ${Math.round(r.medAcc)}m` }] : []]);
+    ]);
   let html = metric({ title: '케이던스 (분당 걸음 수)', value: c.toFixed(0), unit: '걸음/분', grade: cGrade,
     body: `<div class="sub">${prev ? `지난 러닝 ${prev.cadence.toFixed(0)} → ${c >= prev.cadence ? '+' : ''}${(c - prev.cadence).toFixed(0)}` : '러닝 케이던스는 사람·속도마다 달라 기준값 하나로 비교하지 않아요.'}</div>`,
     why: ['걷기 케이던스는 스마트폰 정확도 연구가 있지만(상관 0.997), 주머니 스마트폰의 달리기 케이던스 검증 연구는 아직 찾지 못해 "참고" 등급이에요.',
@@ -925,10 +934,11 @@ function renderRun(r, prev) {
 function renderSlow(r, hist) {
   const wk = weekSlowJogMin(hist);
   const head = `<h2>슬로우 러닝 결과</h2>` + autoNote(r)
-    + topCards(r, { label: '조깅한 시간', value: (r.activeS / 60).toFixed(1), unit: '분', grade: 'y', sub: `이번 주 조깅 ${wk.toFixed(0)}분 · 연구의 주간량 90분` }, [
+    + topCards(r, { label: '조깅한 시간', value: (r.activeS / 60).toFixed(1), unit: '분', grade: 'y', sub: `이번 주 조깅 ${wk.toFixed(0)}분 · 연구의 주간량 90분`,
+      stats: [{ icon: 'time', value: clock(r.diag?.durS ?? r.activeS + r.walkS), label: '전체 시간' }, { icon: 'jog', value: r.jogCount, label: '조깅 구간' }, { icon: 'steps', value: r.steps, label: '걸음' }] }, [
       { label: '조깅 케이던스', value: r.cadence.toFixed(0), unit: '걸음/분', grade: 'y', sub: `조깅 ${r.jogCount}구간 평균` },
       { label: '걷기 시간', value: (r.walkS / 60).toFixed(1), unit: '분', grade: 'y', sub: r.walkCadence ? `걷기 케이던스 ${r.walkCadence.toFixed(0)}` : '걷기 구간' },
-      { label: '걸음 수', value: r.steps, unit: '걸음', grade: 'y', sub: '조깅 + 걷기' }]);
+    ]);
   let html = metric({ title: '조깅 구간 케이던스', value: r.cadence.toFixed(0), unit: `걸음/분 (조깅 ${r.jogCount}구간 평균)`, grade: 'y',
     body: r.walkCadence ? `<div class="sub">걷기 구간 케이던스 ${r.walkCadence.toFixed(0)}걸음/분</div>` : '',
     why: ['1분씩 잘라 조깅 구간은 러닝 방식, 걷기 구간은 걷기 방식으로 계산했어요. 구간마다 앞뒤 2초는 뺐어요.', '달리기 케이던스의 스마트폰 정확도 검증 연구는 아직 못 찾아 "참고"'], refs: ['neumann16'] });
