@@ -1,7 +1,7 @@
 // 걸음 분석 자체 점검: node test_gait.mjs
 // 가짜 걷기 신호(앞뒤 3초 서 있기 포함)를 만들어 케이던스를 2% 안으로 맞히는지 확인
 import assert from 'node:assert/strict';
-import { analyzeWalk, withDistance, gpsSpeed, gpsDistance, guessActivity, guessPosition } from './gait.js';
+import { analyzeWalk, fastMinutes, withDistance, gpsSpeed, gpsDistance, guessActivity, guessPosition } from './gait.js';
 
 function fakeWalk({ cadence, walkS = 20, position, hz = 60, seed = 1, amp = 1 }) {   // amp: 달리기는 흔들림이 큼
   let r = seed;
@@ -92,3 +92,13 @@ for (const position of ['pocket', 'waist']) {
 const flat = fakeWalk({ cadence: 110, position: 'pocket' }).map(p => ({ t: p.t, x: 0, y: 1, z: p.y }));   // 화면이 하늘을 봄
 assert.equal(guessPosition(flat, 'walk'), 'hand');
 console.log('모든 점검 통과');
+
+// 빠르게 걸은 분: 110걸음/분으로 2분 넘게 걸으면 2분, 95면 0분, 1분 미만이면 전체 0분
+{
+  const fast = fastMinutes(fakeWalk({ cadence: 110, walkS: 130, position: 'pocket' }), { position: 'pocket' });
+  assert.deepEqual(fast, { fastMin: 2, minutes: 2 }, `빠르게 걸은 분 110: ${JSON.stringify(fast)}`);
+  const slow = fastMinutes(fakeWalk({ cadence: 95, walkS: 130, position: 'pocket' }), { position: 'pocket' });
+  assert.deepEqual(slow, { fastMin: 0, minutes: 2 }, `빠르게 걸은 분 95: ${JSON.stringify(slow)}`);
+  assert.equal(fastMinutes(fakeWalk({ cadence: 110, walkS: 40, position: 'pocket' }), { position: 'pocket' }).minutes, 0);
+  console.log('빠르게 걸은 분 점검 통과');
+}

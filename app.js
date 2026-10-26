@@ -1,4 +1,4 @@
-import { analyzeWalk, withDistance, gpsSpeed, gpsDistance, guessActivity, guessPosition, RUN_CAD } from './gait.js';
+import { analyzeWalk, fastMinutes, withDistance, gpsSpeed, gpsDistance, guessActivity, guessPosition, RUN_CAD } from './gait.js';
 import { analyzeSide, analyzeFrontal, extractPose, drawSnapshot, PART_ICON } from './video.js';
 
 const $ = id => document.getElementById(id);
@@ -10,6 +10,9 @@ const REF = {
   neumann15: 'Neumann DA. Kinesiology of the Musculoskeletal System 3판, 15장(걷기의 운동학)',
   murtagh: 'Murtagh EM 외. Outdoor Walking Speeds of Apparently Healthy Adults. Sports Med 2021. doi:10.1007/s40279-020-01351-3',
   cadenceAdults: 'Tudor-Locke C 외. CADENCE-Adults (21–40세 2019, 41–60세 2020, 61–85세 2021). Int J Behav Nutr Phys Act. doi:10.1186/s12966-019-0769-6 외',
+  mcavoy2021: 'McAvoy CR 외. Cadence (steps/min) and relative intensity in 21 to 60-year-olds: the CADENCE-adults study. Int J Behav Nutr Phys Act 2021. doi:10.1186/s12966-021-01096-w',
+  moeNilssen2004: 'Moe-Nilssen R, Helbostad JL. Estimation of gait cycle characteristics by trunk accelerometry. J Biomech 2004. doi:10.1016/s0021-9290(03)00233-1',
+  ota2021: 'Ota M 외. Verification of validity of gait analysis systems during treadmill walking and running using human pose tracking algorithm (OpenPose). Gait Posture 2021. doi:10.1016/j.gaitpost.2021.02.006',
   aguiar: 'Aguiar EJ 외. Cadence-based classification of moderate-intensity overground walking. Scand J Med Sci Sports 2022. doi:10.1111/sms.14274',
   shema: 'Shema-Shiratzky S 외. Smartphone-based inertial sensors technology. Gait Posture 2022. doi:10.1016/j.gaitpost.2022.01.024',
   simonsen: 'Simonsen MB 외. Validation of different stepping counters. Gait Posture 2020. doi:10.1016/j.gaitpost.2020.05.037',
@@ -313,6 +316,7 @@ function finish(data, demo = false, gps = []) {
   if (act === 'slowrun') return finishSlow(data, demo, position, auto);
   if (act === 'cooper') return finishCooper(data, gps, demo, position);
   const res = analyzeWalk(data, { position, activity: act === 'walk' ? 'walk' : 'run' });   // 천천히 달리기도 러닝 방식으로 분석
+  if (act === 'walk' && !res.error) Object.assign(res, fastMinutes(data, { position, activity: 'walk' }));   // 빠르게 걸은 분 (기록에 같이 저장)
   const mode = $('dmode').value;
   let maxGap = 0;
   for (let i = 1; i < data.length; i++) maxGap = Math.max(maxGap, data[i].t - data[i - 1].t);
@@ -484,7 +488,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v74';
+const APP_VERSION = 'v75';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -619,6 +623,17 @@ function render(r, prev) {
     why: ['바지 앞주머니 스마트폰은 실제 보행에서 오차 약 0.5%로 가장 정확했어요.', '허벅지·발목 착용 오차 약 1%, 허리 3%, 손목 15%', '시속 3km 이하로 아주 느리게 걸으면 모든 기기가 걸음을 적게 셀 수 있어요.'],
     refs: ['simonsen', 'mora'],
   });
+  if (r.minutes != null) html += metric({
+    title: '빠르게 걸은 시간', value: r.minutes ? `${r.fastMin}분` : '-', unit: r.minutes ? `/ 전체 ${r.minutes}분 · 분당 100걸음 이상인 분` : '1분 이상 재면 보여요', grade: 'y',
+    why: ['측정을 1분씩 나눠, 그 1분 동안 걸은 걸음 수가 100걸음 이상인 분을 셌어요. 끝에 남은 1분 미만은 세지 않아요.',
+      '21~60세와 61~85세 연구에서 분당 100걸음은 중간 강도(약 3 METs)에 해당했어요. 집단 평균 값이라 사람마다 강도는 달라요.',
+      '케이던스는 정확하지만 강도와 맞는지는 집단 평균이라 "참고"예요.'],
+    refs: ['mcavoy2021', 'cadenceAdults'] });
+  if (r.regularity != null) html += metric({
+    title: '걸음 규칙성', value: r.regularity.toFixed(2), unit: '0~1 · 1에 가까울수록 같은 박자로 반복', grade: 'n',
+    why: ['같은 다리가 다시 디딜 때까지의 흔들림 모양이 얼마나 비슷하게 되풀이되는지를 0~1로 나타낸 값(자기상관)이에요.',
+      '원래 방법은 허리에 단 센서로 만든 것이라, 주머니에 넣은 휴대폰으로는 검증되지 않았어요.'],
+    refs: ['moeNilssen2004'] });
   if (r.speed) {
     // 낙상 기준(JAMA 2024)과 사망 위험(JAMA 2011)은 65세 이상 연구라 그 나이에만 경고
     const slow = r.speed < 1.0 && +age >= 65;
@@ -1019,6 +1034,7 @@ async function heartBox(date) {
 
 // ── 전문 용어 풀이: 화면에 처음 나오는 용어에 점선 밑줄, 누르면 아래에 쉬운 뜻 ──
 const GLOSS = {
+  '걸음 규칙성': '같은 다리가 다시 디딜 때까지의 흔들림 모양이 얼마나 비슷하게 되풀이되는지를 0~1로 나타낸 값이에요. 1에 가까울수록 같은 박자로 반복돼요.',
   '케이던스': '1분 동안 걷거나 달린 걸음 수예요. 발이 땅에 닿는 횟수를 세요.',
   'MET': '대사당량. 가만히 앉아 쉴 때 쓰는 에너지를 1로 본 운동 강도 단위예요. 3 MET는 쉴 때의 약 3배 에너지를 써요.',
   '중강도': '숨이 조금 차지만 대화는 할 수 있는 정도의 운동 강도예요(약 3~6 MET 미만).',
@@ -1673,11 +1689,11 @@ function renderVideo(r, dur) {
   } else {
     const m = r.m, side = r.view === 'front' ? '앞모습' : '뒷모습';
     const diff = (a, b) => a != null && b != null ? `좌우 차이 ${Math.abs(a - b).toFixed(0)}°` : '';
-    html += `<h2>영상 분석 결과 · ${side}</h2><div class="sub">몸이 잡힌 장면 ${Math.round(r.validFrac * 100)}% · 앞·뒤 각도는 휴대폰 영상으로 검증된 연구를 찾지 못해 모두 "검증 안 됨"이에요. 같은 조건으로 찍어 좌우 비교·변화 추적에 쓰세요.</div>`;
+    html += `<h2>영상 분석 결과 · ${side}</h2><div class="sub">몸이 잡힌 장면 ${Math.round(r.validFrac * 100)}% · 앞·뒤 각도는 휴대폰 영상으로 검증된 연구를 찾지 못했어요. 골반 값은 다른 도구 연구에서 기준 장비와 차이가 커서 "부정확할 수 있음", 나머지는 "검증 안 됨"이에요. 같은 조건으로 찍어 좌우 비교·변화 추적에 쓰세요.</div>`;
     html += glanceFront(r, dur != null);
-    html += metric({ title: '골반 내려감 정도 (반대쪽)', value: `왼발 ${f0(m.dropL)} · 오른발 ${f0(m.dropR)}`, unit: '', grade: 'n',
+    html += metric({ title: '골반 내려감 정도 (반대쪽)', value: `왼발 ${f0(m.dropL)} · 오른발 ${f0(m.dropR)}`, unit: '', grade: 'o',
       body: `<div class="calc">한 발로 디딜 때 반대쪽 골반이 내려간 각도 (상위 10% 값)<br>${diff(m.dropL, m.dropR)}<br>페리의 보행 분석 기준: 체중 받기 때 반대쪽 골반 약 4°, 엉덩이 벌림근이 5° 이하로 제한</div>`,
-      why: ['양쪽 엉덩이 점을 잇는 선이 수평에서 기운 각도', '입각기 다리는 "발목이 화면에서 더 아래에 있는 다리"로 근사', '휴대폰 2D 영상의 정확도 연구는 찾지 못함'], refs: ['perry9'], limit: '휴대폰 2D 영상이라 카메라 각도·거리에 따라 몇 도 달라질 수 있어요.',
+      why: ['양쪽 엉덩이 점을 잇는 선이 수평에서 기운 각도', '입각기 다리는 "발목이 화면에서 더 아래에 있는 다리"로 근사', '뒤에서 찍은 영상의 골반 각도는 연구에서 기준 장비(VICON)와 차이가 컸어요(다른 자세 인식 도구 OpenPose로 한 연구)'], refs: ['perry9', 'ota2021'], limit: '휴대폰 2D 영상이라 카메라 각도·거리에 따라 몇 도 달라질 수 있어요.',
       cmp: { unit: '°', fig: 'pelvis', rows: [{ label: '왼발 디딜 때', ref: 4, mine: m.dropL }, { label: '오른발 디딜 때', ref: 4, mine: m.dropR }] } });
     html += metric({ title: '무릎 안쪽 모임', value: `왼 ${f0(m.valgusL)} · 오른 ${f0(m.valgusR)}`, unit: '', grade: 'n',
       body: `<div class="calc">디딜 때 무릎이 엉덩이-발목 선보다 안쪽(+)·바깥쪽(−)으로 간 각도 (상위 10% 값)<br>${diff(m.valgusL, m.valgusR)}</div>`,

@@ -150,6 +150,18 @@ export function analyzeWalk(samples, { position = 'pocket', activity = 'walk' } 
 // 케이던스만으로는 '허벅지 달리기'와 '허리 걷기'의 반복 간격이 같아서 흔들림 세기를 함께 봄.
 // ponytail: RUN_SD는 가짜 신호로만 맞춘 값 → 실제 기록(시트의 sd 값)으로 보정 필요
 export const RUN_CAD = 140, RUN_SD = 3;   // 걸음/분, m/s²
+// 빠르게 걸은 분: 1분씩 잘라 그 1분 동안 걸은 걸음 수(= 그 분의 분당 걸음)가 100 이상인 분을 셈. 끝에 남은 1분 미만은 세지 않음
+// 100걸음/분 ≈ 중간 강도 3 METs (McAvoy 2021, 21~60세 / Tudor-Locke 2021, 61~85세, 집단 평균)
+export function fastMinutes(samples, opts, limit = 100) {
+  const t0 = samples[0].t, total = Math.floor((samples[samples.length - 1].t - t0) / 60000);
+  let fast = 0;
+  for (let k = 0; k < total; k++) {
+    const r = analyzeWalk(samples.filter(p => p.t >= t0 + k * 60000 && p.t < t0 + (k + 1) * 60000), opts);
+    if (!r.error && r.steps >= limit) fast++;
+  }
+  return { fastMin: fast, minutes: total };
+}
+
 export function guessActivity(samples) {
   const r = analyzeWalk(samples, { activity: 'run' });
   if (r.error) return null;
