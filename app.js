@@ -375,7 +375,7 @@ async function stopRec(killed = false) {
   window.removeEventListener('devicemotion', onMotion);
   stopGps();
   $('rec').classList.add('hidden'); $('setup').classList.remove('hidden');
-  if (samples.length < 20) { const rc = sendEnd([endTag], $('act').value, $('pos').value, noDiag()); return alert('센서 값이 거의 들어오지 않았어요. 다시 시도해 주세요.' + sentText(rc)); }
+  if (samples.length < 20) { const rc = sendEnd([endTag], $('act').value, $('pos').value, noDiag()); if (endTag === 'end:cancel') return; return alert('센서 값이 거의 들어오지 않았어요. 다시 시도해 주세요.' + sentText(rc)); }
   finish(samples, false, gpsPts);
 }
 
@@ -622,7 +622,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v95';
+const APP_VERSION = 'v96';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -1190,7 +1190,7 @@ $('recMapBtn').addEventListener('click', async () => {
   if (!pts) return (btn.textContent = '아직 경로가 없어요 · 야외에서 조금 더 간 뒤 다시 눌러요');
   btn.textContent = '지도 불러오는 중…';
   $('rec').classList.add('mapOpen');
-  if (await drawRoute($('recMap'), pts, true)) { btn.textContent = '지도 접기'; $('recMap').scrollIntoView({ block: 'nearest' }); }
+  if (await drawRoute($('recMap'), pts, true)) { btn.textContent = '지도 접기'; $('recMap').scrollIntoView({ block: 'center' }); }
   else { closeRecMap(); btn.textContent = '지도를 못 불러왔어요 · 다시 누르기'; }
 });
 
@@ -2125,6 +2125,6 @@ if ('serviceWorker' in navigator) {
 }
 // 웹인지 설치형인지 + 버전 (검수팀 제안 c). 앱 버전은 0.14부터 네이티브가 알려 줌, 그 전 앱은 버전 없이
 $('appver').textContent = Native ? `설치형 앱 · 화면 ${APP_VERSION}` : `웹(브라우저) · 화면 ${APP_VERSION}`;
-$('recMode').textContent = Native ? '측정 중 · 화면 꺼도 돼요' : '측정 중 · 화면을 켜 두세요';
+$('recMode').textContent = Native ? '설치형 앱 · 화면 꺼도 돼요' : '웹 · 화면을 켜 두세요';   // 웹인지 설치형인지 스스로 구분 (아버님 민원, v86)
 $('recMode').classList.toggle('web', !Native);
 if (Native) (async () => { try { const { version } = await Native.info(); if (version) $('appver').textContent = `설치형 앱 ${version} · 화면 ${APP_VERSION}`; } catch {} })();

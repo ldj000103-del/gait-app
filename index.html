@@ -215,6 +215,7 @@
   /* 측정 중 화면 (디자인 팀 시안 A, 10/27): 어두운 바탕 흰 글씨, 가운데 원 타이머, 실시간 값 3칸, 지도는 접어 두고, 측정 종료는 아래 고정 + 확인 창 */
   body.recording #rec { position:fixed; inset:0; margin:0; border:0; border-radius:0; background:#000; color:#fff; box-shadow:none; overflow-y:auto;
                         padding:calc(16px + env(safe-area-inset-top)) 16px calc(100px + env(safe-area-inset-bottom)); }
+  body.recording #rec { scroll-padding-bottom:calc(96px + env(safe-area-inset-bottom)); }   /* 고정 종료 버튼 뒤로 지도가 숨지 않게 */
   #rec .rtop { display:flex; justify-content:space-between; align-items:center; gap:8px; }
   #rec .rchip { display:inline-flex; align-items:center; gap:6px; font-size:.8125rem; font-weight:600; padding:5px 12px; border-radius:999px; background:#1a201e; color:#fff; }
   #rec .rchip::before { content:''; width:8px; height:8px; border-radius:50%; background:#16a383; }
