@@ -144,25 +144,29 @@ function onMotion(e) {
   if (a && a.x != null) samples.push({ t: e.timeStamp, x: a.x, y: a.y, z: a.z });
 }
 // 휴대폰 허용 창이 뜨기 전에 무엇을·어디에 쓰는지 우리 화면으로 먼저 보여 줌(처음 한 번). '나중에 할게요'면 false (문구는 privacy.html과 같게)
+let permOpen = null;                                                       // 판이 떠 있으면 같은 답을 기다림 (키보드로 '시작'을 또 눌러도 판·권한 요청이 두 번 생기지 않게)
 function permIntro(key, title, cards) {
   if (store.get(key, false)) return Promise.resolve(true);
-  return new Promise(res => {
+  if (permOpen) return permOpen.then(() => false);
+  return permOpen = new Promise(res => {
     const o = document.createElement('div');
     o.id = 'permOv'; o.setAttribute('role', 'dialog'); o.setAttribute('aria-modal', 'true'); o.setAttribute('aria-label', title);
     o.innerHTML = `<div class="dsheet" style="padding-left:20px;padding-right:20px"><h3 style="margin:0 0 4px">${title}</h3><div class="sub">다음 화면에서 휴대폰이 허용을 물어봐요.</div>
       ${cards.map(([h, t]) => `<div class="pcard"><b>${h}</b><div class="sub">${t}</div></div>`).join('')}
       <button data-p="ok">계속</button><button class="ghost" data-p="later">나중에 할게요</button></div>`;
     document.body.append(o);
+    for (const el of [document.querySelector('main'), $('tabbar')]) el.inert = true;
     o.addEventListener('click', e => {
       const b = e.target.closest('[data-p]'); if (!b) return;
-      o.remove(); if (b.dataset.p === 'ok') store.set(key, true); res(b.dataset.p === 'ok');
+      for (const el of [document.querySelector('main'), $('tabbar')]) el.inert = false;
+      o.remove(); permOpen = null; if (b.dataset.p === 'ok') store.set(key, true); res(b.dataset.p === 'ok');
     });
     o.querySelector('[data-p=ok]').focus();
   });
 }
 const INTRO_LOC = ['위치를 사용할까요?', [['가져오는 것', '측정하는 동안만 GPS 위치(위도·경도·정확도). 측정 중 알림창 표시도 허용을 물어봐요.'],
   ['쓰는 곳', '걸은 거리·속도 계산과 경로 지도(지도는 누를 때만 카카오 지도를 불러와요)'],
-  ['보내지 않아요', '경로는 그 측정 기록과 함께 이 휴대폰에만 저장해요(최근 30개 기록). 운영자에게 보내지 않아요.']]];
+  ['보내지 않아요', '경로는 그 측정 기록과 함께 이 휴대폰에만 저장해요(최근 30개 기록). 운영자에게 보내지 않아요. 지도를 누를 때만 보이는 지역의 대략 위치와 인터넷 주소(IP)가 카카오에 전달돼요.']]];
 const INTRO_NOTI = ['알림을 허용할까요?', [['가져오는 것', '가져오는 정보는 없어요. 알림을 띄우는 권한만 써요.'],
   ['쓰는 곳', '측정하는 동안 알림창에 "걸음 측정 중"을 보여 줘요. 화면이 꺼져도 측정이 이어져요.'],
   ['보내지 않아요', '알림 권한으로는 아무것도 보내지 않아요.']]];
@@ -444,7 +448,7 @@ function send(r) {
 }
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v72';
+const APP_VERSION = 'v73';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
