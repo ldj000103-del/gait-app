@@ -293,16 +293,19 @@ const BATTERY_TIP = '삼성 휴대폰은 설정 → 배터리 → 백그라운�
 // 결과가 안 나온 측정도 이유만 한 줄 보냄 (시작한 측정 중 몇 번 성공했나 = 수율의 분모, 데이터분석팀). 걸음 숫자 칸은 빈칸,
 // warnings = 이유 표시(end:… / failed:…) + 측정 정보. 익명 전송 동의자만, 14세 미만은 send()가 막음. 휴대폰 기록에는 저장 안 함
 function sendEnd(tags, act, position, diag) {
-  if (!consent?.share || !ENDPOINT) return '';
+  if (!consent?.share || !ENDPOINT) return null;
   const today = new Date().toLocaleDateString('sv-SE');
   const practice = act === 'walk' && !store.get('history', []).some(h => (h.activity ?? 'walk') === 'walk' && new Date(h.date).toLocaleDateString('sv-SE') === today);
-  let rc = null;
-  try { rc = send({ date: new Date().toISOString(), activity: act, position, practice, warnings: tags, diag }); } catch {}
-  return rc ? `<div class="sub">걸음 숫자 없이 측정 정보만 익명으로 보냈어요. 접수번호 <b>${rc}</b> · 지우고 싶으면 이 번호를 ldj000103@gmail.com으로 보내 주세요(이 화면을 벗어나면 다시 볼 수 없으니 적어 두세요).</div>` : '';
+  try { return send({ date: new Date().toISOString(), activity: act, position, practice, warnings: tags, diag }); } catch { return null; }
 }
+const sentNote = rc => rc ? `<div class="sub">걸음 숫자 없이 측정 정보만 익명으로 보냈어요. 접수번호 <b>${rc}</b> · 지우고 싶으면 이 번호를 ldj000103@gmail.com으로 보내 주세요(이 화면을 벗어나면 다시 볼 수 없으니 적어 두세요).</div>` : '';
+const sentText = rc => rc ? `
+
+측정 정보만 익명으로 보냈어요. 접수번호 ${rc} (지우려면 이 번호를 ldj000103@gmail.com으로 보내 주세요)` : '';
 const noDiag = () => ({ src: Native ? 'app' : 'web', durS: 0, hz: 0, gapS: 0, gpsGood: 0 });   // 센서 값이 거의 없어 측정 정보를 못 만든 경우
 async function stopRec(killed = false) {
   killed = killed === true;                                                // '끝' 버튼은 클릭 이벤트를 넘김 → 진짜 true일 때만
+  shownDate = null;                                                        // 실패 화면에 앞 측정의 공유·원본·상황 버튼이 붙지 않게 (finish는 따로 다시 정함)
   const rec = store.get('rec', null), ran = t0, lead = rec?.lead ?? 0; clearInterval(timer); t0 = 0;
   const endTag = !rec || Date.now() < rec.startWall ? 'end:cancel' : 'end:noData';   // 3초 카운트다운 중에 끝 = 취소
   store.set('rec', null); store.set('recSnap', null);
@@ -317,9 +320,9 @@ async function stopRec(killed = false) {
     const longRun = rec?.startWall && Date.now() - rec.startWall > 20000;   // 20초 넘게 지났는데 값이 없으면 '짧아서'가 아니라 측정이 멈춘 것
     if (s.length < 20) {
       const act = rec?.act ?? $('act').value;
-      if (killed || longRun) return showHtml(`<h2>측정이 멈췄어요</h2><div class="warn">휴대폰이 앱을 정리해서 측정이 멈췄고, 저장된 측정값이 없어요. 다시 측정해 주세요.<br>${BATTERY_TIP}</div>${sendEnd(['end:killed'], act, $('pos').value, noDiag())}`);
-      sendEnd([endTag], act, $('pos').value, noDiag());
-      return alert('측정 시간이 너무 짧아요. 시작 후 3초 동안은 주머니에 넣는 시간이라 빼고, 그 뒤부터 재요. 걷고 나서 끝을 눌러 주세요.');
+      if (killed || longRun) return showHtml(`<h2>측정이 멈췄어요</h2><div class="warn">휴대폰이 앱을 정리해서 측정이 멈췄고, 저장된 측정값이 없어요. 다시 측정해 주세요.<br>${BATTERY_TIP}</div>${sentNote(sendEnd(['end:killed'], act, $('pos').value, noDiag()))}`);
+      const rc = sendEnd([endTag], act, $('pos').value, noDiag());
+      return alert('측정 시간이 너무 짧아요. 시작 후 3초 동안은 주머니에 넣는 시간이라 빼고, 그 뒤부터 재요. 걷고 나서 끝을 눌러 주세요.' + sentText(rc));
     }
     finish(s, false, g);
     if (killed || r.fromFile) $('result').insertAdjacentHTML('afterbegin', `<div class="warn">측정 중에 휴대폰이 앱을 정리해서 측정이 중간에 멈췄어요. 멈추기 전까지 저장된 기록으로 분석했어요(걸음 수·시간이 실제보다 적을 수 있어요).<br>${BATTERY_TIP}</div>`);
@@ -329,7 +332,7 @@ async function stopRec(killed = false) {
   window.removeEventListener('devicemotion', onMotion);
   stopGps();
   $('rec').classList.add('hidden'); $('setup').classList.remove('hidden');
-  if (samples.length < 20) { sendEnd([endTag], $('act').value, $('pos').value, noDiag()); return alert('센서 값이 거의 들어오지 않았어요. 다시 시도해 주세요.'); }
+  if (samples.length < 20) { const rc = sendEnd([endTag], $('act').value, $('pos').value, noDiag()); return alert('센서 값이 거의 들어오지 않았어요. 다시 시도해 주세요.' + sentText(rc)); }
   finish(samples, false, gpsPts);
 }
 
@@ -359,18 +362,18 @@ function finish(data, demo = false, gps = []) {
     const mmss = x => { const t = Math.round(x); return t >= 60 ? `${Math.floor(t / 60)}분 ${t % 60}초` : `${t}초`; };   // 초를 먼저 반올림 ("1분 60초" 방지)
     const why = diag.hz < 10 ? `기록이 초당 ${diag.hz.toFixed(0)}번뿐이라(정상은 수십 번) 걸음을 셀 수 없었어요.` : `${mmss(durS)} 중 ${mmss(recS)}만 기록됐어요.`;
     // 실패한 측정도 걸음 숫자 없이 '실패' 표시와 측정 정보만 보냄 (실패가 얼마나 잦은지 세려고, 데이터분석팀). 휴대폰 기록에는 저장 안 함
-    const sentNote = sendEnd([diag.hz < 10 ? 'failed:lowHz' : 'failed:gaps'], act, position, diag);
-    showHtml(`<h2>측정이 제대로 안 됐어요</h2><div class="warn">${Native ? '' : '<b>다음엔 손에 들고 화면을 켠 채로 재 주세요.</b> 주머니에 넣고 재려면 <a href="install.html">설치형 앱</a>을 쓰세요.<br>'}${why} 그래서 이번 측정은 기록에 저장하지 않았어요.</div>${sentNote}${diagHtml}`);
+    const note = sentNote(sendEnd([diag.hz < 10 ? 'failed:lowHz' : 'failed:gaps'], act, position, diag));
+    showHtml(`<h2>측정이 제대로 안 됐어요</h2><div class="warn">${Native ? '' : '<b>다음엔 손에 들고 화면을 켠 채로 재 주세요.</b> 주머니에 넣고 재려면 <a href="install.html">설치형 앱</a>을 쓰세요.<br>'}${why} 그래서 이번 측정은 기록에 저장하지 않았어요.</div>${note}${diagHtml}`);
     return;
   }
   if (paused && !res.error) res.warnings.push('paused');
   if (res.error && paused) {
-    showHtml(`<h2>다시 측정해 주세요</h2><div class="warn">측정 중에 화면이 꺼지거나 다른 앱으로 바뀌어서 센서가 멈췄어요 (최대 ${Math.round(maxGap / 1000)}초 끊김). <b>전원 버튼은 누르지 말고</b> 시작 후 그대로 주머니에 넣어 주세요(화면이 까만 주머니 모드는 켜진 상태라 측정이 계속돼요). 끝은 1초 길게 눌러야 멈춰서 주머니 속에서 실수로 눌리지 않아요.</div>${sendEnd([`end:${res.error}`, 'paused'], act, position, diag)}`);
+    showHtml(`<h2>다시 측정해 주세요</h2><div class="warn">측정 중에 화면이 꺼지거나 다른 앱으로 바뀌어서 센서가 멈췄어요 (최대 ${Math.round(maxGap / 1000)}초 끊김). <b>전원 버튼은 누르지 말고</b> 시작 후 그대로 주머니에 넣어 주세요(화면이 까만 주머니 모드는 켜진 상태라 측정이 계속돼요). 끝은 1초 길게 눌러야 멈춰서 주머니 속에서 실수로 눌리지 않아요.</div>${sentNote(sendEnd([`end:${res.error}`, 'paused'], act, position, diag))}`);
     return;
   }
   if (res.error) {
     const msg = { tooShort: '측정 시간이 너무 짧아요(8초 이상).', noWalk: '걷는 움직임을 찾지 못했어요. 휴대폰을 주머니에 넣고 6초 이상 걸어 주세요.', irregular: '반복되는 걸음 신호를 찾지 못했어요.' }[res.error];
-    showHtml(`<h2>다시 측정해 주세요</h2><div class="warn">${msg} 그래서 이번 측정은 기록에 저장하지 않았어요.</div>${sendEnd([`end:${res.error}`], act, position, diag)}${diagHtml}`);
+    showHtml(`<h2>다시 측정해 주세요</h2><div class="warn">${msg} 그래서 이번 측정은 기록에 저장하지 않았어요.</div>${sentNote(sendEnd([`end:${res.error}`], act, position, diag))}${diagHtml}`);
     return;
   }
   const today = new Date().toLocaleDateString('sv-SE');                  // 휴대폰 시간대 기준 YYYY-MM-DD
@@ -481,7 +484,7 @@ async function rawGet(key) {
   return new Promise(ok => { const q = db.transaction('raw').objectStore('raw').get(key); q.onsuccess = () => ok(q.result ?? null); q.onerror = () => ok(null); });
 }
 function saveRec(rec, hist, demo, raw) {
-  if (raw && !demo) rawPut(rec.date, raw.map(p => [Math.round(p.t * 10) / 10, +p.x.toFixed(3), +p.y.toFixed(3), +p.z.toFixed(3)])).catch(() => {});
+  if (raw && !demo && !raw[0]?.mag) rawPut(rec.date, raw.map(p => [Math.round(p.t * 10) / 10, +p.x.toFixed(3), +p.y.toFixed(3), +p.z.toFixed(3)])).catch(() => {});
   hist.unshift(rec);
   hist.forEach((h, i) => { if (i >= ROUTE_KEEP) delete h.route; });     // ponytail: 휴대폰 저장 공간(약 5MB) 때문에 최근 30개만. 더 필요하면 IndexedDB로
   store.set('history', hist.slice(0, 200));
@@ -1094,6 +1097,7 @@ $('result').addEventListener('click', async e => {
   if (!rows?.length) return alert(`이 측정은 센서 원본이 없어요. 원본은 v82 이후 측정 중 최근 ${RAW_KEEP}개만 이 휴대폰에 보관해요.`);
   const csv = 't_ms,ax,ay,az\n' + rows.map(r => r.join(',')).join('\n') + '\n';
   const name = `gait-raw-${new Date(b.dataset.raw).toLocaleString('sv-SE').slice(0, 16).replace(/[- :]/g, '')}.csv`;   // 휴대폰 시간 기준 YYYYMMDDHHMM
+  // ponytail: 문자열을 base64로 한 번에 만듦. 3시간(약 16MB) 측정은 저사양 폰에서 느릴 수 있음 → 필요하면 Blob + Filesystem utf8 쓰기로
   shareFile('data:text/csv;base64,' + btoa(csv), name, '걸음 분석 센서 원본');   // CSV는 숫자·쉼표만이라 btoa 그대로 됨
 });
 function showHtml(html) {
@@ -1999,7 +2003,7 @@ homeReady = true;
   store.set('rec', null); store.set('recSnap', null);
   if (!snap?.s?.length) return;
   $('pos').value = snap.pos; $('dmode').value = snap.dmode; gpsDenied = snap.gpsDenied; hiddenDuringRec = true;
-  finish(snap.s.map(([t, m]) => ({ t, x: m, y: 0, z: 0 })), false, snap.g || []);
+  finish(snap.s.map(([t, m]) => ({ t, x: m, y: 0, z: 0, mag: true })), false, snap.g || []);   // mag: 크기 값뿐 → 센서 원본으로는 저장 안 함
   $('result').insertAdjacentHTML('afterbegin', '<div class="warn">측정 중에 다른 앱으로 나가서 측정이 끊겼어요. 나가기 직전까지의 기록으로 분석했어요. 웹앱은 다른 앱으로 가면 측정이 멈춰요. 설치형 안드로이드 앱은 다른 앱을 써도 계속 측정돼요.</div>');
 })();
 if (document.body.dataset.tab === 'home') setTab('home');   // 측정 이어 하기로 이미 측정 탭을 열었으면 그대로
