@@ -75,8 +75,24 @@ ageNote();
 // ── 활동 종류 (선택은 이 휴대폰에 기억) ──
 $('act').value = store.get('act', 'auto');
 // 위치기반서비스 이용 동의 (위치정보법 제19조): GPS를 쓰는 측정에만 필요, 체크를 풀면 철회
+// 위치 약관이 바뀌면 이미 동의한 사람에게만 앱을 열 때 안내 (재동의 아님). '약관 보기'나 '닫기'를 누르면 다시 안 뜸.
+// 새로 동의하는 사람은 지금 약관을 보고 동의하니 본 것으로 둠. 다음 개정 땐 날짜·문구만 바꿈
+const LOC_TERMS = '2026-10-26';
 $('locOk').checked = !!store.get('locConsent', null);
-$('locOk').addEventListener('change', () => store.set('locConsent', $('locOk').checked ? { date: new Date().toISOString(), version: 1 } : null));
+$('locOk').addEventListener('change', () => {
+  store.set('locConsent', $('locOk').checked ? { date: new Date().toISOString(), version: 1 } : null);
+  if ($('locOk').checked) store.set('locTermsSeen', LOC_TERMS);
+});
+if (store.get('locConsent', null) && store.get('locTermsSeen', null) !== LOC_TERMS) {
+  document.querySelector('main > .sub').insertAdjacentHTML('afterend', `<div class="card sub" id="locNote" role="status">위치기반서비스 이용약관이 바뀌었어요 (2026년 10월 26일 시행). 위치를 받는 방법, 기록 보관, 다른 사람에게 주지 않는다는 설명을 보탰어요. 동의하신 내용은 그대로라 다시 동의할 필요는 없어요.
+    <div style="display:flex;gap:6px;margin-top:10px"><button class="chip" data-loc="view">약관 보기</button><button class="chip" data-loc="close">닫기</button></div></div>`);
+  $('locNote').addEventListener('click', e => {
+    const b = e.target.closest('[data-loc]');
+    if (!b) return;
+    store.set('locTermsSeen', LOC_TERMS); $('locNote').remove();
+    if (b.dataset.loc === 'view') location.href = 'location-terms.html';
+  });
+}
 const usesGps = a => a === 'cooper' || (a !== 'slowrun' && $('dmode').value === 'gps');
 function showLoc() { $('locBox').classList.toggle('hidden', !usesGps($('act').value)); }
 function showAct() { showLoc(); const a = $('act').value; $('autoNote').classList.toggle('hidden', a !== 'auto'); $('easyNote').classList.toggle('hidden', a !== 'easyrun'); $('slowNote').classList.toggle('hidden', a !== 'slowrun'); $('cooperNote').classList.toggle('hidden', a !== 'cooper'); $('dmodeBox').classList.toggle('hidden', a === 'slowrun' || a === 'cooper'); }
@@ -397,7 +413,7 @@ function send(r) {
 }
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v63';
+const APP_VERSION = 'v64';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');

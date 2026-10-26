@@ -106,6 +106,7 @@
   #consent { display:none; }
   body.needConsent #consent { display:block; }
   body.needConsent main > section:not(#consent) { display:none; }
+  body.needConsent #locNote { display:none; }   /* 동의 화면 위에는 약관 변경 알림을 안 보임 */
   .chk { display:flex; gap:10px; align-items:flex-start; font-weight:400; margin:14px 0 4px; }
   .chk input { width:22px; height:22px; flex:none; margin-top:2px; }
   .terms { font-size:.85rem; color:var(--sub); background:var(--bg); border-radius:8px; padding:8px 12px; margin:4px 0 0 32px; }
