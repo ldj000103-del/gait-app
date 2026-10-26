@@ -285,22 +285,22 @@
     <h2>측정하기</h2>
     <details class="howto" id="firstGuide"><summary>처음 쓰는 법</summary><ol>
       <li>(선택) 위 <b>내 정보</b>에 성별·나이를 넣으면 나이·성별에 맞는 기준값과 나란히 보여 줘요.</li>
-      <li><b>무엇을 할까요</b>는 잘 모르겠으면 <b>자동</b>으로 두세요. 걷기·러닝·슬로우 러닝을 알아서 나눠요.</li>
+      <li><b>무엇을 할까요</b>는 잘 모르겠으면 <b>자동</b>으로 두세요. 걷기·러닝·슬로우 조깅 인터벌을 알아서 나눠요.</li>
       <li>휴대폰은 <b>바지 앞주머니</b>에 넣을 때 가장 정확해요.</li>
       <li><b>시작</b>을 누르고 3초 안에 주머니에 넣은 뒤, 평소처럼 걷거나 달려요.</li>
       <li>다 했으면 멈춰서 휴대폰을 꺼내 <b>끝</b>을 눌러요. 결과는 휴대폰에 저절로 저장돼요.</li>
       <li>결과 화면 아래 <b>이 숫자 읽는 법</b>을 눌러 보세요.</li></ol></details>
     <label for="act">무엇을 할까요?</label>
     <select id="act">
-      <option value="auto">자동 (걷기·러닝·슬로우 러닝을 알아서 구분)</option>
+      <option value="auto">자동 (걷기·러닝·슬로우 조깅 인터벌을 알아서 구분)</option>
       <option value="walk">걷기</option>
       <option value="run">러닝</option>
-      <option value="slowrun">슬로우 러닝 (조깅 1분 + 걷기 1분)</option>
-      <option value="easyrun">천천히 달리기 (걷기 없이 쭉, 걷는 속도로)</option>
+      <option value="easyrun">슬로우 러닝 (쭉 천천히 달리기)</option>
+      <option value="slowrun">슬로우 조깅 인터벌 (조깅 1분 + 걷기 1분)</option>
       <option value="cooper">12분 달리기 테스트 (쿠퍼)</option>
     </select>
     <div class="sub hidden" id="cooperNote">12분 동안 할 수 있는 만큼 멀리 달려요(힘들면 걸어도 돼요). 12분이 되면 진동이 오고 자동으로 끝나요. GPS로 거리를 재니 하늘이 트인 운동장·트랙에서 해 주세요. 힘껏 달리는 테스트라 심장·폐·관절 질환이 있거나 평소 운동을 안 했다면 먼저 전문가와 상의하세요. 근거: Cooper 1968.</div>
-    <div class="sub hidden" id="autoNote">시작만 누르면 케이던스와 흔들림 세기로 걷기·러닝·슬로우 러닝을 알아서 나눠요. 이 앱이 정한 규칙이라 결과에 "참고"로 표시해요. 천천히 달리기와 12분 테스트는 직접 골라 주세요.</div>
+    <div class="sub hidden" id="autoNote">시작만 누르면 케이던스와 흔들림 세기로 걷기·러닝·슬로우 조깅 인터벌을 알아서 나눠요. 이 앱이 정한 규칙이라 결과에 "참고"로 표시해요. 천천히 달리기와 12분 테스트는 직접 골라 주세요.</div>
     <div class="sub hidden" id="easyNote">걷기를 섞지 않고, 걷는 속도 정도로 쭉 천천히 달려요. 근거: Lee 2014(55,137명, 평균 15년) — 하루 5~10분, 시속 9.7km 미만으로 달려도 달리지 않는 사람보다 전체 사망 30%, 심혈관 사망 45% 낮음. 관찰 연구라 인과관계는 아니에요.</div>
     <div class="sub hidden" id="slowNote">조깅 1분, 걷기 1분을 번갈아 해요. 바뀔 때마다 진동이 와요(조깅 = 길게 1번, 걷기 = 짧게 2번). 조깅은 걷는 속도 정도로 아주 천천히. 근거: Ikenaga 2017 무작위 연구.</div>
     <label for="pos">휴대폰 위치</label>

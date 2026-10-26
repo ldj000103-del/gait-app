@@ -39,7 +39,7 @@ const REF = {
   cooper1968: 'Cooper KH. A means of assessing maximal oxygen intake: correlation between field and treadmill testing. JAMA 1968;203(3):201-4. PMID 5694044',
   ikenaga2017: 'Ikenaga M 외. Short-interval, intermittent, low-intensity, slow-jogging program in older adults: RCT. Eur J Appl Physiol 2017. doi:10.1007/s00421-016-3493-9',
 };
-const ACT = { walk: '걷기', run: '러닝', slowrun: '슬로우 러닝', easyrun: '천천히 달리기', cooper: '12분 달리기', video: '영상', auto: '자동' };
+const ACT = { walk: '걷기', run: '러닝', slowrun: '슬로우 조깅 인터벌', easyrun: '슬로우 러닝', cooper: '12분 달리기', video: '영상', auto: '자동' };
 const isRun = h => h.activity === 'run' || h.activity === 'easyrun';   // 천천히 달리기도 러닝 통계에 넣음
 const POS = { pocket: '바지 앞주머니', waist: '허리', hand: '손' };
 const VIEW = { side: '옆', front: '앞', back: '뒤' };
@@ -580,7 +580,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v82';
+const APP_VERSION = 'v83';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -610,7 +610,7 @@ function autoNote(r) {
   if (!a.act && !a.pos) return '';
   return `<div class="metric"><div class="sub">${a.act ? `활동: <b>${ro(ACT[a.act])}</b> 자동 구분 <span class="badge b-y">참고</span><br>` : ''}${a.pos ? `휴대폰 위치: <b>${ro(POS[a.pos])}</b> 짐작 <span class="badge b-n">검증 안 됨</span><br>` : ''}다르면 다음엔 측정 탭에서 골라 주세요.</div>
     <details><summary>어떻게 골랐나요?</summary><ul>
-    ${a.act ? `<li>달리기 방식으로 센 케이던스가 ${RUN_CAD}걸음/분 이상이고 흔들림도 크면 달리기, 아니면 걷기로 봐요. 이 선은 이 앱이 정한 것이고 연구로 확인하지 않았어요.</li><li>30초씩 나눠 보고 걷기와 달리기가 각각 1분 넘게 섞여 있으면 슬로우 러닝으로 봐요.</li>` : ''}
+    ${a.act ? `<li>달리기 방식으로 센 케이던스가 ${RUN_CAD}걸음/분 이상이고 흔들림도 크면 달리기, 아니면 걷기로 봐요. 이 선은 이 앱이 정한 것이고 연구로 확인하지 않았어요.</li><li>30초씩 나눠 보고 걷기와 달리기가 각각 1분 넘게 섞여 있으면 슬로우 조깅 인터벌로 봐요.</li>` : ''}
     ${a.pos ? '<li>화면이 하늘을 보고 있으면 손, 같은 다리가 돌아올 때만 신호가 크게 반복되면 바지 앞주머니(허벅지), 걸음마다 비슷하면 허리로 짐작해요(Perry 7장: 몸통 움직임은 걸음마다 반복). 정확도를 확인한 연구가 없어요.</li>' : ''}</ul></details></div>`;
 }
 const READ_GUIDE = `<details class="howto"><summary>이 숫자 읽는 법</summary><ul>
@@ -835,7 +835,7 @@ function renderRun(r, prev) {
   const { age } = store.get('profile', {});
   const c = r.cadence;
   const easy = r.activity === 'easyrun';
-  let html = `<h2>${easy ? '천천히 달리기' : '러닝'} 결과</h2>` + autoNote(r) + warnHtml(r);
+  let html = `<h2>${easy ? '슬로우 러닝' : '러닝'} 결과</h2>` + autoNote(r) + warnHtml(r);
   html += metric({ title: '케이던스 (분당 걸음 수)', value: c.toFixed(0), unit: '걸음/분', grade: r.warnings.includes('hand') || r.warnings.includes('irregular') ? 'o' : 'y',
     body: `<div class="sub">${prev ? `지난 러닝 ${prev.cadence.toFixed(0)} → ${c >= prev.cadence ? '+' : ''}${(c - prev.cadence).toFixed(0)}` : '러닝 케이던스는 사람·속도마다 달라 기준값 하나로 비교하지 않아요.'}</div>`,
     why: ['걷기 케이던스는 스마트폰 정확도 연구가 있지만(상관 0.997), 주머니 스마트폰의 달리기 케이던스 검증 연구는 아직 찾지 못해 "참고" 등급이에요.',
@@ -856,7 +856,7 @@ function renderRun(r, prev) {
 
 function renderSlow(r, hist) {
   const wk = weekSlowJogMin(hist);
-  let html = `<h2>슬로우 러닝 결과</h2>` + autoNote(r);
+  let html = `<h2>슬로우 조깅 인터벌 결과</h2>` + autoNote(r);
   html += metric({ title: '조깅 구간 케이던스', value: r.cadence.toFixed(0), unit: `걸음/분 (조깅 ${r.jogCount}구간 평균)`, grade: 'y',
     body: r.walkCadence ? `<div class="sub">걷기 구간 케이던스 ${r.walkCadence.toFixed(0)}걸음/분</div>` : '',
     why: ['1분씩 잘라 조깅 구간은 러닝 방식, 걷기 구간은 걷기 방식으로 계산했어요. 구간마다 앞뒤 2초는 뺐어요.', '달리기 케이던스의 스마트폰 정확도 검증 연구는 아직 못 찾아 "참고"'], refs: ['neumann16'] });
@@ -1471,7 +1471,7 @@ function renderHome() {
       <text x="54" y="52" text-anchor="middle" font-size="22" font-weight="800" fill="var(--ink)">${wk.toFixed(0)}</text>
       <text x="54" y="70" text-anchor="middle" font-size="11" fill="var(--sub)">/ 90분</text></svg>
     <div><div style="font-weight:700">${Math.round(frac * 100)}%</div>
-      <div class="sub">월요일부터 이번 주에 슬로우 러닝으로 조깅한 시간이에요. 90분은 Ikenaga 2017 무작위 연구의 주간 조깅량이에요(목표 처방이 아니에요).</div></div>`;
+      <div class="sub">월요일부터 이번 주에 슬로우 조깅 인터벌로 조깅한 시간이에요. 90분은 Ikenaga 2017 무작위 연구의 주간 조깅량이에요(목표 처방이 아니에요).</div></div>`;
   renderWeek();
   renderTrend();
   markTerms($('home'));
@@ -1886,7 +1886,7 @@ const LEARN = [
   ['하루 7,000걸음', ['Ding 2025 메타분석(57개 연구): 하루 2,000걸음 대비 7,000걸음에서 전체 사망 위험 47% 낮음, 낙상 28%·치매 38% 낮음', '사망·낙상 등은 약 5,000~7,000걸음 이후 이득이 완만해짐'], '관찰 연구라 인과관계는 아님', ['ding2025']],
   ['러닝 케이던스를 5~10% 올린 연구', ['Heiderscheit 2011(취미 러너 45명, 같은 속도): +5%에서 무릎이 흡수하는 에너지 감소, +10%에서 엉덩관절 흡수와 엉덩관절 모음 각도·모멘트도 감소. 한걸음 길이·몸의 위아래 움직임·제동충격량·무릎 굽힘 정점 감소', 'Neumann 16장(책 p.795): 케이던스 10% 증가 → 입각기 무릎넙다리관절 힘 정점 14% 감소', 'Petri 2026 우산 고찰: 연구들의 주된 방법 = 케이던스 5~10%를 점진적으로 올리고 소리·화면 피드백을 서서히 줄이기'], 'Anderson 2022 메타분석: 손상 예방 효과는 아직 근거 부족. 대부분 단기 연구', ['heiderscheit', 'neumann16', 'petri2026', 'anderson2022']],
   ['느리게 달려도 될까요?', ['Lee 2014(55,137명, 평균 15년): 하루 5~10분, 시속 9.7km 미만으로 달려도 달리지 않는 사람보다 전체 사망 30%, 심혈관 사망 45% 낮음', 'Pedisic 2020 메타분석(232,149명): 달리기 참여 시 전체 사망 27% 낮음. 빈도·시간·속도·총량이 늘어도 추가 이득은 확인되지 않음'], '관찰 연구라 인과관계는 아님', ['lee2014', 'pedisic2019']],
-  ['슬로우 러닝 (조깅 1분 + 걷기 1분)', ['Ikenaga 2017 무작위 연구(평균 70.8세, 81명): 걷기 속도의 조깅 1분 + 걷기 1분 반복, 주 90분 조깅 + 90분 걷기를 12주', '결과: 무산소역치(지구력) +15.7%(대조군 +4.9%), 앉았다 일어서기 +12.9%(대조군 +4.5%), 허벅지 근육 속 지방 감소'], '노인 대상 12주 소규모 연구', ['ikenaga2017']],
+  ['슬로우 조깅 인터벌 (조깅 1분 + 걷기 1분)', ['Ikenaga 2017 무작위 연구(평균 70.8세, 81명): 걷기 속도의 조깅 1분 + 걷기 1분 반복, 주 90분 조깅 + 90분 걷기를 12주', '결과: 무산소역치(지구력) +15.7%(대조군 +4.9%), 앉았다 일어서기 +12.9%(대조군 +4.5%), 허벅지 근육 속 지방 감소'], '노인 대상 12주 소규모 연구', ['ikenaga2017']],
   ['영상으로 본 무릎 각도', ['Perry 4·5장: 초기 유각에 무릎이 약 60° 굽혀져야 발끝이 바닥에 걸리지 않음. 이 굽힘은 거의 근육 없이 관성으로 만들어짐', 'Perry 4장: 발이 닿고 0.02초 만에 체중 60%가 실림. 무릎 약 15° 굽힘으로 충격을 흡수', 'Perry 17장: 다리가 돌아가 있으면 카메라 1대의 각도는 실제와 달라질 수 있어요'], '휴대폰 카메라 1대의 각도는 참고값', ['perry9', 'perry17']],
   ['발이 굴러가는 흔들의자 3개', ['Perry 4장: 한 발이 땅을 딛는 동안 몸이 굴러가는 축이 3번 바뀌어요. 흔들의자 다리처럼 둥근 곳을 축으로 몸이 앞으로 굴러가서 덜컹거리지 않고 부드럽게 나아가요', '① 뒤꿈치 흔들의자(체중 받기): 뒤꿈치를 축으로 발바닥이 내려와요. 정강이 앞 근육이 발이 "탁" 떨어지지 않게 천천히 내려놓아요', '② 발목 흔들의자(중간 입각): 발은 바닥에 붙은 채 정강이가 앞으로 기울어요. 가자미근이 너무 빨리 넘어가지 않게 속도를 조절해요', '③ 앞발 흔들의자(말기 입각): 발가락 뿌리를 축으로 뒤꿈치가 들려요. 걸을 때 가장 강한 추진력이 여기서 나와요'], '영상의 발목 각도는 정확도가 낮아서 흔들의자를 직접 재지는 않아요', ['perry4']],
   ['걸음이 달라지는 원인 (교육용)', ['Perry 10장: 병은 달라도 걸음에 주는 영향은 몇 가지로 나뉘어요 — 관절 변형(굳음), 근력 약화, 감각 소실, 통증, 운동 조절 장애', '근력 약화: 감각과 조절이 괜찮으면 다른 동작으로 아주 잘 보완해요. 느리게 걷는 것도 보완 방법이에요', '감각 소실: 관절 위치를 잘 몰라서 무릎을 잠그거나 바닥을 세게 디디며 느리고 조심스럽게 걸어요', '통증: 관절이 부으면 압력이 가장 낮은 자세(무릎 굽힘 30~45° 등)로 굳어요'], '이 앱은 원인을 판단하지 않아요. 내 걸음이 어떤 경우인지는 전문가가 직접 봐야 알 수 있어요', ['perry10']],
@@ -1914,7 +1914,7 @@ $('dict').innerHTML = DICT.map((d, i) => `<button class="dayrec" data-di="${i}">
 $('dict').addEventListener('click', e => { const b = e.target.closest('[data-di]'); if (b) openDict(+b.dataset.di); });
 // ── 해 볼 만한 프로그램: 연구에서 쓴 방식으로 바로 측정 화면 열기 (처방·목표가 아님) ──
 const PROGS = [
-  { act: 'slowrun', name: '슬로우 러닝', badges: ['처음', '1분씩 번갈아'], text: '조깅 1분 + 걷기 1분을 번갈아 해요 · Ikenaga 2017 연구 방식' },
+  { act: 'slowrun', name: '슬로우 조깅 인터벌', badges: ['처음', '1분씩 번갈아'], text: '조깅 1분 + 걷기 1분을 번갈아 해요 · Ikenaga 2017 연구 방식' },
   { act: 'cooper', name: '12분 달리기 기록', badges: ['한 번'], text: '12분 동안 간 거리와 페이스만 재요' },
   { act: 'video', name: '10초 걸음걸이 영상', badges: ['10초'], text: '옆모습을 찍어 페리의 보행 분석 기준과 나란히 봐요' },
 ];
