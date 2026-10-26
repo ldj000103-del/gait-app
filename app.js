@@ -621,7 +621,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v88';
+const APP_VERSION = 'v89';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -1317,6 +1317,7 @@ function setTab(name) {
   for (const b of document.querySelectorAll('#tabbar button')) b.setAttribute('aria-selected', b.dataset.go === name);
   if (name === 'home') renderHome();
 }
+$('meBtn').addEventListener('click', () => { setTab('measure'); showProfSum(true); $('profile').scrollIntoView({ block: 'start' }); });   // 홈 '나' → 내 정보 펼침
 document.querySelector('#tabbar').addEventListener('click', e => { const b = e.target.closest('button[data-go]'); if (b) { setTab(b.dataset.go); scrollTo(0, 0); } });
 
 // ── 홈: 요약 카드 · 이번 주 슬로우 조깅 링 · 변화 그래프 ──
@@ -1327,8 +1328,13 @@ function spark(vals, color) {                                              // �
   const lo = Math.min(...vals), hi = Math.max(...vals), X = i => 4 + i * 64 / (vals.length - 1), Y = v => hi === lo ? 16 : 28 - 24 * (v - lo) / (hi - lo);
   return `<svg width="72" height="32" viewBox="0 0 72 32" aria-hidden="true"><polyline points="${vals.map((v, i) => `${X(i).toFixed(1)},${Y(v).toFixed(1)}`).join(' ')}" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round" opacity=".55"/><circle cx="${X(vals.length - 1)}" cy="${Y(vals[vals.length - 1])}" r="3.5" fill="${color}" stroke="var(--card)" stroke-width="1.5"/></svg>`;
 }
+// 걸음 수 카드: 최근 7일 막대 (지난 날은 옅게, 오늘만 진하게)
+function weekBars(vals, color) {
+  const hi = Math.max(...vals, 1);
+  return `<svg width="72" height="32" viewBox="0 0 72 32" aria-hidden="true">${vals.map((v, i) => { const h = Math.max(2, 28 * v / hi); return `<rect x="${3 + i * 10}" y="${30 - h}" width="5" height="${h}" rx="2" fill="${color}" opacity="${i === vals.length - 1 ? 1 : .25}"/>`; }).join('')}</svg>`;
+}
 function mcard({ label, color, date = '', value, unit, sub, i, vals = [], k }) {
-  const top = `<div class="mtop"><span class="mlab"><i style="background:${color}"></i>${label}</span><span class="mdate">${date}${i != null && value != null ? (k ? ' ⌄' : ' ›') : ''}</span></div>`;
+  const top = `<div class="mtop"><span class="mlab" style="color:${color}">${label}</span><span class="mdate">${date}${i != null && value != null ? (k ? ' ⌄' : ' ›') : ''}</span></div>`;
   if (value == null) return `<div class="mcard empty">${top}<div class="mrow"><div class="mnum">기록 없음</div></div><div class="msub">${sub}</div></div>`;
   return `<button class="mcard" ${i != null ? `data-i="${i}"` : ''}${k ? ` data-k="${k}" aria-expanded="false"` : ''}>${top}<div class="mrow"><div class="mnum">${value}<small>${unit}</small></div>${spark(vals, color)}</div><div class="msub">${sub}</div></button>`;
 }
@@ -1474,7 +1480,7 @@ function bigSpark(vals, color) {
 function openCard(t) {
   const n = t.vals.length, d = n > 1 ? t.vals[n - 1] - t.vals[n - 2] : null;
   return `<div class="mcard open" data-k="${t.k}">
-    <button class="mtop mtoggle" data-k="${t.k}" aria-expanded="true"><span class="mlab"><i style="background:${t.color}"></i>${t.label}</span><span class="mdate">${t.date} ⌃</span></button>
+    <button class="mtop mtoggle" data-k="${t.k}" aria-expanded="true"><span class="mlab" style="color:${t.color}">${t.label}</span><span class="mdate">${t.date} ⌃</span></button>
     <div class="mnum">${t.value}<small>${t.unit}</small></div>
     <div class="sub">${t.ref}</div>
     ${bigSpark(t.vals, t.color)}<div class="sub">${n > 1 ? `최근 ${n}번 · 지난번보다 ${d >= 0 ? '+' : ''}${d.toFixed(t.dp ?? 0)}` : '기록이 2번 이상 쌓이면 추세선이 보여요'}</div>
@@ -1516,7 +1522,7 @@ function renderTiles() {
   ];
   if (!tiles.some(t => t.k === openTile && t.value != null)) openTile = null;
   $('tiles').innerHTML = tiles.map(t => ({ ...t, date: md2(t.h?.date) + (t.h?.practice ? ' 연습' : '') }))
-    .map(t => t.k === openTile ? openCard(t) : mcard(t)).join('');
+    .map((t, i) => (i === 0 ? '<div class="grp">걷기</div>' : i === 2 ? '<div class="grp">러닝 · 영상</div>' : '') + (t.k === openTile ? openCard(t) : mcard(t))).join('');
 }
 $('tiles').addEventListener('click', e => {
   if (e.target.closest('.term')) return;                                     // 용어 밑줄은 풀이만 열고 카드는 그대로
@@ -1941,8 +1947,8 @@ function renderSteps() {
   const n = stepsByDay[dayKey(new Date())] ?? 0, sl = sleepByDay[dayKey(new Date())];
   const missing = [!s.granted && '걸음 수', !s.sleep && '수면', !s.heart && '심박수'].filter(Boolean);
   const week = Array.from({ length: 7 }, (_, k) => stepsByDay[dayKey(plusDays(new Date(), k - 6))] ?? 0);
-  $('steps').innerHTML = (!s.granted ? '' : `<div class="mcard static"><div class="mtop"><span class="mlab"><i style="background:var(--c-walk)"></i>걸음 수</span><span class="mdate">오늘</span></div>
-      <div class="mrow"><div class="mnum">${n.toLocaleString()}<small>걸음</small></div>${spark(week, 'var(--c-walk)')}</div>
+  $('steps').innerHTML = (!s.granted ? '' : `<div class="mcard static"><div class="mtop"><span class="mlab" style="color:var(--c-walk)">걸음 수</span><span class="mdate">오늘</span></div>
+      <div class="mrow"><div class="mnum">${n.toLocaleString()}<small>걸음</small></div>${weekBars(week, 'var(--c-walk)')}</div>
       <div class="bar"><i style="width:${Math.min(100, n / 70)}%"></i></div>
       <div class="msub" style="margin-top:0">7,000걸음 대비 ${Math.round(n / 70)}% · Ding 2025 · 헬스 커넥트</div>
       <details class="msub"><summary>근거 보기</summary>Ding 2025 메타분석: 하루 2,000걸음 대비 7,000걸음에서 전체 사망 위험 47% 낮음. 관찰 연구라 인과관계는 아니고, 목표 처방도 아니에요. 계속 0이면 삼성헬스 → 설정 → 헬스 커넥트에서 걸음 수 공유를 켜 주세요.</details></div>`)
