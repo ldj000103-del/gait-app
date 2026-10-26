@@ -341,7 +341,9 @@ function finish(data, demo = false, gps = []) {
   // 측정 품질이 너무 낮으면(초당 10번 미만 또는 끊긴 시간이 절반 넘음) 결과를 보여 주지 않음 — 웹을 주머니에 넣으면 화면이 꺼져 거의 기록되지 않음
   const recS = Math.max(0, durS - gapSum / 1000);
   if (!demo && durS > 0 && (diag.hz < 10 || recS < durS / 2)) {
-    showHtml(`<h2>측정이 제대로 안 됐어요</h2><div class="warn">${durS >= 60 ? `${Math.floor(durS / 60)}분 ${Math.round(durS % 60)}초` : `${Math.round(durS)}초`} 중 ${Math.round(recS)}초만 기록됐어요(초당 ${diag.hz.toFixed(0)}번). ${Native ? '' : '웹은 화면이 꺼지거나 다른 앱으로 가면 기록이 멈춰요. 주머니에 넣고 재려면 <a href="install.html">설치형 앱</a>을 쓰세요. '}그래서 이번 측정은 기록에 저장하지 않았어요.</div>${diagHtml}`);
+    const mmss = x => { const t = Math.round(x); return t >= 60 ? `${Math.floor(t / 60)}분 ${t % 60}초` : `${t}초`; };   // 초를 먼저 반올림 ("1분 60초" 방지)
+    const why = diag.hz < 10 ? `기록이 초당 ${diag.hz.toFixed(0)}번뿐이라(정상은 수십 번) 걸음을 셀 수 없었어요.` : `${mmss(durS)} 중 ${mmss(recS)}만 기록됐어요.`;
+    showHtml(`<h2>측정이 제대로 안 됐어요</h2><div class="warn">${Native ? '' : '<b>다음엔 손에 들고 화면을 켠 채로 재 주세요.</b> 주머니에 넣고 재려면 <a href="install.html">설치형 앱</a>을 쓰세요.<br>'}${why} 그래서 이번 측정은 기록에 저장하지 않았어요.</div>${diagHtml}`);
     return;
   }
   if (paused && !res.error) res.warnings.push('paused');
