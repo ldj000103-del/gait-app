@@ -59,3 +59,4 @@
 - 앱 근거 규칙: Perry 『Gait Analysis』 1순위 → Neumann → 보바스 노트. 진단 같은 표현 금지(이번 값·기준값·출처만).
 - 현재 상태·배포 방법·노션 링크는 이 프로젝트 기억 메모(gait-app-status, gait-app-deploy)를 먼저 본다.
 - 코드를 고치기 전에 `git pull`(여러 팀이 같은 폴더에서 일함). 앱 파일을 고치면 `sw.js` VERSION과 `APP_VERSION`을 올린다.
+- **push 전 확인 (모든 팀)**: 같은 폴더의 main에서 여러 팀이 일해서, 내 커밋을 push하면 그 아래 있던 다른 팀(특히 개발팀의 검수 전) 커밋까지 같이 올라간다. push 전에 `git log --oneline origin/main..HEAD`를 보고 내 커밋 말고 다른 커밋이 섞여 있으면 **push하지 말고** 개발팀에 알린다(내 커밋은 개발팀이 push할 때 같이 올라간다). 커밋은 `git commit 파일이름`처럼 내가 바꾼 파일만 넣는다(`-a` 금지).
