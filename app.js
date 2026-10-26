@@ -476,7 +476,7 @@ function openFeedback() {
     const text = $('fbText').value.trim(), msg = $('fbMsg');
     if (under14(store.get('profile', {}).age)) return (msg.textContent = '만 14세 미만은 건의함을 쓸 수 없어요.');   // 처리방침 8번
     if (!text) return (msg.textContent = '내용을 적어 주세요.');
-    const receipt = 'K-' + [...crypto.getRandomValues(new Uint8Array(2))].map(x => x.toString(16).padStart(2, '0')).join('').toUpperCase();
+    const receipt = 'K-' + [...crypto.getRandomValues(new Uint8Array(4))].map(x => x.toString(16).padStart(2, '0')).join('').toUpperCase();
     const body = { kind: 'feedback', receipt, date: new Date().toLocaleDateString('sv-SE'), appVersion: APP_VERSION, os: osName(), src: Native ? 'app' : 'web', text };
     b.disabled = true; msg.textContent = '보내는 중…';
     fetch(ENDPOINT, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(body) })
@@ -1848,7 +1848,7 @@ function openDict(start) {
   o.addEventListener('click', e => {
     const b = e.target.closest('[data-dx]');
     if (e.target === o || b?.dataset.dx === 'skip' || (b?.dataset.dx === 'next' && cur() === last)) return close();
-    if (b) tr.scrollTo({ left: (cur() + 1) * tr.clientWidth, behavior: 'smooth' });
+    if (b) { const n = cur() + 1; tr.scrollTo({ left: n * tr.clientWidth, behavior: 'smooth' }); setTimeout(sync, 400); }   // scroll 이벤트가 안 와도 표시가 따라오게
   });
   o.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
   o.querySelector('[data-dx=next]').focus();
