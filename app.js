@@ -621,7 +621,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v92';
+const APP_VERSION = 'v93';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -671,7 +671,7 @@ const badge = g => { if (!g) return ''; const [cls, label] = GRADE[g]; return `<
 // 대표 카드 아래 아이콘 숫자 줄 (디자인 팀 10/27): 탭 막대와 같은 선 아이콘, 값이 없는 칸은 빼고 남은 칸을 같은 폭으로
 const STAT_ICON = { time: '<circle cx="12" cy="13" r="8"/><path d="M12 9v4l3 2M9 2h6"/>', dist: '<path d="M6 20c-2 0-3-1.5-3-3s1-3 3-3h12c1.7 0 3-1.3 3-3s-1.3-3-3-3H9"/><circle cx="6" cy="5" r="2"/><circle cx="18" cy="20" r="1.5"/>',
   steps: '<path d="M7 3c2 0 3 2.5 3 5.5S9 13 7 13s-3-1.5-3-4.5S5 3 7 3zM5 16h4v1.5a2 2 0 0 1-4 0zM17 7c2 0 3 2.5 3 5.5S19 17 17 17s-3-1.5-3-4.5S15 7 17 7zM15 20h4v.5a2 2 0 0 1-4 0z"/>',
-  stride: '<path d="M3 17 17 3l4 4L7 21z"/><path d="M7 13l2 2M10 10l2 2M13 7l2 2"/>', pace: '<path d="M4 18a8 8 0 1 1 16 0"/><path d="M12 18l4-6"/>', jog: '<path d="M4 12h3l2-5 4 10 2-5h5"/>' };
+  pace: '<path d="M4 18a8 8 0 1 1 16 0"/><path d="M12 18l4-6"/>', jog: '<path d="M4 12h3l2-5 4 10 2-5h5"/>' };
 const clock = s => { const t = Math.round(s); return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`; };
 const statRow = stats => { const ok = stats.filter(s => s.value != null && s.value !== ''); return ok.length ? `<div class="rstats" style="grid-template-columns:repeat(${ok.length},1fr)">${ok.map(s =>
   `<div><svg viewBox="0 0 24 24" aria-hidden="true">${STAT_ICON[s.icon]}</svg><b>${s.value}</b><small>${s.label}</small></div>`).join('')}</div>` : ''; };
@@ -760,7 +760,7 @@ function render(r, prev) {
     bar: `<div class="rbar" aria-hidden="true"><b style="left:${lo - 60}%;width:${hi - lo}%"></b><i style="left:${pos}%"></i></div>`,
     sub: `페리 기준 ${norm} · 차이 ${signed(+c.toFixed(0) - norm)}${prev ? ` · 지난번보다 ${signed(c - prev.cadence)}` : ''}`,
     stats: [{ icon: 'time', value: clock(r.diag?.durS ?? r.activeS), label: '시간' }, { icon: 'dist', value: r.distance && (r.distance / 1000).toFixed(2), label: '거리 km' },
-      { icon: 'steps', value: r.steps, label: '걸음' }, { icon: 'stride', value: r.stepLength && r.stepLength.toFixed(2), label: '보폭 m' }] }, [
+      { icon: 'steps', value: r.steps, label: '걸음' }] }, [   // 걸음 길이·속도는 기준값이 있는 작은 카드에만 (같은 값이 두 번 안 보이게)
     { label: '걷기 속도', value: r.speed ? r.speed.toFixed(2) : '-', unit: 'm/s', grade: dGrade, sub: r.speed ? `페리 1.37 · 차이 ${signed(+r.speed.toFixed(2) - 1.37, 2)}` : 'GPS·거리 입력 필요' },
     { label: '걸음 길이', value: r.stepLength ? (r.stepLength * 100).toFixed(0) : '-', unit: 'cm', grade: dGrade, sub: !r.stepLength ? 'GPS·거리 입력 필요' : ideal ? `효율 기준 약 ${(ideal * c * 100).toFixed(0)}cm` : '성별을 넣으면 기준이 보여요' },
   ]);   // 걸음 수·거리는 위 아이콘 줄에 있어서 작은 카드에서 뺌 (등급·근거는 자세히 보기에)

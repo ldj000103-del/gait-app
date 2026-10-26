@@ -175,7 +175,7 @@
   .dayrec .sub { font-weight:400; }
   [hidden] { display:none !important; }   /* display를 준 칸(.sumrow 등)도 hidden이면 숨김 */
   /* 측정 탭: 저장된 내 정보·설정은 한 줄로 접고, 큰 시작 버튼을 위로 */
-  .sumrow { display:flex; justify-content:space-between; align-items:center; gap:8px; } .sumrow .chip { flex:none; }
+  .sumrow { word-break:keep-all; display:flex; justify-content:space-between; align-items:center; gap:8px; } .sumrow .chip { flex:none; }
   button.bigstart { font-size:1.25rem; min-height:56px; margin-top:12px; }
   /* 측정 탭: 시작 버튼을 떠 있는 탭 줄 바로 위에 고정 (디자인 팀 10/27). 결과가 보이면 제자리로 */
   body[data-tab="measure"] #start { position:fixed; z-index:19; left:clamp(8px, 4vw, 40px); right:clamp(8px, 4vw, 40px); bottom:calc(78px + env(safe-area-inset-bottom));
