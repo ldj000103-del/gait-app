@@ -76,7 +76,7 @@ const under14 = age => +age > 0 && +age < 14;
 const ageNote = () => $('ageNote').classList.toggle('hidden', !under14($('age').value));
 $('sexBtns').addEventListener('click', e => { const b = e.target.closest('[data-sex]'); if (b) { setSex(b.dataset.sex); saveProf(); } });
 $('age').addEventListener('input', () => { saveProf(); ageNote(); $('profMsg').textContent = ''; });
-$('profSave').addEventListener('click', () => { saveProf(); ageNote(); $('profMsg').textContent = '저장했어요'; });
+$('profSave').addEventListener('click', () => { saveProf(); ageNote(); $('profMsg').textContent = '저장했어요'; showProfSum(false); });
 ageNote();
 
 // ── 활동 종류 (선택은 이 휴대폰에 기억) ──
@@ -621,7 +621,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v86';
+const APP_VERSION = 'v87';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -1597,8 +1597,8 @@ function showRecord(i) {
   const hist = store.get('history', []), h = hist[i];
   if (!h) return;
   const when = new Date(h.date).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-  const banner = `<div class="sub" style="margin-bottom:6px">지난 기록 다시 보기 · ${when}</div>`;
   const act = h.activity ?? 'walk';
+  const banner = `<div class="sub" style="margin-bottom:6px">지난 기록 다시 보기${act === 'video' ? ` · ${when}` : ''}</div>`;
   shownDate = h.date; route = h.route ?? null;
   // 지난 영상 기록엔 영상이 없어 사진도 숨김 (다른 영상 사진이 남지 않게)
   if (act === 'video') { setTab('video'); $('vcanvas').classList.add('hidden'); renderVideo(h.r); $('vresult').insertAdjacentHTML('afterbegin', banner); return; }
