@@ -696,7 +696,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v112';
+const APP_VERSION = 'v113';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -2341,6 +2341,7 @@ homeReady = true;
   store.set('rec', null); store.set('recSnap', null);
   if (!snap?.s?.length) return;
   $('pos').value = snap.pos; $('dmode').value = snap.dmode; gpsDenied = snap.gpsDenied; hiddenDuringRec = true;
+  showSetSum();                                                            // 접힌 설정 요약도 이어 받은 위치·거리 방법으로 (다음 측정이 이 값으로 잼)
   finish(snap.s.map(([t, m]) => ({ t, x: m, y: 0, z: 0, mag: true })), false, snap.g || []);   // mag: 크기 값뿐 → 센서 원본으로는 저장 안 함
   $('result').insertAdjacentHTML('afterbegin', `<div class="warn" style="font-size:1rem"><b>웹(브라우저)으로 측정해서 끊겼어요.</b> 나가기 직전까지의 기록으로 분석했어요. 웹은 다른 앱으로 가면 측정이 멈춰요. 설치형 안드로이드 앱은 다른 앱을 써도 계속 측정돼요.
     ${/Android/.test(navigator.userAgent) ? '<a class="btnlike" href="install.html">설치형 앱 받기</a>' : ''}</div>`);   // 검수팀 제안 d
