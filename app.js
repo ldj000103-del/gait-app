@@ -622,7 +622,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v96';
+const APP_VERSION = 'v97';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -1277,6 +1277,15 @@ const GLOSS = {
   '보행 주기': '한 발이 땅에 닿은 뒤 같은 발이 다시 닿을 때까지의 한 번의 걸음 동작(두 걸음)이에요. 0~100%로 나눠 봐요.',
   '첫 닿기': '발이 땅에 처음 닿는 순간이에요(보행 주기 0%).',
   '체중 받기': '발이 닿은 직후 몸무게가 그 다리로 실리는 구간이에요(보행 주기 0~10%).',
+  // 걸음걸이 탭 입체 비교 화면의 전통 단계 이름 ↔ 이 앱의 단계 이름 (Perry 2장 구간)
+  '발꿈치 닿기': '= 첫 닿기(Initial contact). 발꿈치가 바닥에 처음 닿는 순간이에요(보행 주기 0%).',
+  '발바닥 닿기': '= 체중 받기(Loading response). 발바닥 전체가 바닥에 닿으며 체중이 실리는 구간이에요(약 0~10%).',
+  '중간 입각기': '= 중간 입각(Mid stance). 한 발로 몸을 받치고 몸이 그 발 위를 지나가는 구간이에요(약 10~30%).',
+  '발꿈치 떼기': '= 말기 입각(Terminal stance). 발꿈치가 들리고 몸이 발 앞으로 나가는 구간이에요(약 30~50%).',
+  '발가락 떼기': '= 유각 전(Pre-swing). 발가락이 떨어지기 직전까지의 구간이에요(약 50~60%).',
+  '가속기': '= 초기 유각(Initial swing). 발이 떨어져 다리가 앞으로 나가기 시작하는 구간이에요(약 60~73%).',
+  '중간 유각기': '= 중간 유각(Mid swing). 흔드는 다리가 몸 아래를 지나가는 구간이에요(약 73~87%).',
+  '감속기': '= 말기 유각(Terminal swing). 다리가 앞으로 뻗으며 속도를 줄여 닿을 준비를 하는 구간이에요(약 87~100%).',
   '페리': 'Jacquelin Perry. 물리치료사들이 보행을 배울 때 쓰는 책 『Gait Analysis(보행 분석)』(1992)의 저자예요. 이 앱의 기준 각도·값은 주로 이 책에서 가져와요.',
   'Perry': '물리치료사들이 보행을 배울 때 쓰는 책 『Gait Analysis(보행 분석)』(1992)의 저자예요. 이 앱의 기준 각도·값은 주로 이 책에서 가져와요.',
   '입각기': '발이 땅에 닿아 몸을 받치는 구간이에요(보행 주기 약 0~60%). 새 용어로 "디딤기", 영어로 Stance phase라고도 해요.',
@@ -1737,48 +1746,110 @@ function perryAt(q, k) {   // k: 2 넓적다리, 3 무릎, 4 발목
   const qa = i < 0 ? a[1] - 100 : a[1], qb = b[1] <= qa ? b[1] + 100 : b[1];
   return a[k] + (b[k] - a[k]) * (q - qa) / (qb - qa);
 }
-let cmpCurves = null, cmpAnim = 0;
+// 걸음걸이 탭 '페리 기준 vs 나' 입체풍 아바타 (디자인 팀 시안 B, 10/27): 외부 모델·그림 없이 도형만. 왼쪽 = Perry 9장 표의 단계별 각도(단계 사이 직선 근사), 오른쪽 = 이번 영상 평균 곡선
+// '고관절' 숫자는 PHASES·영상의 넓적다리 각도(수직선 기준, 골반 기울기 제외)라 새 숫자를 만들지 않음 → 화면 아래에 그 뜻을 적음
+const OLD_PH = ['발꿈치 닿기', '발바닥 닿기', '중간 입각기', '발꿈치 떼기', '발가락 떼기', '가속기', '중간 유각기', '감속기'];   // 이 화면에서만 쓰는 전통 용어 (PHASES 순서)
+const AV = { perry: { c: '#B4B2A9', hi: '#F1EFE8', far: '#888780', tag: '#5F5E5A' }, me: { c: '#1D9E75', hi: '#9FE1CB', far: '#0F6E56', tag: '#0F6E56' } };
+const SX = { side: 1, oblique: 0.65, front: 0.18 }, SPREAD = { side: 0, oblique: 7, front: 12 };
 const num = x => x == null || Number.isNaN(x) ? null : x;
-function cmpFigs(q) {
-  const r = d => d * Math.PI / 180, pt = (p, a, L) => [p[0] + L * Math.sin(r(a)), p[1] + L * Math.cos(r(a))], f = n => n.map(v => v.toFixed(1)).join(',');
-  const fig = (x, th, kn, an, color) => {
-    const hip = [x, 62], knee = pt(hip, th, 40), ankle = pt(knee, th - kn, 40), toe = an == null ? null : pt(ankle, th - kn + 90 + an, 15);   // 발이 안 잡히면 발은 안 그림
-    return `<circle cx="${x}" cy="14" r="8" fill="none" stroke="currentColor" stroke-width="2"/><line x1="${x}" y1="22" x2="${x}" y2="62" stroke="currentColor" stroke-width="2.5"/>
-      <polyline points="${f(hip)} ${f(knee)} ${f(ankle)}${toe ? ` ${f(toe)}` : ''}" fill="none" stroke="${color}" stroke-width="4" stroke-linejoin="round" stroke-linecap="round"/>`;
+let cmpCurves = null;
+const cmpSt = { q: 1, view: 'side', T: 11000, playing: true, ph: -1, raf: 0, last: 0 };
+const phaseIdx = q => { let i = PHASES.length - 1; PHASES.forEach((p, j) => { if (p[1] <= q) i = j; }); return q < PHASES[0][1] ? PHASES.length - 1 : i; };
+const phaseMid = i => { const a = PHASES[i][1], b = PHASES[(i + 1) % PHASES.length][1] + (i === PHASES.length - 1 ? 100 : 0); return Math.round((a + b) / 2) % 100; };
+const angAt = (who, q) => who === 'perry' ? [perryAt(q, 2), perryAt(q, 3), perryAt(q, 4)] : ['thigh', 'knee', 'ankle'].map(k => num(cmpCurves?.[k]?.[Math.round(q) % 101]));
+function avatar(x, who, q, view) {
+  const s = SX[view], col = AV[who], rad = d => d * Math.PI / 180, f = p => p.map(v => v.toFixed(1)).join(',');
+  const P = (p, a, L) => [p[0] + L * Math.sin(rad(a)) * s, p[1] + L * Math.cos(rad(a))];
+  const seg = (a, b, w, c) => `<line x1="${a[0].toFixed(1)}" y1="${a[1].toFixed(1)}" x2="${b[0].toFixed(1)}" y2="${b[1].toFixed(1)}" stroke="rgba(0,0,0,.28)" stroke-width="${w + 2.5}" stroke-linecap="round"/>
+    <line x1="${a[0].toFixed(1)}" y1="${a[1].toFixed(1)}" x2="${b[0].toFixed(1)}" y2="${b[1].toFixed(1)}" stroke="${c}" stroke-width="${w}" stroke-linecap="round"/>`;
+  const leg = (qq, dx, c, hi) => {
+    const [th, kn, an] = angAt(who, qq), t = th ?? 0, k = kn ?? 0;
+    const hip = [x + dx, 112], knee = P(hip, t, 44), ankle = P(knee, t - k, 44), toe = an == null ? null : P(ankle, t - k + 90 + an, 17);   // 발목 값이 없으면 발은 안 그림
+    const dots = [hip, knee, ankle].map(p => `<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="2.6" fill="${hi}"/>`).join('');
+    return { svg: seg(hip, knee, 12, c) + seg(knee, ankle, 10, c) + (toe ? seg(ankle, toe, 7, c) : '') + dots, hip, knee, ankle, t, k, v: [th, kn, an] };
   };
-  const c = cmpCurves, mine = k => num(c?.[k]?.[q]);
-  return fig(80, perryAt(q, 2), perryAt(q, 3), perryAt(q, 4), 'currentColor') + fig(240, mine('thigh') ?? 0, mine('knee') ?? 0, mine('ankle'), 'var(--accent)');
+  const far = leg((q + 50) % 100, -SPREAD[view], col.far, col.hi), near = leg(q, SPREAD[view], col.c, col.hi);   // 반대 다리 = 반 주기 어긋남, 뒤에 진하게
+  let out = `<ellipse cx="${x}" cy="205" rx="30" ry="4.5" fill="currentColor" opacity=".13"/>${far.svg}
+    <rect x="${x - 9}" y="46" width="18" height="70" rx="9" fill="${col.c}" stroke="rgba(0,0,0,.25)" stroke-width="1"/><rect x="${x - 5}" y="53" width="4" height="52" rx="2" fill="${col.hi}" opacity=".7"/>
+    <circle cx="${x}" cy="30" r="13" fill="${col.c}" stroke="rgba(0,0,0,.25)" stroke-width="1"/><circle cx="${x - 4}" cy="25" r="4" fill="${col.hi}" opacity=".8"/>${near.svg}`;
+  if (view !== 'side') return out;
+  // 옆 보기: 고관절·무릎 굽힘 호 + 바깥쪽 말풍선 (페리 = 왼쪽, 나 = 오른쪽)
+  const arc = (c, a, b, r) => { const p = P(c, a, r), e = P(c, b, r); return `<path d="M${f(p)} A${r},${r} 0 0 ${b > a ? 0 : 1} ${f(e)}" fill="none" stroke="${col.hi}" stroke-width="2"/>`; };
+  out += arc(near.hip, 0, near.t, 16) + arc(near.knee, near.t, near.t - near.k, 12);
+  const W = 64, left = who === 'perry', bx = left ? 2 : 318 - W;
+  let y = 0;
+  [['고관절', near.hip, near.v[0]], ['무릎', near.knee, near.v[1]], ['발목', near.ankle, near.v[2]]].forEach(([name, p, v]) => {
+    y = Math.max(p[1], y + 24);
+    const ex = left ? bx + W : bx;
+    out += `<line x1="${p[0].toFixed(1)}" y1="${p[1].toFixed(1)}" x2="${ex}" y2="${y.toFixed(1)}" stroke="${col.tag}" stroke-width="1" opacity=".7"/>
+      <rect x="${bx}" y="${(y - 9).toFixed(1)}" width="${W}" height="18" rx="9" fill="${col.tag}"/><text x="${bx + W / 2}" y="${(y + 3.5).toFixed(1)}" font-size="10" font-weight="700" text-anchor="middle" fill="#fff">${name} ${v == null ? '–' : `${Math.round(v)}°`}</text>`;
+  });
+  return out;
 }
-function cmpNums(q) {
-  const ph = PHASES.find(p => p[1] === q), c = cmpCurves;
-  const row = (name, k, key) => { const m = num(c?.[key]?.[q]); return `${name} 이번 ${m == null ? '-' : `${Math.round(m)}°`} / 페리의 보행 분석 기준 약 ${Math.round(perryAt(q, k))}°`; };
-  return `<b>${ph ? ph[0] : '보행 주기'} (${q}%)</b><br>${row('넓적다리 각도(앞 +)', 2, 'thigh')}<br>${row('무릎 굽힘', 3, 'knee')}<br>${row('발목(발등굽힘 +)', 4, 'ankle')}`;
+function cmpScene(q, view) {
+  return `<line x1="0" x2="320" y1="205" y2="205" stroke="currentColor" opacity=".25"/><line x1="0" x2="320" y1="213" y2="213" stroke="currentColor" opacity=".12"/><line x1="0" x2="320" y1="224" y2="224" stroke="currentColor" opacity=".07"/>
+    <line x1="70" y1="205" x2="30" y2="228" stroke="currentColor" opacity=".08"/><line x1="160" y1="205" x2="160" y2="228" stroke="currentColor" opacity=".08"/><line x1="250" y1="205" x2="290" y2="228" stroke="currentColor" opacity=".08"/>
+    ${avatar(100, 'perry', q, view)}${avatar(220, 'me', q, view)}`;
+}
+function cmpTable(i) {
+  const q = phaseMid(i), p = [2, 3, 4].map(k => perryAt(q, k)), m = angAt('me', q);
+  const cell = v => v == null ? '-' : `${Math.round(v)}°`, diff = (a, b) => a == null ? '-' : `${signed(Math.round(a) - Math.round(b))}°`;
+  return `<tr><th></th><th>고관절</th><th>무릎</th><th>발목</th></tr><tr><th>페리</th>${p.map(v => `<td>${cell(v)}</td>`).join('')}</tr>
+    <tr><th>나</th>${m.map(v => `<td>${cell(v)}</td>`).join('')}</tr><tr><th>차이</th>${m.map((v, j) => `<td>${diff(v, p[j])}</td>`).join('')}</tr>`;
+}
+function cmpRender(box) {
+  const st = cmpSt, i = phaseIdx(st.q);
+  box.querySelector('.cmpSvg').innerHTML = cmpScene(st.q, st.view);
+  box.querySelector('.cmpRange').value = Math.round(st.q);
+  if (i === st.ph) return;                                                 // 표·단계는 단계가 바뀔 때만 한 번 (그 단계 가운데 순간의 값)
+  st.ph = i;
+  box.querySelector('.phName').textContent = OLD_PH[i];
+  box.querySelector('.phN').textContent = `${i + 1} / 8 단계`;
+  box.querySelectorAll('.phBar i').forEach((x, j) => x.classList.toggle('on', j <= i));
+  box.querySelector('.cmpTab').innerHTML = cmpTable(i);
+}
+function cmpLoop(now) {
+  const box = document.querySelector('.cmp');
+  if (!box) return;                                                        // 화면을 떠나면 멈춤
+  if (cmpSt.playing) cmpSt.q = (cmpSt.q + (now - cmpSt.last) / cmpSt.T * 100) % 100;
+  cmpSt.last = now; cmpRender(box);
+  cmpSt.raf = requestAnimationFrame(cmpLoop);
 }
 function compareFigures(curves) {
   cmpCurves = curves;
-  const q = PHASES[0][1];
-  return `<div class="cmp"><svg class="chart" viewBox="0 0 320 160" role="img" aria-label="페리의 보행 분석 기준 걸음과 내 걸음 뼈대 비교">
-      <g class="cmpFigs">${cmpFigs(q)}</g>
-      <line x1="10" x2="310" y1="148" y2="148" stroke="currentColor" opacity=".2"/>
-      <text x="80" y="158" font-size="10" text-anchor="middle" fill="currentColor" opacity=".75">페리의 보행 분석 기준 걸음</text><text x="240" y="158" font-size="10" text-anchor="middle" fill="currentColor" opacity=".75">나 (이번 영상)</text></svg>
-    <div style="display:flex;flex-wrap:wrap;gap:6px;margin:8px 0">${PHASES.map((p, i) => `<button class="chip" data-ph="${p[1]}" aria-pressed="${i === 0}">${p[0]}</button>`).join('')}<button class="chip" data-play>▶ 재생</button></div>
-    <div class="calc cmpNum">${cmpNums(q)}</div>
-    <div class="sub">걷는 방향 → · 왼쪽 뼈대 = Perry 9장 표의 단계별 각도로 앱이 직접 그린 그림(단계 사이는 직선으로 이은 근사) · 오른쪽 = 이번 영상 평균</div></div>`;
-}
-function cmpShow(box, q) {
-  box.querySelector('.cmpFigs').innerHTML = cmpFigs(q);
-  box.querySelector('.cmpNum').innerHTML = cmpNums(q);
+  Object.assign(cmpSt, { q: 1, ph: -1, playing: !matchMedia('(prefers-reduced-motion: reduce)').matches });
+  cancelAnimationFrame(cmpSt.raf);
+  setTimeout(() => { cmpSt.last = performance.now(); cmpSt.raf = requestAnimationFrame(cmpLoop); });   // 화면에 넣은 뒤 시작
+  const chip = (attr, v, label, on) => `<button class="chip" ${attr}="${v}" aria-pressed="${on}">${label}</button>`;
+  return `<div class="cmp">
+    <div class="cmpChips">${chip('data-view', 'side', '옆', cmpSt.view === 'side')}${chip('data-view', 'oblique', '비스듬히', cmpSt.view === 'oblique')}${chip('data-view', 'front', '앞', cmpSt.view === 'front')}
+      <span class="cmpGap"></span>${chip('data-speed', 11000, '느리게', cmpSt.T === 11000)}${chip('data-speed', 5500, '보통', cmpSt.T === 5500)}</div>
+    <div class="sub cmpNote"${cmpSt.view === 'side' ? ' hidden' : ''}>옆 각도만 잰 값 · 각도 숫자는 '옆'에서 보여요</div>
+    <svg class="chart cmpSvg" viewBox="0 0 320 230" role="img" aria-label="페리의 보행 분석 기준 걸음과 내 걸음 입체 인물 비교">${cmpScene(1, cmpSt.view)}</svg>
+    <div style="display:flex;justify-content:space-around;font-size:.75rem;color:var(--sub);margin-top:-4px"><span>페리의 보행 분석 기준</span><span>나 (이번 영상)</span></div>
+    <div class="cmpCtl"><button class="chip" data-cplay>${cmpSt.playing ? '❚❚ 일시정지' : '▶ 재생'}</button><input type="range" class="cmpRange" min="0" max="100" step="1" value="1" aria-label="보행 주기 위치(%)"></div>
+    <div class="cmpPh"><b class="phName">${OLD_PH[0]}</b> <span class="sub phN">1 / 8 단계</span></div>
+    <div class="phBar">${PHASES.map((_, j) => `<i${j === 0 ? ' class="on"' : ''}></i>`).join('')}</div>
+    <table class="cmpTab">${cmpTable(0)}</table>
+    <div class="sub" style="font-size:.75rem">표는 단계마다 한 번 바뀌어요 (그 단계 가운데 순간의 값)</div>
+    <div class="sub">걷는 방향 → · 왼쪽 = Perry 9장 표의 단계별 각도로 앱이 직접 그린 인물(단계 사이는 직선으로 이은 근사) · 오른쪽 = 이번 영상 평균 · '고관절' 숫자는 넓적다리가 수직선에서 앞(+)·뒤(−)로 기운 각도예요(골반 기울기는 빼고 잼) · 발목은 발등 쪽 +</div></div>`;
 }
 document.addEventListener('click', e => {
-  const b = e.target.closest('.cmp [data-ph], .cmp [data-play]');
+  const b = e.target.closest('.cmp [data-view], .cmp [data-speed], .cmp [data-cplay]');
   if (!b) return;
   const box = b.closest('.cmp');
-  cancelAnimationFrame(cmpAnim);
-  for (const x of box.querySelectorAll('[data-ph]')) x.setAttribute('aria-pressed', x === b);
-  if (b.dataset.ph) return cmpShow(box, +b.dataset.ph);
-  const t0 = performance.now(), T = 1100;   // 한 주기 약 1.1초(케이던스 약 110), 2주기 재생
-  const step = now => { const k = (now - t0) / T; cmpShow(box, Math.round((k % 1) * 100)); if (k < 2) cmpAnim = requestAnimationFrame(step); else { cmpShow(box, PHASES[0][1]); box.querySelector('[data-ph]').setAttribute('aria-pressed', true); } };
-  cmpAnim = requestAnimationFrame(step);
+  if ('cplay' in b.dataset) { cmpSt.playing = !cmpSt.playing; b.textContent = cmpSt.playing ? '❚❚ 일시정지' : '▶ 재생'; return; }
+  if (b.dataset.view) { cmpSt.view = b.dataset.view; box.querySelector('.cmpNote').hidden = cmpSt.view === 'side'; }
+  if (b.dataset.speed) cmpSt.T = +b.dataset.speed;
+  for (const x of box.querySelectorAll(b.dataset.view ? '[data-view]' : '[data-speed]')) x.setAttribute('aria-pressed', x === b);
+  cmpRender(box);
+});
+document.addEventListener('input', e => {
+  if (!e.target.matches?.('.cmp .cmpRange')) return;
+  const box = e.target.closest('.cmp');
+  cmpSt.q = +e.target.value; cmpSt.playing = false;                        // 막대를 끌면 멈춤
+  box.querySelector('[data-cplay]').textContent = '▶ 재생';
+  cmpRender(box);
 });
 function videoRecs(r) {
   const m = r.m, lim = '카메라 1대로 찍은 2D 영상이라 다리가 돌아가 있으면 굽힘 각도가 작게 찍혀요(Perry 17장). 원인 판단은 전문가에게.';
