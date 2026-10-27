@@ -153,9 +153,10 @@
   .cmpChips { display:flex; flex-wrap:wrap; gap:5px; margin:6px 0; } .cmpChips .chip { padding:5px 9px; font-size:.75rem; } .cmpGap { flex:1; }
   .cmpPh .phName { font-size:1.25rem; }
   #boneSrc p { overflow-wrap:anywhere; }
-  .gcBar, .gcPh { display:grid; grid-template-columns:62fr 38fr; gap:4px; } .gcBar { margin:10px 0 6px; }
+  .gcBar { display:grid; grid-template-columns:5fr 3fr; gap:2px; margin:10px 0 2px; }   /* 입각기 5칸 : 유각기 3칸 ≈ 62 : 38 */
   .gcBar > span { border-radius:8px; padding:5px 8px; font-size:.8125rem; font-weight:600; background:var(--line); color:var(--sub); } .gcBar > span.on { background:var(--accent); color:var(--bg); } .gcBar small { font-weight:500; opacity:.8; }
-  .gcPh > div { display:flex; flex-wrap:wrap; gap:4px; align-content:flex-start; } .gcPh .chip { padding:5px 8px; font-size:.75rem; } .gcPh { margin-bottom:10px; }
+  .gcPh { display:grid; grid-template-columns:repeat(8,1fr); gap:2px; margin-bottom:10px; }
+  .gcPh .chip { min-width:0; padding:6px 1px; border-radius:6px; font-size:.6875rem; line-height:1.2; word-break:keep-all; }
   .cmpTab { width:100%; border-collapse:collapse; font-size:.875rem; text-align:center; } .cmpTab th, .cmpTab td { padding:5px 2px; border-top:1px solid var(--line); } .cmpTab th { font-weight:600; color:var(--sub); font-size:.75rem; }
   .rbar { position:relative; height:8px; border-radius:4px; background:var(--line); margin:12px 0 4px; }
   .rbar b { position:absolute; top:0; bottom:0; border-radius:4px; background:color-mix(in srgb, var(--c-walk) 35%, transparent); }

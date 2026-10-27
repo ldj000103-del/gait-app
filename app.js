@@ -622,7 +622,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v105';
+const APP_VERSION = 'v106';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -1896,7 +1896,7 @@ function compareFigures(curves, fm = null, view = 'side') {
     <svg class="chart cmpSvg" viewBox="0 0 320 204" role="img" aria-label="페리의 보행 분석 기준 걸음과 내 걸음 뼈 그림 비교">${BONE_DEFS}<g class="cmpScene">${cmpScene(view === 'side' ? phaseMid(1) : (phaseMid(1) + 50) % 100, view)}</g></svg>
     <div class="sub" style="font-size:.75rem">뼈 그림: BodyParts3D·Z-Anatomy 모델로 만듦 (CC BY-SA) · <a href="#" data-bonesrc>출처 보기</a></div>
     <div class="gcBar"><span class="on">입각기 <small>0~62%</small></span><span>유각기 <small>62~100%</small></span></div>
-    <div class="gcPh" role="group" aria-label="보행 주기 단계"><div>${phBtns(0, STANCE_N)}</div><div>${phBtns(STANCE_N, PHASES.length)}</div></div>
+    <div class="gcPh" role="group" aria-label="보행 주기 단계">${phBtns(0, PHASES.length)}</div>
     <div class="cmpPh"><b class="phName">${PHASES[1][0]} (${OLD_PH[1]})</b> <span class="sub phN">2 / 8 단계</span></div>
     <table class="cmpTab">${cmpTable(1)}</table>
     <div class="sub cmpTabNote" style="font-size:.75rem">그림과 표는 누른 단계 가운데 순간의 값이에요</div>
