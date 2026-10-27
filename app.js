@@ -622,7 +622,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v97';
+const APP_VERSION = 'v98';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -1352,6 +1352,7 @@ function setTab(name) {
   document.body.dataset.tab = name;
   for (const b of document.querySelectorAll('#tabbar button')) b.setAttribute('aria-selected', b.dataset.go === name);
   if (name === 'home') renderHome();
+  if (name === 'video') cmpResume();
 }
 $('meBtn').addEventListener('click', () => { setTab('measure'); showProfSum(true); $('profile').scrollIntoView({ block: 'start' }); });   // 홈 '나' → 내 정보 펼침
 document.querySelector('#tabbar').addEventListener('click', e => { const b = e.target.closest('button[data-go]'); if (b) { setTab(b.dataset.go); scrollTo(0, 0); } });
@@ -1776,13 +1777,13 @@ function avatar(x, who, q, view) {
   // 옆 보기: 고관절·무릎 굽힘 호 + 바깥쪽 말풍선 (페리 = 왼쪽, 나 = 오른쪽)
   const arc = (c, a, b, r) => { const p = P(c, a, r), e = P(c, b, r); return `<path d="M${f(p)} A${r},${r} 0 0 ${b > a ? 0 : 1} ${f(e)}" fill="none" stroke="${col.hi}" stroke-width="2"/>`; };
   out += arc(near.hip, 0, near.t, 16) + arc(near.knee, near.t, near.t - near.k, 12);
-  const W = 64, left = who === 'perry', bx = left ? 2 : 318 - W;
+  const W = 76, left = who === 'perry', bx = left ? 1 : 319 - W;   // 글씨 12: 320px 폰에서도 약 10px로 보이게
   let y = 0;
   [['고관절', near.hip, near.v[0]], ['무릎', near.knee, near.v[1]], ['발목', near.ankle, near.v[2]]].forEach(([name, p, v]) => {
-    y = Math.max(p[1], y + 24);
+    y = Math.max(p[1], y + 26);
     const ex = left ? bx + W : bx;
     out += `<line x1="${p[0].toFixed(1)}" y1="${p[1].toFixed(1)}" x2="${ex}" y2="${y.toFixed(1)}" stroke="${col.tag}" stroke-width="1" opacity=".7"/>
-      <rect x="${bx}" y="${(y - 9).toFixed(1)}" width="${W}" height="18" rx="9" fill="${col.tag}"/><text x="${bx + W / 2}" y="${(y + 3.5).toFixed(1)}" font-size="10" font-weight="700" text-anchor="middle" fill="#fff">${name} ${v == null ? '–' : `${Math.round(v)}°`}</text>`;
+      <rect x="${bx}" y="${(y - 11).toFixed(1)}" width="${W}" height="22" rx="11" fill="${col.tag}"/><text x="${bx + W / 2}" y="${(y + 4).toFixed(1)}" font-size="12" font-weight="700" text-anchor="middle" fill="#fff">${name} ${v == null ? '–' : `${Math.round(v)}°`}</text>`;
   });
   return out;
 }
@@ -1794,7 +1795,7 @@ function cmpScene(q, view) {
 function cmpTable(i) {
   const q = phaseMid(i), p = [2, 3, 4].map(k => perryAt(q, k)), m = angAt('me', q);
   const cell = v => v == null ? '-' : `${Math.round(v)}°`, diff = (a, b) => a == null ? '-' : `${signed(Math.round(a) - Math.round(b))}°`;
-  return `<tr><th></th><th>고관절</th><th>무릎</th><th>발목</th></tr><tr><th>페리</th>${p.map(v => `<td>${cell(v)}</td>`).join('')}</tr>
+  return `<tr><th>단계 가운데</th><th>고관절</th><th>무릎</th><th>발목</th></tr><tr><th>페리</th>${p.map(v => `<td>${cell(v)}</td>`).join('')}</tr>
     <tr><th>나</th>${m.map(v => `<td>${cell(v)}</td>`).join('')}</tr><tr><th>차이</th>${m.map((v, j) => `<td>${diff(v, p[j])}</td>`).join('')}</tr>`;
 }
 function cmpRender(box) {
@@ -1810,16 +1811,20 @@ function cmpRender(box) {
 }
 function cmpLoop(now) {
   const box = document.querySelector('.cmp');
-  if (!box) return;                                                        // 화면을 떠나면 멈춤
+  if (!box?.offsetParent) { cmpSt.raf = 0; return; }                       // 다른 탭이거나 화면을 떠나면 멈춤 (걸음걸이 탭으로 오면 cmpResume)
   if (cmpSt.playing) cmpSt.q = (cmpSt.q + (now - cmpSt.last) / cmpSt.T * 100) % 100;
   cmpSt.last = now; cmpRender(box);
   cmpSt.raf = requestAnimationFrame(cmpLoop);
 }
+function cmpResume() {
+  if (cmpSt.raf || !document.querySelector('.cmp')) return;
+  cmpSt.last = performance.now(); cmpSt.raf = requestAnimationFrame(cmpLoop);   // last를 지금으로 → 쉬던 시간만큼 q가 튀지 않게
+}
 function compareFigures(curves) {
   cmpCurves = curves;
   Object.assign(cmpSt, { q: 1, ph: -1, playing: !matchMedia('(prefers-reduced-motion: reduce)').matches });
-  cancelAnimationFrame(cmpSt.raf);
-  setTimeout(() => { cmpSt.last = performance.now(); cmpSt.raf = requestAnimationFrame(cmpLoop); });   // 화면에 넣은 뒤 시작
+  cancelAnimationFrame(cmpSt.raf); cmpSt.raf = 0;
+  setTimeout(cmpResume);                                                   // 화면에 넣은 뒤 시작
   const chip = (attr, v, label, on) => `<button class="chip" ${attr}="${v}" aria-pressed="${on}">${label}</button>`;
   return `<div class="cmp">
     <div class="cmpChips">${chip('data-view', 'side', '옆', cmpSt.view === 'side')}${chip('data-view', 'oblique', '비스듬히', cmpSt.view === 'oblique')}${chip('data-view', 'front', '앞', cmpSt.view === 'front')}
