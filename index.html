@@ -153,6 +153,7 @@
   .cmpChips { display:flex; flex-wrap:wrap; gap:5px; margin:6px 0; } .cmpChips .chip { padding:5px 9px; font-size:.75rem; } .cmpGap { flex:1; }
   .cmpCtl { display:flex; gap:8px; align-items:center; margin:6px 0; } .cmpCtl .chip { flex:none; } .cmpCtl input { flex:1; padding:0; border:0; background:none; accent-color:var(--accent); }
   .cmpPh .phName { font-size:1.25rem; }
+  #boneSrc p { overflow-wrap:anywhere; }
   .phBar { display:grid; grid-template-columns:repeat(8,1fr); gap:3px; margin:6px 0 10px; } .phBar i { height:6px; border-radius:3px; background:var(--line); } .phBar i.on { background:var(--accent); }
   .cmpTab { width:100%; border-collapse:collapse; font-size:.875rem; text-align:center; } .cmpTab th, .cmpTab td { padding:5px 2px; border-top:1px solid var(--line); } .cmpTab th { font-weight:600; color:var(--sub); font-size:.75rem; }
   .rbar { position:relative; height:8px; border-radius:4px; background:var(--line); margin:12px 0 4px; }
@@ -461,6 +462,10 @@
     각 결과의 <b>정확도 등급</b>: <span class="badge b-g">정확</span> <span class="badge b-y">참고</span>
     <span class="badge b-o">부정확할 수 있음</span> <span class="badge b-n">검증 안 됨</span>
     — 결과마다 "근거 보기"에서 출처를 확인할 수 있어요. 이 앱은 의료 진단이 아니에요.
+    <details id="boneSrc"><summary>뼈 그림 출처</summary><p>걸음걸이 탭의 뼈 그림은 아래 3D 모델에서 골반·넓적다리뼈·무릎뼈·정강이뼈·종아리뼈·발뼈를 골라 옆·앞·뒤 방향으로 렌더링하고 색과 조명을 바꾼 것이며, 앱은 이 그림을 이용자의 관절 각도에 맞춰 돌리고 이어 붙여 보여 줍니다.<br>
+      · BodyParts3D, © The Database Center for Life Science licensed under CC Attribution-Share Alike 2.1 Japan (<a href="https://dbarchive.biosciencedbc.jp/data/bodyparts3d/20100816/README_e.html">https://dbarchive.biosciencedbc.jp/data/bodyparts3d/20100816/README_e.html</a> · 라이선스 <a href="https://creativecommons.org/licenses/by-sa/2.1/jp/">https://creativecommons.org/licenses/by-sa/2.1/jp/</a>)<br>
+      · Z-Anatomy - The libre 3D atlas of anatomy - CC-BY-SA 4.0, Gauthier Kervyn 외 (<a href="https://github.com/Z-Anatomy/Models-of-human-anatomy">https://github.com/Z-Anatomy/Models-of-human-anatomy</a> · 라이선스 <a href="https://creativecommons.org/licenses/by-sa/4.0/">https://creativecommons.org/licenses/by-sa/4.0/</a>)<br>
+      이 뼈 그림 파일들은 CC BY-SA 4.0으로 누구나 같은 조건으로 쓸 수 있습니다(<a href="https://creativecommons.org/licenses/by-sa/4.0/deed.ko">https://creativecommons.org/licenses/by-sa/4.0/deed.ko</a>). 원본 모델은 있는 그대로 제공되며, 보증에 관한 사항은 각 라이선스 원문을 따릅니다.</p></details>
     <button id="invite" class="ghost" style="margin:6px 0 10px">친구에게 앱 알려주기</button>
     <button id="fbBtn" class="ghost" style="margin:0 0 10px">건의하기 (익명 의견 보내기)</button>
     <p id="appver" style="margin:4px 0;font-weight:600"></p>
