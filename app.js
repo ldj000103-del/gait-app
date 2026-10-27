@@ -699,7 +699,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v116';
+const APP_VERSION = 'v117';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -1846,7 +1846,9 @@ const num = x => x == null || Number.isNaN(x) ? null : x;
 let cmpCurves = null, cmpFM = null, cmpSideLatest = false;   // 옆 곡선 · 앞뒤 값(m) · 옆 곡선을 최근 옆 영상에서 빌려 왔는지
 const cmpSt = { q: 0, view: 'side', playing: false, drawn: null, last: 0, raf: 0 };   // 보행 주기 위치(%)·보기·재생 중인지
 const CMP_T = 8000;                                                        // 재생할 때 한 주기 8초
-const phaseMid = i => { const a = PHASES[i][1], b = PHASES[(i + 1) % PHASES.length][1] + (i === PHASES.length - 1 ? 100 : 0); return Math.round((a + b) / 2) % 100; };
+// 단계 구간 = Perry 2장 (화면 % 글자·용어 풀이와 같음). PHASES[i][1]은 Perry 각도를 뽑은 지점이라 각도 보간(perryAt)에만 씀
+const PH_START = [0, 2, 12, 31, 50, 62, 75, 87];
+const phaseMid = i => Math.round((PH_START[i] + (PH_START[i + 1] ?? 100)) / 2);   // 1, 7, 22, 41, 56, 69, 81, 94
 const angAt = (who, q) => who === 'perry' ? [perryAt(q, 2), perryAt(q, 3), perryAt(q, 4)] : ['thigh', 'knee', 'ankle'].map(k => num(cmpCurves?.[k]?.[Math.round(q) % 101]));
 // 그림 속 관절 a → b 벡터 (화면 단위, flip = 왼쪽 다리)
 const bvec = (view, part, a, b, flip) => { const J = BONE[view][part][2]; return [(J[b][0] - J[a][0]) * BK * (flip ? -1 : 1), (J[b][1] - J[a][1]) * BK]; };
@@ -1941,7 +1943,7 @@ function frontTable(m) {
 // 단계 버튼으로 멈춰 봄 (사용자 10/27: 재생 대신 입각기·유각기 막대 + 단계 버튼). 그림·표는 누른 단계 가운데 순간의 값
 // 앞·뒤는 오른발 기준 보행 주기: frontFig는 q<50이 왼발 디딤이라 반 주기 밀어서 넘김 (오른발 입각기 = 0~60%)
 const STANCE_N = 5;                                                        // PHASES 0~4 입각기(0~62%), 5~7 유각기
-const phaseIdx = q => { let i = PHASES.length - 1; PHASES.forEach((p, j) => { if (p[1] <= q) i = j; }); return q < PHASES[0][1] ? PHASES.length - 1 : i; };
+const phaseIdx = q => { let i = 0; PH_START.forEach((a, j) => { if (a <= q) i = j; }); return i; };
 function cmpRender(box) {
   const st = cmpSt, side = st.view === 'side', q = st.q, i = phaseIdx(q);
   box.querySelector('.cmpScene').innerHTML = cmpScene(side ? q : (q + 50) % 100, st.view);
