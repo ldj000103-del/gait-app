@@ -622,7 +622,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v98';
+const APP_VERSION = 'v99';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -1790,7 +1790,7 @@ function avatar(x, who, q, view) {
 function cmpScene(q, view) {
   return `<line x1="0" x2="320" y1="205" y2="205" stroke="currentColor" opacity=".25"/><line x1="0" x2="320" y1="213" y2="213" stroke="currentColor" opacity=".12"/><line x1="0" x2="320" y1="224" y2="224" stroke="currentColor" opacity=".07"/>
     <line x1="70" y1="205" x2="30" y2="228" stroke="currentColor" opacity=".08"/><line x1="160" y1="205" x2="160" y2="228" stroke="currentColor" opacity=".08"/><line x1="250" y1="205" x2="290" y2="228" stroke="currentColor" opacity=".08"/>
-    ${avatar(100, 'perry', q, view)}${avatar(220, 'me', q, view)}`;
+    ${avatar(108, 'perry', q, view)}${avatar(192, 'me', q, view)}`;
 }
 function cmpTable(i) {
   const q = phaseMid(i), p = [2, 3, 4].map(k => perryAt(q, k)), m = angAt('me', q);
