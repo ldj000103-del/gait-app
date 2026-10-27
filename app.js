@@ -699,7 +699,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v118';
+const APP_VERSION = 'v119';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -2363,10 +2363,15 @@ if (document.body.dataset.tab === 'home') setTab(savedTab || 'home');   // 측�
 // 새 화면 버전이 적용되면 한 번 새로고침 (옛 화면이 남지 않게)
 if ('serviceWorker' in navigator) {
   const had = !!navigator.serviceWorker.controller;
-  // 새 버전은 쓰는 도중에 새로고침하지 않고(탭을 누르다 홈으로 튕겼음) 화면을 떠날 때 새로고침, 보던 탭은 기억. 측정 중(t0)엔 안 함
+  // 새 버전: sw.js는 네트워크 먼저라 앱을 열 때 화면은 대개 이미 최신 → 화면 버전(APP_VERSION)이 새 sw VERSION과 다를 때만(오프라인으로 열었던 경우 등) 새로고침.
+  // 그때도 쓰는 도중엔 안 하고(탭을 누르다 홈으로 튕겼음) 화면을 떠날 때, 측정 중(카운트다운 포함)엔 안 함. 보던 탭은 기억
   let swNew = false;
-  const swReload = () => { if (!swNew || !document.hidden || window.__reloaded || t0) return; window.__reloaded = true; try { sessionStorage.setItem('tab', document.body.dataset.tab); } catch {} location.reload(); };
-  navigator.serviceWorker.addEventListener('controllerchange', () => { if (had) { swNew = true; swReload(); } });
+  const swReload = () => { if (!swNew || !document.hidden || window.__reloaded || t0 || document.body.classList.contains('recording')) return; window.__reloaded = true; try { sessionStorage.setItem('tab', document.body.dataset.tab); } catch {} location.reload(); };
+  navigator.serviceWorker.addEventListener('controllerchange', async () => {
+    if (!had) return;
+    try { const v = (await (await fetch('sw.js', { cache: 'no-store' })).text()).match(/VERSION = '([^']+)'/)?.[1]; if (!v || v === APP_VERSION) return; } catch { return; }
+    swNew = true; swReload();
+  });
   document.addEventListener('visibilitychange', swReload);
   navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(r => r.update()).catch(() => {});
 }
