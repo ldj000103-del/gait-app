@@ -151,10 +151,11 @@
   .rgrid .mcard:only-child { grid-column:1 / -1; }
   /* 걸음걸이 탭 입체 비교 (디자인 팀 시안 B) */
   .cmpChips { display:flex; flex-wrap:wrap; gap:5px; margin:6px 0; } .cmpChips .chip { padding:5px 9px; font-size:.75rem; } .cmpGap { flex:1; }
-  .cmpCtl { display:flex; gap:8px; align-items:center; margin:6px 0; } .cmpCtl .chip { flex:none; } .cmpCtl input { flex:1; padding:0; border:0; background:none; accent-color:var(--accent); }
   .cmpPh .phName { font-size:1.25rem; }
   #boneSrc p { overflow-wrap:anywhere; }
-  .phBar { display:grid; grid-template-columns:repeat(8,1fr); gap:3px; margin:6px 0 10px; } .phBar i { height:6px; border-radius:3px; background:var(--line); } .phBar i.on { background:var(--accent); }
+  .gcBar, .gcPh { display:grid; grid-template-columns:62fr 38fr; gap:4px; } .gcBar { margin:10px 0 6px; }
+  .gcBar > span { border-radius:8px; padding:5px 8px; font-size:.8125rem; font-weight:600; background:var(--line); color:var(--sub); } .gcBar > span.on { background:var(--accent); color:var(--bg); } .gcBar small { font-weight:500; opacity:.8; }
+  .gcPh > div { display:flex; flex-wrap:wrap; gap:4px; align-content:flex-start; } .gcPh .chip { padding:5px 8px; font-size:.75rem; } .gcPh { margin-bottom:10px; }
   .cmpTab { width:100%; border-collapse:collapse; font-size:.875rem; text-align:center; } .cmpTab th, .cmpTab td { padding:5px 2px; border-top:1px solid var(--line); } .cmpTab th { font-weight:600; color:var(--sub); font-size:.75rem; }
   .rbar { position:relative; height:8px; border-radius:4px; background:var(--line); margin:12px 0 4px; }
   .rbar b { position:absolute; top:0; bottom:0; border-radius:4px; background:color-mix(in srgb, var(--c-walk) 35%, transparent); }
