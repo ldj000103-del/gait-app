@@ -176,6 +176,9 @@ addEventListener('popstate', () => closePick(false));
 window.gaitBack = () => {
   if (!$('pickSheet').hidden) { closePick(); return true; }
   if (!$('stopSheet').hidden) { closeStopSheet(); $('stop').focus(); return true; }   // 측정 종료 확인 창 = '계속 측정'
+  const btn = document.querySelector('#permOv [data-p=later], #fbOv [data-f=close]');   // 권한 안내 = '나중에', 건의하기 = '닫기' (Esc와 같음)
+  if (btn) { btn.click(); return true; }
+  if (!$('tip').classList.contains('hidden')) { $('tip').classList.add('hidden'); return true; }   // 용어 풀이 팝업
   return false;
 };
 $('pickList').addEventListener('click', e => {
@@ -696,7 +699,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v113';
+const APP_VERSION = 'v114';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
