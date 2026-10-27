@@ -622,7 +622,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v100';
+const APP_VERSION = 'v101';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -1791,7 +1791,7 @@ function cmpScene(q, view) {
   return `<line x1="0" x2="320" y1="205" y2="205" stroke="currentColor" opacity=".25"/><line x1="0" x2="320" y1="213" y2="213" stroke="currentColor" opacity=".12"/><line x1="0" x2="320" y1="224" y2="224" stroke="currentColor" opacity=".07"/>
     <line x1="70" y1="205" x2="30" y2="228" stroke="currentColor" opacity=".08"/><line x1="160" y1="205" x2="160" y2="228" stroke="currentColor" opacity=".08"/><line x1="250" y1="205" x2="290" y2="228" stroke="currentColor" opacity=".08"/>
     ${avatar(106, 'perry', q, view)}${avatar(196, 'me', q, view)}
-    <text x="106" y="242" font-size="11" text-anchor="middle" fill="currentColor" opacity=".75">페리 기준</text><text x="196" y="242" font-size="11" text-anchor="middle" fill="currentColor" opacity=".75">나 (이번 영상)</text>`;   // 이름은 각 인물 바로 아래
+    <text x="106" y="243" font-size="13" text-anchor="middle" fill="currentColor" opacity=".75">페리 기준</text><text x="196" y="243" font-size="13" text-anchor="middle" fill="currentColor" opacity=".75">나 (이번 영상)</text>`;   // 이름은 각 인물 바로 아래
 }
 function cmpTable(i) {
   const q = phaseMid(i), p = [2, 3, 4].map(k => perryAt(q, k)), m = angAt('me', q);
