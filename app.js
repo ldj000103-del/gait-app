@@ -622,7 +622,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v102';
+const APP_VERSION = 'v103';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -1755,7 +1755,7 @@ const OLD_PH = ['발꿈치 닿기', '발바닥 닿기', '중간 입각기', '발
 const BONE = {side:{pelvis:[103,141,{hipR:[60.2,97.2],hipL:[60.2,97.2],s1:[38.8,24.7]}],femur:[59,288,{hipR:[38.7,20.4],knee:[22.3,265.2]}],shank:[53,239,{knee:[24.5,-5.2],ankle:[23.2,224.4]}],foot:[149,58,{ankle:[40.2,15.7]}]},
   front:{pelvis:[174,141,{hipR:[36.3,97.2],hipL:[137.7,97.2],s1:[87.1,24.8]}],femur:[82,288,{hipR:[44.4,20.4],knee:[47.7,265.2]}],shank:[65,239,{knee:[33.7,-5.2],ankle:[37.2,224.4]}],foot:[68,58,{ankle:[49.7,15.8]}]},
   back:{pelvis:[174,141,{hipR:[137.7,97.2],hipL:[36.3,97.2],s1:[86.9,24.8]}],femur:[82,288,{hipR:[37.6,20.4],knee:[34.3,265.2]}],shank:[65,239,{knee:[31.3,-5.2],ankle:[27.8,224.4]}],foot:[68,58,{ankle:[18.3,15.8]}]}};
-const BK = 0.22, HIPY = 74, GROUND = 189;                                  // 그림 1px = 화면 0.2, 고관절 높이, 바닥
+const BK = 0.19, HIPY = 76, GROUND = 175;                                  // 그림 1px = 화면 0.2, 고관절 높이, 바닥
 const BTAG = { perry: '#5F5E5A', me: '#0F6E56' }, BHI = { perry: '#F1EFE8', me: '#9FE1CB' };
 const rad = d => d * Math.PI / 180, sdeg = (x, y) => Math.atan2(y, x) * 180 / Math.PI;
 const rot = ([x, y], a) => [x * Math.cos(rad(a)) - y * Math.sin(rad(a)), x * Math.sin(rad(a)) + y * Math.cos(rad(a))];
@@ -1815,7 +1815,7 @@ function frontFig(x, who, q, view, m) {
   const drop = (me ? val(m.dropL, m.dropR) : 4) * w, valg = me ? val(m.valgusL, m.valgusR) * w : 0, lean = me ? val(m.leanL, m.leanR) * w : 0;   // 페리는 골반 약 4°만, 몸통·무릎은 기준값 없음
   const P = BONE[view].pelvis[2], H = Math.abs(P.hipL[0] - P.hipR[0]) * BK;
   const stDir = sgn * sL;                                                   // 디딘 다리가 화면에서 놓인 쪽 (+1 오른쪽)
-  const pivot = [x + stDir * H / 2, HIPY], rP = stDir * drop;               // 반대쪽 골반이 내려가게 디딘 고관절을 축으로 돌림
+  const pivot = [x + stDir * H / 2, HIPY], rP = -stDir * drop;              // 안 디딘 쪽 골반이 내려가게 디딘 고관절을 축으로 돌림 (SVG는 y가 아래로 +)
   const other = add(pivot, rot([-stDir * H, 0], rP));
   const pel = bone(view, 'pelvis', leftSt ? 'hipL' : 'hipR', pivot, rP, me ? 'bf-me' : null);
   const leg = (hip, isStance, bodyLeft) => {
@@ -1836,11 +1836,11 @@ function frontFig(x, who, q, view, m) {
     + bubbles(who, me ? [['몸통', [(s1[0] + top[0]) / 2, (s1[1] + top[1]) / 2], lean], ['골반', mid, drop], ['무릎', st.knee, valg]] : [['골반', mid, drop]]);
 }
 function cmpScene(q, view) {
-  const label = `<text x="106" y="211" font-size="13" text-anchor="middle" fill="currentColor" opacity=".75">페리 기준</text><text x="196" y="211" font-size="13" text-anchor="middle" fill="currentColor" opacity=".75">나 (이번 영상)</text>`;   // 이름은 각 인물 바로 아래
-  if (view === 'side') return floorLines + sideFig(106, 'perry', q) + sideFig(196, 'me', q) + label;
+  const label = `<text x="102" y="197" font-size="13" text-anchor="middle" fill="currentColor" opacity=".75">페리 기준</text><text x="198" y="197" font-size="13" text-anchor="middle" fill="currentColor" opacity=".75">나 (이번 영상)</text>`;   // 이름은 각 인물 바로 아래
+  if (view === 'side') return floorLines + sideFig(102, 'perry', q) + sideFig(198, 'me', q) + label;
   const m = frontM();
   if (!m) return `<text x="160" y="100" font-size="14" text-anchor="middle" fill="currentColor" opacity=".7">앞·뒤 영상을 찍으면 보여요</text>`;
-  return floorLines + frontFig(106, 'perry', q, view, m) + frontFig(196, 'me', q, view, m) + label;
+  return floorLines + frontFig(102, 'perry', q, view, m) + frontFig(198, 'me', q, view, m) + label;
 }
 function cmpTable(i) {
   const q = phaseMid(i), p = [2, 3, 4].map(k => perryAt(q, k)), m = angAt('me', q);
@@ -1900,7 +1900,7 @@ function compareFigures(curves) {
   return `<div class="cmp">
     <div class="cmpChips">${chip('data-view', 'side', '옆', cmpSt.view === 'side')}${chip('data-view', 'front', '앞', cmpSt.view === 'front')}${chip('data-view', 'back', '뒤', cmpSt.view === 'back')}
       <span class="cmpGap"></span>${chip('data-speed', 11000, '느리게', cmpSt.T === 11000)}${chip('data-speed', 5500, '보통', cmpSt.T === 5500)}</div>
-    <svg class="chart cmpSvg" viewBox="0 0 320 218" role="img" aria-label="페리의 보행 분석 기준 걸음과 내 걸음 뼈 그림 비교">${BONE_DEFS}<g class="cmpScene">${cmpScene(1, cmpSt.view)}</g></svg>
+    <svg class="chart cmpSvg" viewBox="0 0 320 204" role="img" aria-label="페리의 보행 분석 기준 걸음과 내 걸음 뼈 그림 비교">${BONE_DEFS}<g class="cmpScene">${cmpScene(1, cmpSt.view)}</g></svg>
     <div class="sub" style="font-size:.75rem">뼈 그림: BodyParts3D·Z-Anatomy 모델로 만듦 (CC BY-SA) · <a href="#" data-bonesrc>출처 보기</a></div>
     <div class="cmpCtl"><button class="chip" data-cplay>${cmpSt.playing ? '❚❚ 일시정지' : '▶ 재생'}</button><input type="range" class="cmpRange" min="0" max="100" step="1" value="1" aria-label="보행 주기 위치(%)"></div>
     <div class="cmpPh"><b class="phName">${OLD_PH[0]}</b> <span class="sub phN">1 / 8 단계</span></div>
