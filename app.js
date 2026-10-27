@@ -622,7 +622,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v107';
+const APP_VERSION = 'v108';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -2004,8 +2004,8 @@ function renderVideo(r, dur) {
   if (r.view === 'side') {
     const m = r.m;
     html += `<h2>영상 분석 결과 · 옆모습</h2><div class="sub">${r.side === 'l' ? '왼' : '오른'}쪽 다리(카메라 쪽) · 보행 주기 ${r.nCycles}개 평균 · 다리가 잡힌 장면 ${Math.round(r.validFrac * 100)}%</div>`;
-    html += glanceSide(r, dur != null);
     html += `<div class="metric"><div class="mhead"><div><b>페리의 보행 분석 기준 걸음과 나란히</b></div><span class="badge b-y">참고</span></div>${compareFigures(r.curves)}<div class="sub">무릎은 영상 오차 약 3~5°(참고), 넓적다리·발목은 정확도가 더 낮아요. 각도 값: ${REF.perry9}</div></div>`;
+    html += glanceSide(r, dur != null);
     html += metric({ title: '무릎 각도', value: f0(m.kneeSwingMax), unit: `유각기 최대 굽힘 (보행 주기 ${m.kneeSwingAt}%)`, grade: 'y',
       body: `${kneeChart(r.curves.knee)}<div class="calc">이번 값 / 페리의 보행 분석 기준<br>첫 닿기 ${f0(m.kneeIC)} / 0~5°<br>체중 받기 최대 ${f0(m.kneeLoad)} / 15~18°<br>입각기 최소 ${f0(m.kneeStanceMin)} / 약 5° ${extTxt(m.kneeStanceMin)}<br>유각기 최대 ${f0(m.kneeSwingMax)} / 약 60°(초기 유각)</div>`,
       why: ['무릎 각도 = 180° − (엉덩이·무릎·발목 세 점이 이루는 각). Perry 17장: 영상에서 가장 잘 잡히는 관절',
@@ -2032,8 +2032,8 @@ function renderVideo(r, dur) {
     const m = r.m, side = r.view === 'front' ? '앞모습' : '뒷모습';
     const diff = (a, b) => a != null && b != null ? `좌우 차이 ${Math.abs(a - b).toFixed(0)}°` : '';
     html += `<h2>영상 분석 결과 · ${side}</h2><div class="sub">몸이 잡힌 장면 ${Math.round(r.validFrac * 100)}% · 앞·뒤 각도는 휴대폰 영상으로 검증된 연구를 찾지 못했어요. 골반 값은 다른 도구 연구에서 기준 장비와 차이가 커서 "부정확할 수 있음", 나머지는 "검증 안 됨"이에요. 같은 조건으로 찍어 좌우 비교·변화 추적에 쓰세요.</div>`;
-    html += glanceFront(r, dur != null);
     html += `<div class="metric"><div class="mhead"><div><b>페리의 보행 분석 기준 걸음과 나란히</b></div><span class="badge b-y">참고</span></div>${compareFigures(null, m, r.view)}<div class="sub">앞·뒤 각도는 휴대폰 영상으로 검증된 연구를 찾지 못했어요. 페리의 보행 분석 기준 값: 골반 내려감 약 4°(체중 받기), 몸통·무릎은 기준값 없음. ${REF.perry9}</div></div>`;
+    html += glanceFront(r, dur != null);
     html += metric({ title: '골반 내려감 정도 (반대쪽)', value: `왼발 ${f0(m.dropL)} · 오른발 ${f0(m.dropR)}`, unit: '', grade: 'o',
       body: `<div class="calc">한 발로 디딜 때 반대쪽 골반이 내려간 각도 (상위 10% 값)<br>${diff(m.dropL, m.dropR)}<br>페리의 보행 분석 기준: 체중 받기 때 반대쪽 골반 약 4°, 엉덩이 벌림근이 5° 이하로 제한</div>`,
       why: ['양쪽 엉덩이 점을 잇는 선이 수평에서 기운 각도', '입각기 다리는 "발목이 화면에서 더 아래에 있는 다리"로 근사', '뒤에서 찍은 영상의 골반 각도는 연구에서 기준 장비(VICON)와 차이가 컸어요(다른 자세 인식 도구 OpenPose로 한 연구)'], refs: ['perry9', 'ota2021'], limit: '휴대폰 2D 영상이라 카메라 각도·거리에 따라 몇 도 달라질 수 있어요.',
