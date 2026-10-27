@@ -91,7 +91,7 @@ function peakNear(ac, center, tol) {
 // position: 'pocket'(허벅지) | 'waist'(허리) | 'hand'(손) — 신호 모양이 위치마다 다름
 // 허리: 걸음마다 비슷한 봉우리(Perry 7장) / 허벅지: 같은 다리가 돌아오는 '한 보행 주기'마다 봉우리
 // activity: 'walk' | 'run' — 달리기는 케이던스 범위로 한 걸음/한 주기를 가름
-const RUN_MIN = 120, RUN_MAX = 230;   // 달리기 케이던스로 볼 범위 (걸음/분). 이 범위에선 한 걸음·한 주기 해석이 겹치지 않음
+const RUN_MIN = 120, RUN_MAX = 230, AMBIG_MIN = 103;   // 달리기 케이던스로 볼 범위 (걸음/분). 이 범위에선 한 걸음·한 주기 해석이 겹치지 않음
 export function analyzeWalk(samples, { position = 'pocket', activity = 'walk' } = {}) {
   const run = activity === 'run';
   const warnings = [];
@@ -118,7 +118,10 @@ export function analyzeWalk(samples, { position = 'pocket', activity = 'walk' } 
   // S가 한 걸음인지 한 보행 주기(두 걸음)인지 판단
   let stride;
   const half = peakNear(ac, (S / 2) * HZ, 0.15);
-  if (run) stride = (60 / S >= RUN_MIN && 60 / S <= RUN_MAX) || position === 'waist' ? 2 * S : S;   // S가 한 걸음이면 60/S가 달리기 범위. 허리는 양발 걸음이 똑같이 보여 S가 늘 한 걸음 (허리에 차고 걸은 110을 220으로 세던 문제, 제보 K-37856D5D)
+  if (run) stride = (60 / S >= RUN_MIN && 60 / S <= RUN_MAX) || position === 'waist' || (60 / S >= AMBIG_MIN && !(half > 0 && ac[half] > 0.25)) ? 2 * S : S;
+  // ↑ 60/S가 103~120이면 '걷기 한 걸음(103~120)'과 '달리기 한 주기(206~240)'가 겹침 → 절반(한 걸음)에도 반복이 있을 때만 한 주기로 봄.
+  //   양발 충격이 비슷한 주머니 걷기 106을 212로 세던 문제 (K-1A100B97, 데이터분석팀 10/28 211.5). 그 아래(달리기 200 이하)는 그대로: 주머니 달리기는 절반 봉우리가 약할 수 있음
+  // ponytail: 103은 '달리기 206 이상은 드묾'에 기댄 값. 양발 같은 주머니 걷기가 103 미만이면 아직 2배로 셀 수 있음 → 시트의 sd 값으로 보정   // S가 한 걸음이면 60/S가 달리기 범위. 허리는 양발 걸음이 똑같이 보여 S가 늘 한 걸음 (허리에 차고 걸은 110을 220으로 세던 문제, 제보 K-37856D5D)
   else if (S < 0.75) stride = 2 * S;                                   // 주기 0.75초 미만 = 한 걸음 (케이던스 160 넘는 보행 주기는 없음)
   else if (half > 0 && ac[half] > 0.25) stride = S;               // 절반 지점에도 반복 → S는 보행 주기
   else if (S > 1.3) stride = S;                                   // 한 걸음 1.3초 초과는 비현실적

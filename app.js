@@ -551,7 +551,7 @@ function finishSlow(data, demo, position, auto = {}) {
     const a = jog ? analyzeJog(slice, position) : { r: analyzeWalk(slice, { position, activity: 'walk' }), jog: false }, r = a.r;
     if (jog && !a.jog && !r.error) asWalk++;                               // 조깅 시간인데 걷기로 잡힘 → 걷기로 계산
     if (a.jog && r.warnings?.includes('walkLike')) walkLike = true;
-    if (!r.error) segs.push({ jog: a.jog, cadence: r.cadence, steps: r.steps, activeS: r.activeS, regularity: r.regularity });
+    if (!r.error) segs.push({ jog: a.jog, cadence: r.cadence, steps: r.steps, activeS: r.activeS, regularity: r.regularity, sd: r.sd });
   }
   const jogs = segs.filter(x => x.jog), walks = segs.filter(x => !x.jog);
   if (!jogs.length) return showHtml(`<h2>다시 측정해 주세요</h2><div class="warn">조깅 구간을 찾지 못했어요.${asWalk ? ' 조깅 시간에 잡힌 움직임이 걷기와 비슷했어요(흔들림이 작음).' : ''} 첫 1분은 조깅, 다음 1분은 걷기로 번갈아 해 주세요. 조깅 구간이 20초 이상 있어야 분석해요.</div>`);
@@ -560,7 +560,7 @@ function finishSlow(data, demo, position, auto = {}) {
   const rec = { date: new Date().toISOString(), start: Date.now() - (data[data.length - 1].t - t0s), activity: 'slowrun', position, auto, practice: false,
     cadence: avg(jogs, 'cadence'), walkCadence: walks.length ? avg(walks, 'cadence') : null,
     steps: sum(segs, 'steps'), activeS: sum(jogs, 'activeS'), walkS: sum(walks, 'activeS'),
-    regularity: avg(jogs, 'regularity'), jogCount: jogs.length,
+    regularity: avg(jogs, 'regularity'), sd: avg(jogs, 'sd'), jogCount: jogs.length,   // sd = 조깅 구간 흔들림 평균 (RUN_SD 보정용, 데이터분석팀)
     warnings: [`jog${jogs.length}`, ...(asWalk ? [`jogAsWalk${asWalk}`] : []), ...(walkLike ? ['walkLike'] : [])],   // 조깅으로 계산한 구간 수 · 조깅 시간인데 걷기로 계산한 구간 수 · 달리기치고 낮은 케이던스
     diag: { src: Native ? 'app' : 'web', durS: (data[data.length - 1].t - t0s) / 1000, hz: data.length / Math.max(1, (data[data.length - 1].t - t0s) / 1000), gapS: 0, gpsGood: 0 } };
   saveRec(rec, hist, demo, data);
@@ -642,7 +642,7 @@ function send(r) {
     cadence: num(r.cadence, 1), steps: r.steps ?? '', activeS: num(r.activeS, 1), regularity: num(r.regularity, 2),
     speed: r.speed ? +r.speed.toFixed(2) : '', stepLength: r.stepLength ? +r.stepLength.toFixed(2) : '', distance: r.distance ? +r.distance.toFixed(1) : '',
     // ponytail: 시트 칸을 늘리려면 Apps Script 재배포가 필요해서 거리 출처(gps)는 warnings 칸에 붙여 보냄
-    position: r.position, practice: r.practice, warnings: [r.activity !== 'walk' && r.activity, ...r.warnings, r.distSource === 'gps' && 'gps',
+    position: r.position, practice: r.practice, warnings: [r.activity !== 'walk' && r.activity, ...r.warnings, r.distSource === 'gps' && 'gps', r.sd != null && `sd${r.sd.toFixed(1)}`,   // 흔들림 세기(m/s²): 걷기·달리기 구분 기준 RUN_SD를 실제 기록으로 보정하려고
       r.diag && `d:${r.diag.src}/${r.diag.durS.toFixed(0)}s/${r.diag.hz.toFixed(0)}hz/gap${r.diag.gapS.toFixed(1)}/gps${r.diag.gpsGood}`].filter(Boolean).join(' '),
     ageGroup: +age ? Math.floor(+age / 10) * 10 : '', sex: sex || '',
     os: osName(),
@@ -716,7 +716,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v127';
+const APP_VERSION = 'v128';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');

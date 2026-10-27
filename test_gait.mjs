@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import { analyzeWalk, fastMinutes, withDistance, gpsSpeed, gpsDistance, guessActivity, guessPosition, routeMarks, analyzeJog, mixActivity } from './gait.js';
 
-function fakeWalk({ cadence, walkS = 20, position, hz = 60, seed = 1, amp = 1 }) {   // amp: 달리기는 흔들림이 큼
+function fakeWalk({ cadence, walkS = 20, position, hz = 60, seed = 1, amp = 1, odd = 0.4, sw = 2.0 }) {   // amp: 달리기는 흔들림이 큼
   let r = seed;
   const rand = () => ((r = (r * 16807) % 2147483647) / 2147483647 - 0.5);
   const step = 60 / cadence, samples = [];
@@ -15,7 +15,7 @@ function fakeWalk({ cadence, walkS = 20, position, hz = 60, seed = 1, amp = 1 })
       const k = (t - pad) / step, n = Math.floor(k), ph = k - n;
       const bump = Math.exp(-(((ph - 0.15) / 0.07) ** 2));            // 발 닿는 충격
       if (position === 'waist') a += amp * ((n % 2 ? 2.6 : 3.0) * bump + 0.8 * Math.sin(2 * Math.PI * k));
-      else a += amp * ((n % 2 ? 0.4 : 3.2) * bump + 2.0 * Math.sin(Math.PI * k)); // 허벅지: 같은 다리 주기가 강함
+      else a += amp * ((n % 2 ? odd : 3.2) * bump + sw * Math.sin(Math.PI * k)); // 허벅지: 같은 다리 주기가 강함
       a += rand() * 0.4;
     }
     samples.push({ t: t * 1000, x: 0, y: a, z: 0 });
@@ -107,6 +107,12 @@ assert.equal(mixActivity([...Array(38).fill('walk'), 'run', 'run']), 'walk');
 assert.equal(mixActivity([...Array(30).fill('walk'), ...Array(10).fill('run')]), 'slowrun');
 assert.equal(mixActivity([...Array(8).fill('run'), 'walk', null]), 'run');
 assert.equal(mixActivity([null]), null);
+// K-1A100B97: 양발 충격이 비슷하고 같은 다리 주기가 약한 주머니 걷기 106을 달리기 방식이 212로 세던 문제 (흔들림 sd가 3을 넘어도 걷기)
+for (const amp of [4, 5, 6]) {
+  const f = fakeWalk({ cadence: 106, position: 'pocket', walkS: 30, amp, odd: 3.2, sw: 0 }), r = analyzeWalk(f, { activity: 'run' }), j = analyzeJog(f, 'pocket');
+  console.log(`주머니 걷기 106 양발 같음 amp ${amp}: 달리기 방식 ${r.cadence.toFixed(0)} (sd ${r.sd.toFixed(1)}) · ${guessActivity(f, 'pocket')} · 조깅 구간 ${j.jog ? '조깅' : '걷기'} ${j.r.cadence.toFixed(0)}`);
+  assert.equal(guessActivity(f, 'pocket'), 'walk'); assert.ok(!j.jog && Math.abs(j.r.cadence - 106) < 4);
+}
 console.log('걷기 오판 점검 통과');
 const flat = fakeWalk({ cadence: 110, position: 'pocket' }).map(p => ({ t: p.t, x: 0, y: 1, z: p.y }));   // 화면이 하늘을 봄
 assert.equal(guessPosition(flat, 'walk'), 'hand');
