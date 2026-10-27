@@ -716,7 +716,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v128';
+const APP_VERSION = 'v129';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -1223,7 +1223,7 @@ function routeBox() {
   if (!KAKAO_KEY || !(route?.length > 1)) return '';
   return `<div class="metric" id="routeBox"><div class="mhead"><b>지도에서 경로 보기</b><span class="badge b-y">참고</span></div>
     <div class="sub">누르면 카카오 지도 서버에서 지도 그림을 받아 와요. 이때 보이는 지역의 대략 위치와 인터넷 주소(IP)가 카카오에 전달돼요. 경로는 이 휴대폰의 기록에만 저장되고(최근 30개 기록) 운영자에게 보내지 않아요. GPS 오차(보통 수 m) 때문에 선이 조금 삐뚤 수 있어요.</div>
-    <button class="ghost" id="routeBtn">지도 불러오기</button> <button class="ghost" id="routeDel">이 경로 지우기</button><div id="routeMap" class="hidden" style="height:280px;border-radius:10px;margin-top:8px"></div></div>`;
+    <button class="ghost" id="routeBtn">지도 불러오기</button> <button class="ghost" id="routeDel">이 경로 지우기</button><div id="routeMap" class="hidden" style="height:280px;border-radius:12px;margin-top:8px"></div></div>`;
 }
 function loadKakao() {
   return kakaoLoad ??= new Promise((ok, no) => {
@@ -1243,8 +1243,8 @@ document.addEventListener('click', e => {
 // 경로 그리기 (디자인 팀 10/27): 흰 테두리 초록 선, 출발·도착(측정 중엔 '지금') 점과 말풍선, 1km(10km 넘으면 2km)마다 숫자, 경로 전체 보기 버튼
 const ROUTE_C = '#008a6e';
 const dotHtml = (fill, ring) => `<div style="width:16px;height:16px;border-radius:50%;background:${fill};border:3px solid ${ring};box-sizing:border-box"></div>`;
-const tagHtml = t => `<div style="margin-left:14px;background:#121816;color:#fff;font:700 11px/18px sans-serif;padding:0 8px;border-radius:9px;white-space:nowrap">${t}</div>`;
-const kmHtml = n => `<div style="width:22px;height:22px;border-radius:50%;background:#fff;border:2px solid ${ROUTE_C};box-sizing:border-box;color:#005c49;font:700 11px/18px sans-serif;text-align:center">${n}</div>`;
+const tagHtml = t => `<div style="margin-left:14px;background:#121816;color:#fff;font:700 12px/18px sans-serif;padding:0 8px;border-radius:999px;white-space:nowrap">${t}</div>`;
+const kmHtml = n => `<div style="width:22px;height:22px;border-radius:50%;background:#fff;border:2px solid ${ROUTE_C};box-sizing:border-box;color:#005c49;font:700 12px/18px sans-serif;text-align:center">${n}</div>`;
 async function drawRoute(box, pts, live = false) {
   try { await loadKakao(); } catch { kakaoLoad = null; return false; }
   const K = kakao.maps, path = pts.map(([lat, lon]) => new K.LatLng(lat, lon));
