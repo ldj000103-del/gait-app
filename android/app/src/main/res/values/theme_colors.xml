@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 첫 화면(스플래시)·상태 표시줄 색: 앱 바탕과 같게 (디자인 팀 10/28, 초록 띠 없앰). 어두운 화면은 values-night -->
+<resources>
+    <color name="splash_bg">#FFFFFF</color>
+    <color name="bar_bg">#F2F4F3</color>
+    <bool name="light_bars">true</bool>
+</resources>

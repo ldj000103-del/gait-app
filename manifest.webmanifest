@@ -3,8 +3,8 @@
   "short_name": "스텝미러",
   "start_url": "./",
   "display": "standalone",
-  "background_color": "#f6f7f5",
-  "theme_color": "#1d6b5c",
+  "background_color": "#ffffff",
+  "theme_color": "#f2f4f3",
   "lang": "ko",
   "icons": [
     { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
