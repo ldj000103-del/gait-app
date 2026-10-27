@@ -622,7 +622,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v103';
+const APP_VERSION = 'v104';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -1355,7 +1355,11 @@ function setTab(name) {
   if (name === 'video') cmpResume();
 }
 $('meBtn').addEventListener('click', () => { setTab('measure'); showProfSum(true); $('profile').scrollIntoView({ block: 'start' }); });   // 홈 '나' → 내 정보 펼침
-document.querySelector('#tabbar').addEventListener('click', e => { const b = e.target.closest('button[data-go]'); if (b) { setTab(b.dataset.go); scrollTo(0, 0); } });
+document.querySelector('#tabbar').addEventListener('click', e => {
+  const b = e.target.closest('button[data-go]'); if (!b) return;
+  if (b.dataset.go === 'measure') $('result').classList.add('hidden');   // 측정 탭 = 측정 화면 (결과가 떠 있으면 시작 버튼이 결과 위 제자리로 가서 안 보임, 결과는 기록 탭에 있음)
+  setTab(b.dataset.go); scrollTo(0, 0);
+});
 
 // ── 홈: 요약 카드 · 이번 주 슬로우 조깅 링 · 변화 그래프 ──
 const shortDate = d => new Date(d).toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric' });
@@ -1761,7 +1765,7 @@ const rad = d => d * Math.PI / 180, sdeg = (x, y) => Math.atan2(y, x) * 180 / Ma
 const rot = ([x, y], a) => [x * Math.cos(rad(a)) - y * Math.sin(rad(a)), x * Math.sin(rad(a)) + y * Math.cos(rad(a))];
 const add = (p, v) => [p[0] + v[0], p[1] + v[1]], f1 = n => n.toFixed(1);
 const num = x => x == null || Number.isNaN(x) ? null : x;
-let cmpCurves = null;
+let cmpCurves = null, cmpFM = null, cmpSideLatest = false;   // 옆 곡선 · 앞뒤 값(m) · 옆 곡선을 최근 옆 영상에서 빌려 왔는지
 const cmpSt = { q: 1, view: 'side', T: 11000, playing: true, ph: -1, raf: 0, last: 0 };
 const phaseIdx = q => { let i = PHASES.length - 1; PHASES.forEach((p, j) => { if (p[1] <= q) i = j; }); return q < PHASES[0][1] ? PHASES.length - 1 : i; };
 const phaseMid = i => { const a = PHASES[i][1], b = PHASES[(i + 1) % PHASES.length][1] + (i === PHASES.length - 1 ? 100 : 0); return Math.round((a + b) / 2) % 100; };
@@ -1807,7 +1811,8 @@ function sideFig(x, who, q) {
 }
 // 앞·뒤 보기: 왼발(주기 0~50%)·오른발(50~100%)을 번갈아 디딤. 디딜 때(체중 받기, 그 발 구간의 15% 지점)에 상위 10% 값까지 올라갔다 내려옴
 // 앞에서 보면 거울처럼 몸 오른쪽이 화면 왼쪽, 뒤에서 보면 몸 왼쪽이 화면 왼쪽
-const frontM = () => store.get('history', []).find(h => h.activity === 'video' && (h.view === 'front' || h.view === 'back') && h.r?.m)?.r.m ?? null;
+const latestVid = (ok, f) => f(store.get('history', []).find(h => h.activity === 'video' && ok(h.view) && h.r && f(h.r))?.r ?? {}) ?? null;
+const frontM = () => cmpFM;
 function frontFig(x, who, q, view, m) {
   const sgn = view === 'front' ? 1 : -1, leftSt = q < 50, sL = leftSt ? 1 : -1, u = (q % 50) / 50;
   const w = u < 0.15 ? Math.sin(Math.PI / 2 * u / 0.15) : Math.cos(Math.PI / 2 * (u - 0.15) / 0.85), me = who === 'me';
@@ -1836,8 +1841,10 @@ function frontFig(x, who, q, view, m) {
     + bubbles(who, me ? [['몸통', [(s1[0] + top[0]) / 2, (s1[1] + top[1]) / 2], lean], ['골반', mid, drop], ['무릎', st.knee, valg]] : [['골반', mid, drop]]);
 }
 function cmpScene(q, view) {
-  const label = `<text x="102" y="197" font-size="13" text-anchor="middle" fill="currentColor" opacity=".75">페리 기준</text><text x="198" y="197" font-size="13" text-anchor="middle" fill="currentColor" opacity=".75">나 (이번 영상)</text>`;   // 이름은 각 인물 바로 아래
-  if (view === 'side') return floorLines + sideFig(102, 'perry', q) + sideFig(198, 'me', q) + label;
+  const lab = (x, t) => `<text x="${x}" y="197" font-size="13" text-anchor="middle" fill="currentColor" opacity=".75">${t}</text>`;   // 이름은 각 인물 바로 아래
+  const label = lab(102, '페리 기준') + lab(198, view === 'side' && cmpSideLatest ? '나 (최근 옆 영상)' : '나 (이번 영상)');
+  if (view === 'side') return floorLines + sideFig(102, 'perry', q) + (cmpCurves ? sideFig(198, 'me', q) + label : lab(102, '페리 기준')
+    + `<text x="230" y="100" font-size="12" text-anchor="middle" fill="currentColor" opacity=".7">옆 영상을 찍으면 보여요</text>`);
   const m = frontM();
   if (!m) return `<text x="160" y="100" font-size="14" text-anchor="middle" fill="currentColor" opacity=".7">앞·뒤 영상을 찍으면 보여요</text>`;
   return floorLines + frontFig(102, 'perry', q, view, m) + frontFig(198, 'me', q, view, m) + label;
@@ -1866,7 +1873,7 @@ function cmpRender(box) {
     box.querySelector('.phN').textContent = `${key + 1} / 8 단계`;
     box.querySelectorAll('.phBar i').forEach((x, j) => x.classList.toggle('on', j <= key));
     box.querySelector('.cmpTab').innerHTML = cmpTable(key);
-    box.querySelector('.cmpTabNote').textContent = '표는 단계마다 한 번 바뀌어요 (그 단계 가운데 순간의 값)';
+    box.querySelector('.cmpTabNote').textContent = (cmpSideLatest ? '옆: 가장 최근 옆 영상 값 · ' : '') + '표는 단계마다 한 번 바뀌어요 (그 단계 가운데 순간의 값)';
     return;
   }
   const m = frontM();
@@ -1890,12 +1897,14 @@ function cmpResume() {
 const BONE_DEFS = `<defs><filter id="bf-far"><feColorMatrix type="matrix" values=".7 0 0 0 0  0 .7 0 0 0  0 0 .7 0 0  0 0 0 1 0"/></filter>
   <filter id="bf-me"><feColorMatrix type="matrix" values=".2 .2 .2 0 0  .3 .3 .3 0 0  .27 .27 .27 0 0  0 0 0 1 0"/></filter>
   <filter id="bf-me-far"><feColorMatrix type="matrix" values=".14 .14 .14 0 0  .21 .21 .21 0 0  .19 .19 .19 0 0  0 0 0 1 0"/></filter></defs>`;
-function compareFigures(curves) {
-  cmpCurves = curves;
-  Object.assign(cmpSt, { q: 1, ph: -1, playing: !matchMedia('(prefers-reduced-motion: reduce)').matches });
-  if (cmpSt.view === 'oblique') cmpSt.view = 'side';
+// 옆 결과: 이번 곡선 + 최근 앞·뒤 값 · 앞·뒤 결과: 이번 값(fm) + 최근 옆 곡선(없으면 페리만), 처음 보기는 영상 방향
+function compareFigures(curves, fm = null, view = 'side') {
+  cmpCurves = curves ?? latestVid(v => v === 'side', r => r.curves);
+  cmpSideLatest = !curves && !!cmpCurves;
+  cmpFM = fm ?? latestVid(v => v === 'front' || v === 'back', r => r.m);
+  Object.assign(cmpSt, { q: 1, ph: -1, view, playing: !matchMedia('(prefers-reduced-motion: reduce)').matches });
   cancelAnimationFrame(cmpSt.raf); cmpSt.raf = 0;
-  setTimeout(cmpResume);                                                   // 화면에 넣은 뒤 시작
+  setTimeout(() => { const b = document.querySelector('.cmp'); if (b) cmpRender(b); cmpResume(); });   // 화면에 넣은 뒤 표·단계를 보기(옆·앞·뒤)에 맞추고 시작
   const chip = (attr, v, label, on) => `<button class="chip" ${attr}="${v}" aria-pressed="${on}">${label}</button>`;
   return `<div class="cmp">
     <div class="cmpChips">${chip('data-view', 'side', '옆', cmpSt.view === 'side')}${chip('data-view', 'front', '앞', cmpSt.view === 'front')}${chip('data-view', 'back', '뒤', cmpSt.view === 'back')}
@@ -1907,7 +1916,7 @@ function compareFigures(curves) {
     <div class="phBar">${PHASES.map((_, j) => `<i${j === 0 ? ' class="on"' : ''}></i>`).join('')}</div>
     <table class="cmpTab">${cmpTable(0)}</table>
     <div class="sub cmpTabNote" style="font-size:.75rem">표는 단계마다 한 번 바뀌어요 (그 단계 가운데 순간의 값)</div>
-    <div class="sub">걷는 방향 → · 옆: 왼쪽 = Perry 9장 표의 단계별 각도로 앱이 움직인 뼈 그림(단계 사이는 직선으로 이은 근사) · 오른쪽 = 이번 영상 평균 · '고관절' 숫자는 넓적다리가 수직선에서 앞(+)·뒤(−)로 기운 각도예요(골반 기울기는 빼고 잼) · 발목은 발등 쪽 +</div></div>`;
+    <div class="sub">걷는 방향 → · 옆: 왼쪽 = Perry 9장 표의 단계별 각도로 앱이 움직인 뼈 그림(단계 사이는 직선으로 이은 근사) · 오른쪽 = ${cmpSideLatest ? '가장 최근 옆 영상' : '이번 영상'} 평균 · '고관절' 숫자는 넓적다리가 수직선에서 앞(+)·뒤(−)로 기운 각도예요(골반 기울기는 빼고 잼) · 발목은 발등 쪽 +</div></div>`;
 }
 document.addEventListener('click', e => {
   if (e.target.closest('[data-bonesrc]')) {                                // 출처 보기 → 홈 '이 앱의 근거' 카드의 뼈 그림 출처 펼침
@@ -2048,6 +2057,7 @@ function renderVideo(r, dur) {
     const diff = (a, b) => a != null && b != null ? `좌우 차이 ${Math.abs(a - b).toFixed(0)}°` : '';
     html += `<h2>영상 분석 결과 · ${side}</h2><div class="sub">몸이 잡힌 장면 ${Math.round(r.validFrac * 100)}% · 앞·뒤 각도는 휴대폰 영상으로 검증된 연구를 찾지 못했어요. 골반 값은 다른 도구 연구에서 기준 장비와 차이가 커서 "부정확할 수 있음", 나머지는 "검증 안 됨"이에요. 같은 조건으로 찍어 좌우 비교·변화 추적에 쓰세요.</div>`;
     html += glanceFront(r, dur != null);
+    html += `<div class="metric"><div class="mhead"><div><b>페리의 보행 분석 기준 걸음과 나란히</b></div><span class="badge b-y">참고</span></div>${compareFigures(null, m, r.view)}<div class="sub">앞·뒤 각도는 휴대폰 영상으로 검증된 연구를 찾지 못했어요. 페리의 보행 분석 기준 값: 골반 내려감 약 4°(체중 받기), 몸통·무릎은 기준값 없음. ${REF.perry9}</div></div>`;
     html += metric({ title: '골반 내려감 정도 (반대쪽)', value: `왼발 ${f0(m.dropL)} · 오른발 ${f0(m.dropR)}`, unit: '', grade: 'o',
       body: `<div class="calc">한 발로 디딜 때 반대쪽 골반이 내려간 각도 (상위 10% 값)<br>${diff(m.dropL, m.dropR)}<br>페리의 보행 분석 기준: 체중 받기 때 반대쪽 골반 약 4°, 엉덩이 벌림근이 5° 이하로 제한</div>`,
       why: ['양쪽 엉덩이 점을 잇는 선이 수평에서 기운 각도', '입각기 다리는 "발목이 화면에서 더 아래에 있는 다리"로 근사', '뒤에서 찍은 영상의 골반 각도는 연구에서 기준 장비(VICON)와 차이가 컸어요(다른 자세 인식 도구 OpenPose로 한 연구)'], refs: ['perry9', 'ota2021'], limit: '휴대폰 2D 영상이라 카메라 각도·거리에 따라 몇 도 달라질 수 있어요.',
