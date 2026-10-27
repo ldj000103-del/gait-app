@@ -1,4 +1,4 @@
-import { analyzeWalk, fastMinutes, withDistance, gpsSpeed, gpsDistance, guessActivity, guessPosition, routeMarks, RUN_CAD, analyzeJog } from './gait.js';
+import { analyzeWalk, fastMinutes, withDistance, gpsSpeed, gpsDistance, guessActivity, guessPosition, routeMarks, RUN_CAD, analyzeJog, mixActivity } from './gait.js';
 import { analyzeSide, analyzeFrontal, extractPose, drawSnapshot, PART_ICON } from './video.js';
 
 const $ = id => document.getElementById(id);
@@ -71,11 +71,12 @@ const prof = store.get('profile', { sex: '', age: '' });
 // 바꾸는 즉시 저장: 화면의 '만 14세 미만은 보내지 않아요' 안내와 실제 전송(send)이 늘 같은 나이를 보게 (개인정보 보호법 제22조의2). '저장'은 확인용
 const saveProf = () => store.set('profile', { sex: $('sex').value, age: $('age').value });
 const setSex = v => { $('sex').value = v; for (const b of $('sexBtns').children) b.setAttribute('aria-pressed', b.dataset.sex === v); $('profMsg').textContent = ''; };
-setSex(prof.sex ?? ''); $('age').value = prof.age;
+setSex(prof.sex ?? ''); $('age').value = prof.age ?? '';
 const under14 = age => +age > 0 && +age < 14;
 const ageNote = () => $('ageNote').classList.toggle('hidden', !under14($('age').value));
 $('sexBtns').addEventListener('click', e => { const b = e.target.closest('[data-sex]'); if (b) { setSex(b.dataset.sex); saveProf(); } });
-$('age').addEventListener('input', () => { saveProf(); ageNote(); $('profMsg').textContent = ''; });
+// 숫자 칸(type=number)은 안드로이드 한글 키보드가 숫자 아닌 글자를 보내면 값을 통째로 버려 빈칸이 됨(제보 K-47B65E2E) → 글자 칸 + 숫자만 남김
+$('age').addEventListener('input', () => { const a = $('age'), d = a.value.replace(/\D/g, '').slice(0, 3); if (a.value !== d) a.value = d; saveProf(); ageNote(); $('profMsg').textContent = ''; });
 $('profSave').addEventListener('click', () => { saveProf(); ageNote(); $('profMsg').textContent = '저장했어요'; showProfSum(false); });
 ageNote();
 
@@ -387,7 +388,7 @@ async function updateLive(act, el) {
   else { const cut = (samples[samples.length - 1]?.t ?? 0) - 20000; s = samples.filter(p => p.t >= cut); g = gpsPts; }
   if (!t0) return;
   const ok = s?.length > 50, pos = $('pos').value === 'auto' ? 'pocket' : $('pos').value;
-  const mode = !ok ? null : act === 'slowrun' ? (Math.floor(el / INTERVAL_S) % 2 === 0 ? 'run' : 'walk') : act === 'auto' ? guessActivity(s) ?? 'walk' : act === 'walk' ? 'walk' : 'run';
+  const mode = !ok ? null : act === 'slowrun' ? (Math.floor(el / INTERVAL_S) % 2 === 0 ? 'run' : 'walk') : act === 'auto' ? guessActivity(s, $('pos').value) ?? 'walk' : act === 'walk' ? 'walk' : 'run';
   const r = ok ? analyzeWalk(s, { position: pos, activity: mode }) : { error: 'tooShort' };
   if (act === 'auto' && !r.error) $('recTitle').textContent = `지금 ${mode === 'run' ? '달리기' : '걷기'}로 보여요`;
   if (!r.error) { liveSteps += r.cadence * 3 / 60; $('lvCad').textContent = Math.round(r.cadence); $('lvSteps').textContent = Math.round(liveSteps).toLocaleString(); }
@@ -460,7 +461,7 @@ function finish(data, demo = false, gps = []) {
   shownDate = null; route = null;
   let act = $('act').value, position = $('pos').value;
   const auto = {};                                                         // 자동으로 고른 것 → 결과에 '참고'·'검증 안 됨'으로 표시
-  if (act === 'auto') act = auto.act = autoAct(data);
+  if (act === 'auto') act = auto.act = autoAct(data, position);
   if (position === 'auto') position = auto.pos = guessPosition(data, act === 'walk' ? 'walk' : 'run');
   if (act === 'slowrun') return finishSlow(data, demo, position, auto);
   if (act === 'cooper') return finishCooper(data, gps, demo, position);
@@ -522,17 +523,15 @@ function chunks(data, sec) {
 }
 // 자동 구분: 30초씩 걷기·달리기를 고르고, 둘 다 1분(2조각) 이상 섞이면 슬로우 러닝
 // ponytail: 신호등에서 1분 넘게 걸은 러닝도 슬로우 러닝으로 봄 → 실제 기록으로 보정 필요
-function autoAct(data) {
-  const w = chunks(data, 30).map(c => guessActivity(c.s)).filter(Boolean), nRun = w.filter(a => a === 'run').length, nWalk = w.length - nRun;
-  if (Math.min(nRun, nWalk) >= 2) return 'slowrun';
-  return w.length ? (nRun > nWalk ? 'run' : 'walk') : guessActivity(data) ?? 'walk';
+function autoAct(data, position) {
+  return mixActivity(chunks(data, 30).map(c => guessActivity(c.s, position))) ?? guessActivity(data, position) ?? 'walk';
 }
 
 // ── 슬로우 러닝: 1분 단위로 잘라 조깅 구간은 러닝, 걷기 구간은 걷기로 분석 (자동 구분이면 30초씩 신호로 가름) ──
 function finishSlow(data, demo, position, auto = {}) {
   shownDate = null;
   const t0s = data[0].t, segs = [];
-  const parts = auto.act ? chunks(data, 30).map(({ s }) => ({ s, jog: guessActivity(s) === 'run' })) : chunks(data, INTERVAL_S).map(({ k, s }) => ({ s, jog: k % 2 === 0 }));
+  const parts = auto.act ? chunks(data, 30).map(({ s }) => ({ s, jog: guessActivity(s, position) === 'run' })) : chunks(data, INTERVAL_S).map(({ k, s }) => ({ s, jog: k % 2 === 0 }));
   let asWalk = 0, walkLike = false;
   for (const { s: slice, jog } of parts) {
     const a = jog ? analyzeJog(slice, position) : { r: analyzeWalk(slice, { position, activity: 'walk' }), jog: false }, r = a.r;
@@ -703,7 +702,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v122';
+const APP_VERSION = 'v123';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');

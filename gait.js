@@ -118,7 +118,7 @@ export function analyzeWalk(samples, { position = 'pocket', activity = 'walk' } 
   // S가 한 걸음인지 한 보행 주기(두 걸음)인지 판단
   let stride;
   const half = peakNear(ac, (S / 2) * HZ, 0.15);
-  if (run) stride = 60 / S >= RUN_MIN && 60 / S <= RUN_MAX ? 2 * S : S;   // S가 한 걸음이면 60/S가 달리기 범위
+  if (run) stride = (60 / S >= RUN_MIN && 60 / S <= RUN_MAX) || position === 'waist' ? 2 * S : S;   // S가 한 걸음이면 60/S가 달리기 범위. 허리는 양발 걸음이 똑같이 보여 S가 늘 한 걸음 (허리에 차고 걸은 110을 220으로 세던 문제, 제보 K-37856D5D)
   else if (S < 0.75) stride = 2 * S;                                   // 주기 0.75초 미만 = 한 걸음 (케이던스 160 넘는 보행 주기는 없음)
   else if (half > 0 && ac[half] > 0.25) stride = S;               // 절반 지점에도 반복 → S는 보행 주기
   else if (S > 1.3) stride = S;                                   // 한 걸음 1.3초 초과는 비현실적
@@ -162,10 +162,18 @@ export function fastMinutes(samples, opts, limit = 100) {
   return { fastMin: fast, minutes: total };
 }
 
-export function guessActivity(samples) {
-  const r = analyzeWalk(samples, { activity: 'run' });
+export function guessActivity(samples, position) {
+  const pos = position && position !== 'auto' ? position : guessPosition(samples, 'run');   // 위치를 모르면 짐작 (허리면 한 걸음 해석이 달라짐)
+  const r = analyzeWalk(samples, { position: pos, activity: 'run' });
   if (r.error) return null;
   return r.cadence >= RUN_CAD && r.sd > RUN_SD ? 'run' : 'walk';
+}
+// 30초 조각들의 판정(walk/run)으로 전체 활동을 고름: 적은 쪽이 2조각 이상이고 20% 이상일 때만 슬로우 러닝 (20분 걷기 중 2조각이 잘못 잡혀 슬로우 러닝이 되던 문제, 제보 K-37856D5D)
+export function mixActivity(labels) {
+  const w = labels.filter(Boolean), nRun = w.filter(a => a === 'run').length, nWalk = w.length - nRun, few = Math.min(nRun, nWalk);
+  if (!w.length) return null;
+  if (few >= 2 && few >= 0.2 * w.length) return 'slowrun';
+  return nRun > nWalk ? 'run' : 'walk';
 }
 // 슬로우 러닝의 '조깅 1분' 구간: 실제로 걸었으면(guessActivity와 같은 기준) 걷기 방식으로 다시 계산 → 한 걸음을 한 주기로 읽어 케이던스가 2배로 나오던 문제 (데이터분석팀 10/27, 230걸음/분 기록 2건)
 export function analyzeJog(samples, position) {

@@ -1,7 +1,7 @@
 // 걸음 분석 자체 점검: node test_gait.mjs
 // 가짜 걷기 신호(앞뒤 3초 서 있기 포함)를 만들어 케이던스를 2% 안으로 맞히는지 확인
 import assert from 'node:assert/strict';
-import { analyzeWalk, fastMinutes, withDistance, gpsSpeed, gpsDistance, guessActivity, guessPosition, routeMarks, analyzeJog } from './gait.js';
+import { analyzeWalk, fastMinutes, withDistance, gpsSpeed, gpsDistance, guessActivity, guessPosition, routeMarks, analyzeJog, mixActivity } from './gait.js';
 
 function fakeWalk({ cadence, walkS = 20, position, hz = 60, seed = 1, amp = 1 }) {   // amp: 달리기는 흔들림이 큼
   let r = seed;
@@ -97,6 +97,17 @@ for (const position of ['pocket', 'waist']) {
   assert.ok(j.jog && Math.abs(j.r.cadence - 165) < 5, '진짜 조깅 구간');
 }
 console.log('슬로우 러닝 조깅 구간 점검 통과');
+// 제보 K-37856D5D: 허리에 차고 세게 걸은 110을 220으로 세 달리기로 보던 문제, 걷기 사이 2조각만 달리기로 잡혀도 슬로우 러닝이 되던 문제
+for (const c of [90, 110]) {
+  const f = fakeWalk({ cadence: c, position: 'waist', walkS: 30, amp: 3 });
+  console.log(`허리 걷기 ${c} 흔들림 3배: ${guessActivity(f, 'waist')} (달리기 방식 ${analyzeWalk(f, { position: 'waist', activity: 'run' }).cadence.toFixed(0)})`);
+  assert.equal(guessActivity(f, 'waist'), 'walk');
+}
+assert.equal(mixActivity([...Array(38).fill('walk'), 'run', 'run']), 'walk');
+assert.equal(mixActivity([...Array(30).fill('walk'), ...Array(10).fill('run')]), 'slowrun');
+assert.equal(mixActivity([...Array(8).fill('run'), 'walk', null]), 'run');
+assert.equal(mixActivity([null]), null);
+console.log('걷기 오판 점검 통과');
 const flat = fakeWalk({ cadence: 110, position: 'pocket' }).map(p => ({ t: p.t, x: 0, y: 1, z: p.y }));   // 화면이 하늘을 봄
 assert.equal(guessPosition(flat, 'walk'), 'hand');
 console.log('모든 점검 통과');

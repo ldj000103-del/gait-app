@@ -363,7 +363,7 @@
     <div class="seg" id="sexBtns" role="group" aria-label="성별"><button data-sex="m">남성</button><button data-sex="f">여성</button><button data-sex="">안 함</button></div>
     <input type="hidden" id="sex">
     <label for="age" class="sub" style="display:block;margin-top:12px">나이</label>
-    <input id="age" class="bignum" type="number" inputmode="numeric" min="18" max="100" placeholder="예: 45">
+    <input id="age" class="bignum" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="3" autocomplete="off" placeholder="예: 45">
     <button id="profSave">저장</button><div id="profMsg" class="sub" role="status" style="text-align:center;margin-top:4px"></div>
     </div>
     <div id="ageNote" class="sub hidden" style="margin-top:6px">만 14세 미만은 법정대리인(부모님 등) 동의가 필요해서, 동의 여부와 상관없이 결과를 운영자에게 보내지 않아요. 측정과 기록은 휴대폰 안에서 그대로 쓸 수 있어요.</div>
