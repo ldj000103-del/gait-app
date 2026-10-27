@@ -699,7 +699,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v115';
+const APP_VERSION = 'v116';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -1360,9 +1360,9 @@ const GLOSS = {
   '중간 디딤기': '= 중간 입각(Mid stance). 한 발로 몸을 받치고 몸이 그 발 위를 지나가는 구간이에요(12~31%).',
   '발뒤꿈치 떼기': '= 말기 입각(Terminal stance). 발뒤꿈치가 들리고 몸이 발 앞으로 나가는 구간이에요(31~50%).',
   '발가락 떼기': '= 유각 전(Pre-swing). 발가락이 떨어지기 직전까지의 구간이에요(50~62%).',
-  '가속기': '= 초기 유각(Initial swing). 발이 떨어져 다리가 앞으로 나가기 시작하는 구간이에요(62~75%).',
-  '중간 유각기': '= 중간 유각(Mid swing). 흔드는 다리가 몸 아래를 지나가는 구간이에요(75~87%).',
-  '감속기': '= 말기 유각(Terminal swing). 다리가 앞으로 뻗으며 속도를 줄여 닿을 준비를 하는 구간이에요(87~100%).',
+  '초기 흔들기': '= 초기 유각(Initial swing). 발이 떨어져 다리가 앞으로 나가기 시작하는 구간이에요(62~75%).',
+  '중간 흔들기': '= 중간 유각(Mid swing). 흔드는 다리가 몸 아래를 지나가는 구간이에요(75~87%).',
+  '말기 흔들기': '= 말기 유각(Terminal swing). 다리가 앞으로 뻗으며 속도를 줄여 닿을 준비를 하는 구간이에요(87~100%).',
   '페리': 'Jacquelin Perry. 물리치료사들이 보행을 배울 때 쓰는 책 『Gait Analysis(보행 분석)』(1992)의 저자예요. 이 앱의 기준 각도·값은 주로 이 책에서 가져와요.',
   'Perry': '물리치료사들이 보행을 배울 때 쓰는 책 『Gait Analysis(보행 분석)』(1992)의 저자예요. 이 앱의 기준 각도·값은 주로 이 책에서 가져와요.',
   '입각기': '발이 땅에 닿아 몸을 받치는 구간이에요(보행 주기 약 0~60%). 새 용어로 "디딤기", 영어로 Stance phase라고도 해요.',
@@ -1831,8 +1831,8 @@ function perryAt(q, k) {   // k: 2 넓적다리, 3 무릎, 4 발목
 // 걸음걸이 탭 '페리 기준 vs 나' 해부학 뼈 아바타 (디자인 팀 10/27 13:33, 법률 검토 19번): BodyParts3D·Z-Anatomy 뼈를 미리 렌더링한 그림(assets/bones, CC BY-SA)을
 // 관절 각도에 맞춰 돌리고 이어 붙임. 옆 = 왼쪽 Perry 9장 표의 단계별 각도(단계 사이 직선 근사) / 오른쪽 이번 영상 평균 곡선. 앞·뒤 = 최근 앞·뒤 영상의 상위 10% 값
 // '고관절' 숫자는 넓적다리 각도(수직선 기준, 골반 기울기 제외)라 새 숫자를 만들지 않음 → 화면 아래에 그 뜻을 적음
-const OLD_PH = ['발뒤꿈치 닿기', '발바닥 닿기', '중간 디딤기', '발뒤꿈치 떼기', '발가락 떼기', '가속기', '중간 유각기', '감속기'];   // 이 화면에서만 쓰는 전통 용어 (PHASES 순서, 사용자 10/27)
-const OLD_EN = ['Heel Strike, 0~2%', 'Foot Flat, 2~12%', 'Mid Stance, 12~31%', 'Heel Off, 31~50%', 'Toe Off, 50~62%', 'Acceleration, 62~75%', 'Midswing, 75~87%', 'Deceleration, 87~100%'];   // % = Perry 2장 구간
+const OLD_PH = ['발뒤꿈치 닿기', '발바닥 닿기', '중간 디딤기', '발뒤꿈치 떼기', '발가락 떼기', '초기 흔들기', '중간 흔들기', '말기 흔들기'];   // 이 화면에서만 쓰는 전통 용어 (PHASES 순서, 사용자 10/27)
+const OLD_EN = ['Heel Strike, 0~2%', 'Foot Flat, 2~12%', 'Mid Stance, 12~31%', 'Heel Off, 31~50%', 'Toe Off, 50~62%', 'Initial Swing, 62~75%', 'Mid Swing, 75~87%', 'Terminal Swing, 87~100%'];   // % = Perry 2장 구간
 // 그림별 [폭, 높이, 관절 중심 픽셀 좌표] (assets/bones/bones.json, 1m = 600px). 오른쪽 다리 그림만 있고 왼쪽은 좌우로 뒤집어 씀
 const BONE = {side:{pelvis:[103,141,{hipR:[60.2,97.2],hipL:[60.2,97.2],s1:[38.8,24.7]}],femur:[59,288,{hipR:[38.7,20.4],knee:[22.3,265.2]}],shank:[53,239,{knee:[24.5,-5.2],ankle:[23.2,224.4]}],foot:[149,58,{ankle:[40.2,15.7]}]},
   front:{pelvis:[174,141,{hipR:[36.3,97.2],hipL:[137.7,97.2],s1:[87.1,24.8]}],femur:[82,288,{hipR:[44.4,20.4],knee:[47.7,265.2]}],shank:[65,239,{knee:[33.7,-5.2],ankle:[37.2,224.4]}],foot:[68,58,{ankle:[49.7,15.8]}]},
@@ -1945,6 +1945,7 @@ const phaseIdx = q => { let i = PHASES.length - 1; PHASES.forEach((p, j) => { if
 function cmpRender(box) {
   const st = cmpSt, side = st.view === 'side', q = st.q, i = phaseIdx(q);
   box.querySelector('.cmpScene').innerHTML = cmpScene(side ? q : (q + 50) % 100, st.view);
+  box.querySelector('.cmpRange').value = Math.round(q);
   if (st.drawn === `${st.view}${i}`) return;                               // 단계 버튼·막대·표는 단계가 바뀔 때만 (그 단계 가운데 순간의 값)
   st.drawn = `${st.view}${i}`;
   box.querySelectorAll('[data-ph]').forEach(b => b.setAttribute('aria-pressed', +b.dataset.ph === i));
@@ -1988,13 +1989,19 @@ function compareFigures(curves, fm = null, view = 'side') {
     <div class="cmpChips">${chip('data-view', 'side', '옆', view === 'side')}${chip('data-view', 'front', '앞', view === 'front')}${chip('data-view', 'back', '뒤', view === 'back')}</div>
     <svg class="chart cmpSvg" viewBox="0 0 320 204" role="img" aria-label="페리의 보행 분석 기준 걸음과 내 걸음 뼈 그림 비교">${BONE_DEFS}<g class="cmpScene">${cmpScene(view === 'side' ? phaseMid(1) : (phaseMid(1) + 50) % 100, view)}</g></svg>
     <div class="sub" style="font-size:.75rem">뼈 그림: BodyParts3D·Z-Anatomy 모델로 만듦 (CC BY-SA) · <a href="#" data-bonesrc>출처 보기</a></div>
-    <button class="chip cmpPlay" data-cplay>▶ 재생</button>
+    <div class="cmpCtl"><button class="chip" data-cplay>▶ 재생</button><input type="range" class="cmpRange" min="0" max="99" step="1" value="${phaseMid(1)}" aria-label="보행 주기 위치(%)"></div>
     <div class="gc" role="group" aria-label="보행 주기 단계"><span class="on">입각기 <small>0~62%</small></span><span>유각기 <small>62~100%</small></span>${phBtns(0, PHASES.length)}</div>
     <div class="cmpPh"><b class="phName">${OLD_PH[1]} <small>(${OLD_EN[1]})</small></b> <span class="sub phN">페리: ${PHASES[1][0]} · 2 / 8 단계</span></div>
     <table class="cmpTab">${cmpTable(1)}</table>
     <div class="sub cmpTabNote" style="font-size:.75rem">그림과 표는 누른 단계 가운데 순간의 값이에요</div>
     <div class="sub">걷는 방향 → · 옆: 왼쪽 = Perry 9장 표의 단계별 각도로 앱이 움직인 뼈 그림(단계 사이는 직선으로 이은 근사) · 오른쪽 = ${cmpSideLatest ? '가장 최근 옆 영상' : '이번 영상'} 평균 · '고관절' 숫자는 넓적다리가 수직선에서 앞(+)·뒤(−)로 기운 각도예요(골반 기울기는 빼고 잼) · 발목은 발등 쪽 +</div></div>`;
 }
+document.addEventListener('input', e => {                                // 막대를 끌면 멈추고 그 위치로
+  if (!e.target.matches?.('.cmp .cmpRange')) return;
+  const box = e.target.closest('.cmp');
+  cmpSt.q = +e.target.value; cmpSt.playing = false; box.querySelector('[data-cplay]').textContent = playTxt();
+  cmpRender(box);
+});
 document.addEventListener('click', e => {
   if (e.target.closest('[data-bonesrc]')) {                                // 출처 보기 → 홈 '이 앱의 근거' 카드의 뼈 그림 출처 펼침
     e.preventDefault(); setTab('home'); const d = $('boneSrc'); d.open = true; d.scrollIntoView({ block: 'center' }); return;

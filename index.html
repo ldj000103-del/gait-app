@@ -153,7 +153,7 @@
   .cmpChips { display:flex; flex-wrap:wrap; gap:5px; margin:6px 0; } .cmpChips .chip { padding:5px 9px; font-size:.75rem; } .cmpGap { flex:1; }
   .cmpPh .phName { font-size:1.25rem; }
   #boneSrc p { overflow-wrap:anywhere; }
-  .cmpPlay { margin:10px 0 0; }
+  .cmpCtl { display:flex; gap:10px; align-items:center; margin:10px 0 0; } .cmpCtl .chip { flex:none; } .cmpCtl input { flex:1; min-width:0; padding:0; border:0; background:none; accent-color:var(--accent); }
   .gc { display:grid; grid-template-columns:repeat(8,auto); gap:2px; margin:10px 0; }   /* 위: 입각기(5칸)·유각기(3칸) 막대, 아래: 단계 8칸. 한 격자라 경계가 맞음 */
   .gc > span { grid-column:span 5; border-radius:8px; padding:5px 8px; font-size:.8125rem; font-weight:600; background:var(--line); color:var(--sub); } .gc > span + span { grid-column:span 3; }
   .gc > span.on { background:var(--accent); color:var(--bg); } .gc > span small { font-weight:500; opacity:.8; }
