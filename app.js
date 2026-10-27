@@ -702,7 +702,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v124';
+const APP_VERSION = 'v125';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -1948,7 +1948,7 @@ function frontTable(q) {                                                   // �
   const perryPel = i === 1 ? '왼쪽 약 4° 낮음' : i === 4 ? '오른쪽 약 4° 낮음' : '-';   // 체중 받기(오른발 2~12%, 왼발은 오른발 주기 50~62%) 때 반대쪽 골반 약 4°
   return fc ? `<tr><th>${q}% 순간</th><th>페리</th><th>나</th></tr><tr><th>골반 좌우</th><td>${perryPel}</td><td>${side(fc.tilt[q], '왼쪽', '오른쪽', ' 낮음')}</td></tr>
     <tr><th>몸통 옆 기울기</th><td>기준값 없음</td><td>${side(fc.lean[q], '왼쪽으로', '오른쪽으로')}</td></tr><tr><th>무릎 안쪽 모임</th><td>기준값 없음</td><td>왼발 ${c(fc.valgusL[q])} · 오른발 ${c(fc.valgusR[q])}</td></tr>`
-    : `<tr><td class="sub">${fc === null ? '걸음 주기(디딘 발이 바뀌는 순간)를 찾지 못해 단계별 값이 없어요. 4걸음 이상 보이게 다시 찍어 보세요' : '이 기록은 v120 전에 분석해서 단계별 값이 없어요. 앞·뒤 영상을 다시 분석하면 나와요'}</td></tr>`;   // 새 기록은 fc: null, 옛 기록은 fc 키 없음
+    : `<tr><td class="sub">${fc === null ? '걸음 주기(디딘 발이 바뀌는 순간)를 찾지 못해 단계별 값이 없어요. 4걸음 이상 보이게 다시 찍어 보세요' : '이 기록은 v120 전에 분석해서 단계별 값이 없어요. 같은 영상을 다시 고르거나 새로 찍어 분석하면 나와요'}</td></tr>`;   // 새 기록은 fc: null, 옛 기록은 fc 키 없음
 }
 // 단계 버튼으로 멈춰 봄 (사용자 10/27: 재생 대신 입각기·유각기 막대 + 단계 버튼). 그림·표는 누른 단계 가운데 순간의 값
 // 앞·뒤는 오른발 기준 보행 주기: frontFig는 q<50이 왼발 디딤이라 반 주기 밀어서 넘김 (오른발 입각기 = 0~60%)
@@ -1963,7 +1963,7 @@ function cmpRender(box) {
     st.tab = `${st.view}${qi}`;
     box.querySelector('.cmpTab').innerHTML = side ? cmpTable(qi) : m ? frontTable(qi) : '';
   }
-  if (st.drawn === `${st.view}${i}`) return;                               // 단계 버튼·막대·표는 단계가 바뀔 때만 (그 단계 가운데 순간의 값)
+  if (st.drawn === `${st.view}${i}`) return;                               // 단계 버튼·막대·이름은 단계가 바뀔 때만 (표는 위에서 1%마다)
   st.drawn = `${st.view}${i}`;
   box.querySelectorAll('[data-ph]').forEach(b => b.setAttribute('aria-pressed', +b.dataset.ph === i));
   box.querySelectorAll('.gc > span').forEach((s, j) => s.classList.toggle('on', j === (i < STANCE_N ? 0 : 1)));
