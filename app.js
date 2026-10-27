@@ -702,7 +702,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v123';
+const APP_VERSION = 'v124';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -1847,7 +1847,7 @@ const rot = ([x, y], a) => [x * Math.cos(rad(a)) - y * Math.sin(rad(a)), x * Mat
 const add = (p, v) => [p[0] + v[0], p[1] + v[1]], f1 = n => n.toFixed(1);
 const num = x => x == null || Number.isNaN(x) ? null : x;
 let cmpCurves = null, cmpFM = null, cmpFC = null, cmpSideLatest = false;   // 옆 곡선 · 앞뒤 값(m) · 앞뒤 단계별 곡선(fc, v120부터) · 옆 곡선을 최근 옆 영상에서 빌려 왔는지
-const cmpSt = { q: 0, view: 'side', playing: false, drawn: null, last: 0, raf: 0 };   // 보행 주기 위치(%)·보기·재생 중인지
+const cmpSt = { q: 0, view: 'side', playing: false, drawn: null, tab: null, last: 0, raf: 0 };   // 보행 주기 위치(%)·보기·재생 중인지
 const CMP_T = 8000;                                                        // 재생할 때 한 주기 8초
 // 단계 구간 = Perry 2장 (화면 % 글자·용어 풀이와 같음). PHASES[i][1]은 Perry 각도를 뽑은 지점이라 각도 보간(perryAt)에만 씀
 const PH_START = [0, 2, 12, 31, 50, 62, 75, 87];
@@ -1936,21 +1936,19 @@ function cmpScene(q, view) {
   if (!m) return `<text x="160" y="100" font-size="14" text-anchor="middle" fill="currentColor" opacity=".7">앞·뒤 영상을 찍으면 보여요</text>`;
   return floorLines + frontFig(102, 'perry', q, view, m) + frontFig(198, 'me', q, view, m) + label;
 }
-function cmpTable(i) {
-  const q = phaseMid(i), p = [2, 3, 4].map(k => perryAt(q, k)), m = angAt('me', q);
+function cmpTable(q) {                                                     // q = 보행 주기 위치(%): 단계 버튼은 그 단계 가운데, 재생·막대는 그 순간
+  const p = [2, 3, 4].map(k => perryAt(q, k)), m = angAt('me', q);
   const cell = v => v == null ? '-' : `${Math.round(v)}°`, diff = (a, b) => a == null ? '-' : `${signed(Math.round(a) - Math.round(b))}°`;
-  return `<tr><th>단계 가운데</th><th>고관절</th><th>무릎</th><th>발목</th></tr><tr><th>페리</th>${p.map(v => `<td>${cell(v)}</td>`).join('')}</tr>
+  return `<tr><th>${q}% 순간</th><th>고관절</th><th>무릎</th><th>발목</th></tr><tr><th>페리</th>${p.map(v => `<td>${cell(v)}</td>`).join('')}</tr>
     <tr><th>나</th>${m.map(v => `<td>${cell(v)}</td>`).join('')}</tr><tr><th>차이</th>${m.map((v, j) => `<td>${diff(v, p[j])}</td>`).join('')}</tr>`;
 }
-function frontTable(m, i) {
-  const c = v => v == null ? '-' : `${Math.round(v)}°`, q = phaseMid(i), fc = cmpFC;
+function frontTable(q) {                                                   // 앞·뒤 표 = 오른발 주기 q% 순간 잰 값 (사용자 10/27: 상위 10% 값 대신)
+  const c = v => v == null ? '-' : `${Math.round(v)}°`, fc = cmpFC, i = phaseIdx(q);
   const side = (v, a, b, tail = '') => Math.abs(v) < 0.5 ? '거의 수평' : `${v > 0 ? a : b} ${Math.abs(Math.round(v))}°${tail}`;
   const perryPel = i === 1 ? '왼쪽 약 4° 낮음' : i === 4 ? '오른쪽 약 4° 낮음' : '-';   // 체중 받기(오른발 2~12%, 왼발은 오른발 주기 50~62%) 때 반대쪽 골반 약 4°
-  const now = fc ? `<tr><th>이 단계 가운데 (${q}%)</th><th>페리</th><th>나</th></tr><tr><th>골반 좌우</th><td>${perryPel}</td><td>${side(fc.tilt[q], '왼쪽', '오른쪽', ' 낮음')}</td></tr>
+  return fc ? `<tr><th>${q}% 순간</th><th>페리</th><th>나</th></tr><tr><th>골반 좌우</th><td>${perryPel}</td><td>${side(fc.tilt[q], '왼쪽', '오른쪽', ' 낮음')}</td></tr>
     <tr><th>몸통 옆 기울기</th><td>기준값 없음</td><td>${side(fc.lean[q], '왼쪽으로', '오른쪽으로')}</td></tr><tr><th>무릎 안쪽 모임</th><td>기준값 없음</td><td>왼발 ${c(fc.valgusL[q])} · 오른발 ${c(fc.valgusR[q])}</td></tr>`
-    : `<tr><td colspan="3" class="sub">${fc === null ? '걸음 주기(디딘 발이 바뀌는 순간)를 찾지 못해 단계별 값이 없어요' : '이 기록에는 단계별 값이 없어요 (v120 전에 분석한 영상)'}</td></tr>`;   // 새 기록은 fc: null, 옛 기록은 fc 키 없음
-  return now + `<tr><th>상위 10% 값</th><th>페리</th><th>나</th></tr><tr><th>골반 내려감</th><td>약 4°</td><td>왼발 ${c(m?.dropL)} · 오른발 ${c(m?.dropR)}</td></tr>
-    <tr><th>몸통 옆 기울기</th><td>기준값 없음</td><td>왼쪽 ${c(m?.leanL)} · 오른쪽 ${c(m?.leanR)}</td></tr><tr><th>무릎 안쪽 모임</th><td>기준값 없음</td><td>왼발 ${c(m?.valgusL)} · 오른발 ${c(m?.valgusR)}</td></tr>`;
+    : `<tr><td class="sub">${fc === null ? '걸음 주기(디딘 발이 바뀌는 순간)를 찾지 못해 단계별 값이 없어요. 4걸음 이상 보이게 다시 찍어 보세요' : '이 기록은 v120 전에 분석해서 단계별 값이 없어요. 앞·뒤 영상을 다시 분석하면 나와요'}</td></tr>`;   // 새 기록은 fc: null, 옛 기록은 fc 키 없음
 }
 // 단계 버튼으로 멈춰 봄 (사용자 10/27: 재생 대신 입각기·유각기 막대 + 단계 버튼). 그림·표는 누른 단계 가운데 순간의 값
 // 앞·뒤는 오른발 기준 보행 주기: frontFig는 q<50이 왼발 디딤이라 반 주기 밀어서 넘김 (오른발 입각기 = 0~60%)
@@ -1960,6 +1958,11 @@ function cmpRender(box) {
   const st = cmpSt, side = st.view === 'side', q = st.q, i = phaseIdx(q);
   box.querySelector('.cmpScene').innerHTML = cmpScene(side ? q : (q + 50) % 100, st.view);
   box.querySelector('.cmpRange').value = Math.round(q);
+  const qi = Math.round(q) % 100, m = side ? null : frontM();
+  if (st.tab !== `${st.view}${qi}`) {                                      // 표는 1% 바뀔 때마다 그 순간 값으로
+    st.tab = `${st.view}${qi}`;
+    box.querySelector('.cmpTab').innerHTML = side ? cmpTable(qi) : m ? frontTable(qi) : '';
+  }
   if (st.drawn === `${st.view}${i}`) return;                               // 단계 버튼·막대·표는 단계가 바뀔 때만 (그 단계 가운데 순간의 값)
   st.drawn = `${st.view}${i}`;
   box.querySelectorAll('[data-ph]').forEach(b => b.setAttribute('aria-pressed', +b.dataset.ph === i));
@@ -1968,15 +1971,12 @@ function cmpRender(box) {
   markTerms(box.querySelector('.phName'));                                 // 다시 쓴 단계 이름에 용어 풀이 밑줄 (누르면 뜻)
   if (side) {
     box.querySelector('.phN').textContent = `페리: ${PHASES[i][0]} · ${i + 1} / 8 단계`;
-    box.querySelector('.cmpTab').innerHTML = cmpTable(i);
-    box.querySelector('.cmpTabNote').textContent = (cmpSideLatest ? '옆: 가장 최근 옆 영상 값 · ' : '') + '표는 그 단계 가운데 순간의 값이에요';
+    box.querySelector('.cmpTabNote').textContent = (cmpSideLatest ? '옆: 가장 최근 옆 영상 값 · ' : '') + '표는 그림과 같은 순간의 값이에요 (단계를 누르면 그 단계 가운데, 재생하면 따라 바뀜)';
     return;
   }
-  const m = frontM();
   box.querySelector('.phN').textContent = `오른발 기준 · ${st.view === 'front' ? '앞에서 본 모습(거울처럼 반대)' : '뒤에서 본 모습'}`;
-  box.querySelector('.cmpTab').innerHTML = m ? frontTable(m, i) : '';
-  box.querySelector('.cmpTabNote').textContent = m ? (cmpFC ? `단계는 오른발의 보행 주기예요(디딘 발이 왼발에서 오른발로 바뀌는 순간을 첫 닿기로 본 근사, 주기 ${cmpFC.n}개 평균). 오른발 유각기에는 왼발이 디뎌요. 그림과 위 표는 그 순간 잰 값, 아래 표는 영상 전체의 상위 10% 값이에요. 휴대폰 영상의 앞·뒤 단계별 각도는 검증 연구를 찾지 못했어요.`
-    : '단계는 오른발의 보행 주기예요. 오른발 유각기에는 왼발이 디뎌요. 표는 앞·뒤 영상의 상위 10% 값이고, 그림은 이 값을 발을 디딜 때(체중 받기)에 가장 크게 맞춰 보여 줘요. 몸통은 기울어진 쪽(왼쪽·오른쪽)으로 나눠 잰 값을 디딘 쪽에 맞춰 보여 줘요.') : '걸음걸이 탭에서 앞모습이나 뒷모습 영상을 분석하면 여기에 보여요.';
+  box.querySelector('.cmpTabNote').textContent = m ? (cmpFC ? `단계는 오른발의 보행 주기예요(디딘 발이 왼발에서 오른발로 바뀌는 순간을 첫 닿기로 본 근사, 주기 ${cmpFC.n}개 평균). 오른발 유각기에는 왼발이 디뎌요. 그림과 표는 그 순간 잰 값이에요(재생하면 따라 바뀜). 영상 전체의 상위 10% 값은 아래 결과 카드에 있어요. 휴대폰 영상의 앞·뒤 단계별 각도는 검증 연구를 찾지 못했어요.`
+    : '단계는 오른발의 보행 주기예요. 오른발 유각기에는 왼발이 디뎌요. 이 기록은 단계별 값이 없어 그림만 영상 전체의 상위 10% 값을 발을 디딜 때(체중 받기)에 가장 크게 맞춰 보여 줘요.') : '걸음걸이 탭에서 앞모습이나 뒷모습 영상을 분석하면 여기에 보여요.';
 }
 // 재생: 한 주기를 CMP_T 동안 돌림. 카드가 안 보이면(다른 탭) 일시정지
 const playTxt = () => cmpSt.playing ? '❚❚ 일시정지' : '▶ 재생';
@@ -1997,7 +1997,7 @@ function compareFigures(curves, fm = null, view = 'side', fc) {
   const fr = fm ? { m: fm, fc } : latestVid(v => v === 'front' || v === 'back', r => r.m ? r : null);   // 옆 결과에선 가장 최근 앞·뒤 기록 하나에서 m·fc를 같이
   cmpFM = fr?.m ?? null; cmpFC = fr?.fc;                                  // null(주기 못 찾음)과 undefined(옛 기록)를 구분해 둠
   cancelAnimationFrame(cmpSt.raf);
-  Object.assign(cmpSt, { q: phaseMid(1), view, playing: false, drawn: null, raf: 0 });   // 처음엔 체중 받기에 멈춘 채
+  Object.assign(cmpSt, { q: phaseMid(1), view, playing: false, drawn: null, tab: null, raf: 0 });   // 처음엔 체중 받기에 멈춘 채
   setTimeout(() => { const b = document.querySelector('.cmp'); if (b) cmpRender(b); });   // 화면에 넣은 뒤 그림·표를 보기(옆·앞·뒤)에 맞춤
   const chip = (attr, v, label, on) => `<button class="chip" ${attr}="${v}" aria-pressed="${on}">${label}</button>`;
   const phBtns = (a, b) => PHASES.slice(a, b).map((p, j) => chip('data-ph', a + j, OLD_PH[a + j], a + j === 1)).join('');
@@ -2008,7 +2008,7 @@ function compareFigures(curves, fm = null, view = 'side', fc) {
     <div class="cmpCtl"><button class="chip" data-cplay>▶ 재생</button><input type="range" class="cmpRange" min="0" max="99" step="1" value="${phaseMid(1)}" aria-label="보행 주기 위치(%)"></div>
     <div class="gc" role="group" aria-label="보행 주기 단계"><span class="on">입각기 <small>0~62%</small></span><span>유각기 <small>62~100%</small></span>${phBtns(0, PHASES.length)}</div>
     <div class="cmpPh"><b class="phName">${OLD_PH[1]} <small>(${OLD_EN[1]})</small></b> <span class="sub phN">페리: ${PHASES[1][0]} · 2 / 8 단계</span></div>
-    <table class="cmpTab">${cmpTable(1)}</table>
+    <table class="cmpTab">${cmpTable(phaseMid(1))}</table>
     <div class="sub cmpTabNote" style="font-size:.75rem">그림과 표는 누른 단계 가운데 순간의 값이에요</div>
     <div class="sub">걷는 방향 → · 옆: 왼쪽 = Perry 9장 표의 단계별 각도로 앱이 움직인 뼈 그림(단계 사이는 직선으로 이은 근사) · 오른쪽 = ${cmpSideLatest ? '가장 최근 옆 영상' : '이번 영상'} 평균 · '고관절' 숫자는 넓적다리가 수직선에서 앞(+)·뒤(−)로 기운 각도예요(골반 기울기는 빼고 잼) · 발목은 발등 쪽 +</div></div>`;
 }
@@ -2025,7 +2025,7 @@ document.addEventListener('click', e => {
   const b = e.target.closest('.cmp [data-view], .cmp [data-ph], .cmp [data-cplay]');
   if (!b) return;
   if (b.dataset.view) {
-    cmpSt.view = b.dataset.view; cmpSt.drawn = null;
+    cmpSt.view = b.dataset.view; cmpSt.drawn = cmpSt.tab = null;
     for (const x of b.parentElement.querySelectorAll('[data-view]')) x.setAttribute('aria-pressed', x === b);
   } else if ('cplay' in b.dataset) {
     cmpSt.playing = !cmpSt.playing; b.textContent = playTxt();
