@@ -43,6 +43,7 @@ const ACT = { walk: '걷기', run: '러닝', slowrun: '슬로우 러닝', easyru
 const isRun = h => h.activity === 'run' || h.activity === 'easyrun';   // 천천히 달리기도 러닝 통계에 넣음
 const POS = { pocket: '바지 앞주머니', waist: '허리', hand: '손' };
 const VIEW = { side: '옆', front: '앞', back: '뒤' };
+const whenTxt = d => { d = new Date(d); return Number.isNaN(+d) ? '날짜 모름' : d.toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }); };   // 날짜가 없거나 깨진 기록은 'Invalid Date' 대신
 const MET_NOTE = 'MET(대사당량) = 가만히 앉아 쉴 때 쓰는 에너지를 1로 본 운동 강도 단위예요. 3 MET는 쉴 때의 약 3배 에너지를 쓰는 강도예요(1 MET ≈ 몸무게 1kg당 1분에 산소 3.5mL).';
 const INTERVAL_S = 60;   // 슬로우 러닝: 조깅 1분 + 걷기 1분 반복 (Ikenaga 2017)
 const COOPER_S = 720;    // 12분 달리기 테스트 (Cooper 1968)
@@ -137,6 +138,8 @@ const IC = {
   steps: '<path d="M7 3c2 0 3 2.5 3 5.5S9 13 7 13s-3-1.5-3-4.5S5 3 7 3zM5 16h4v1.5a2 2 0 0 1-4 0zM17 7c2 0 3 2.5 3 5.5S19 17 17 17s-3-1.5-3-4.5S15 7 17 7zM15 20h4v.5a2 2 0 0 1-4 0z"/>',
   pace: '<path d="M4 18a8 8 0 1 1 16 0"/><path d="M12 18l4-6"/>',
   knee: '<path d="M9 3l2.5 8.5L9 21"/><circle cx="11.5" cy="11.5" r="2"/>',
+  cal: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>',
+  star: '<path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/>',
 };
 const PICKS = {   // select id → 판 제목, [값, 이름, 설명, 아이콘, 표시]
   act: ['무엇을 잴까요?', [['auto', '자동', '걷기·달리기를 알아서 나눠요', IC.wand], ['walk', '걷기', '', IC.walk], ['run', '러닝', '', IC.run],
@@ -168,7 +171,7 @@ function openPick(id) {
 }
 function closePick(back = true) {
   if ($('pickSheet').hidden) return;
-  $('pickSheet').hidden = true; $(`${pickFor}Btn`).focus();
+  $('pickSheet').hidden = true; (pickFor ? $(`${pickFor}Btn`) : document.querySelector('[data-sharepick]'))?.focus();
   if (back && history.state?.pickSheet) history.back();                  // 판을 열 때 넣은 기록 한 칸을 되돌림
 }
 document.addEventListener('click', e => { const b = e.target.closest('[data-pick]'); if (b) openPick(b.dataset.pick); });
@@ -182,7 +185,17 @@ window.gaitBack = () => {
   if (!$('tip').classList.contains('hidden')) { $('tip').classList.add('hidden'); return true; }   // 용어 풀이 팝업
   return false;
 };
+// 홈 '공유 카드 만들기' → 같은 판에서 이 주·이 달·최고 기록 고르기. 받는 사람이 숫자를 본다는 안내는 공유 직전 이 판에 (개인정보 보호법 제23조 3항 취지)
+function openShare() {
+  pickFor = null; $('pickQ').textContent = '어떤 카드를 공유할까요?';
+  $('pickList').innerHTML = [['week', '이 주 카드', '고른 날짜가 있는 주'], ['month', '이 달 카드', '달력에 보이는 달'], ['best', '최고 기록 카드', '지금까지 내 기록']]
+    .map(([v, n, d]) => `<button data-share="${v}">${svgIc(v === 'best' ? IC.star : IC.cal)}<span>${n}<small>${d}</small></span></button>`).join('')
+    + '<p class="sub" style="margin:12px 20px 8px">카드에는 걸음·건강 숫자가 담겨요. 공유하면 받는 사람이 그 숫자를 보게 돼요.</p>';
+  $('pickSheet').hidden = false; history.pushState({ pickSheet: 1 }, '');
+  $('pickList').querySelector('button')?.focus();
+}
 $('pickList').addEventListener('click', e => {
+  const s = e.target.closest('[data-share]'); if (s) { closePick(); shareSummary(s.dataset.share); return; }
   const b = e.target.closest('[data-val]'); if (!b) return;
   if ($(pickFor).value !== b.dataset.val) { $(pickFor).value = b.dataset.val; $(pickFor).dispatchEvent(new Event('change')); syncPicks(); }
   closePick();
@@ -404,9 +417,10 @@ $('stopYes').addEventListener('click', () => { closeStopSheet(); stopRec(); });
 $('stopSheet').addEventListener('click', e => { if (e.target.id === 'stopSheet') closeStopSheet(); });   // 시트 바깥 = 계속 측정
 $('stopSheet').addEventListener('keydown', e => { if (e.key === 'Escape') closeStopSheet(); });
 if (Native) {
-  document.querySelector('ol.guide').innerHTML = `<li><b>시작</b>을 누르고 3초 뒤 <b>화면을 끄고</b> 주머니에 넣어요. 알림창에 "걸음 측정 중"이 떠 있으면 화면이 꺼져도 측정돼요.</li>
+  const ol = document.querySelector('ol.guide'); ol.querySelectorAll('[data-web]').forEach(li => li.remove());   // 웹 전용 측정 단계 → 설치형 앱 단계로
+  ol.lastElementChild.insertAdjacentHTML('beforebegin', `<li><b>시작</b>을 누르고 3초 뒤 <b>화면을 끄고</b> 주머니에 넣어요. 알림창에 "걸음 측정 중"이 떠 있으면 화면이 꺼져도 측정돼요.</li>
     <li><b>평소처럼, 멈추지 말고 이어서</b> 걸어요. 케이던스만 볼 땐 20초 이상, GPS로 속도까지 볼 땐 야외에서 1분 이상. 방향을 틀며 멈추면 그 앞뒤가 따로 잘려 짧게 잡혀요.</li>
-    <li>멈춰서 화면을 켜고 <b>측정 종료</b>를 누른 뒤 한 번 더 확인해요.</li>`;
+    <li>멈춰서 화면을 켜고 <b>측정 종료</b>를 누른 뒤 한 번 더 확인해요.</li>`);
 }
 // 설치형 앱에서 휴대폰(절전·메모리 정리)이 측정 중인 앱을 끄면 측정이 멈춤 → 이유와 막는 방법을 알려 줌
 const BATTERY_TIP = '삼성 휴대폰은 설정 → 배터리 → 백그라운드 사용 제한 → <b>절전 예외 앱</b>에 ‘스텝미러’(예전 이름 ‘걸음 분석’)를 넣으면 측정 중에 앱이 정리되지 않아요.';
@@ -702,7 +716,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v126';
+const APP_VERSION = 'v127';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -758,7 +772,7 @@ const statRow = stats => { const ok = stats.filter(s => s.value != null && s.val
   `<div><svg viewBox="0 0 24 24" aria-hidden="true">${STAT_ICON[s.icon]}</svg><b>${s.value}</b><small>${s.label}</small></div>`).join('')}</div>` : ''; };
 function topCards(r, hero, cells) {
   const dur = r.diag?.durS ?? r.durS;
-  const top = [new Date(r.date).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }), ACT[r.activity ?? 'walk'], dur && `측정 ${mmss(dur)}`].filter(Boolean).join(' · ');
+  const top = [whenTxt(r.date), ACT[r.activity ?? 'walk'], dur && `측정 ${mmss(dur)}`].filter(Boolean).join(' · ');
   const color = ACT_C[r.activity ?? 'walk'] ?? 'var(--c-run)';
   return `<div class="sub">${top}</div>
     <div class="mcard static rhero"><div class="mtop"><span class="mlab"><i style="background:${color}"></i>${hero.label}</span>${badge(hero.grade)}</div>
@@ -1420,9 +1434,20 @@ function renderHistory() {
   if (homeReady) scheduleReminders();                                     // 알림 속 이번 주 숫자를 새 기록으로
   if (homeReady && document.body.dataset.tab === 'home') renderHome();   // 홈 코드가 다 읽힌 뒤에만
   if (!hist.length) return;
-  $('histBody').innerHTML = `<div class="sub">줄을 누르면 그때 결과를 다시 볼 수 있어요.</div><table class="hist"><tr><td>날짜</td><td>활동</td><td>케이던스</td><td>걸음</td><td>속도</td></tr>` +
-    hist.slice(0, 20).map((h, i) => `<tr data-i="${i}" class="clickable"><td>${new Date(h.date).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}${h.practice ? ' (연습)' : ''}${h.receipt ? `<br><span class="sub">접수 ${h.receipt}</span>` : ''}${h.ctx && ctxText(h.ctx) ? `<br><span class="sub">${ctxText(h.ctx)}</span>` : ''}</td>
-      <td>${ACT[h.activity ?? 'walk']}${h.view ? `(${VIEW[h.view]})` : ''}</td><td>${(h.cadence ?? h.r?.cadence)?.toFixed(0) ?? '-'}</td><td>${h.steps ?? '-'}</td><td>${h.speed ? h.speed.toFixed(2) + ' m/s' : '-'}</td></tr>`).join('') + '</table>';
+  // 줄 목록 (디자인 팀 10/28): "10월 27일 · 영상 뒷모습" + 오른쪽에 그 기록의 대표 숫자 하나, 빈칸('-') 없음
+  $('histBody').innerHTML = `<div class="sub">줄을 누르면 그때 결과를 다시 볼 수 있어요.</div>` + hist.slice(0, 20).map((h, i) => {
+    const d = new Date(h.date), when = Number.isNaN(+d) ? '날짜 모름' : `${d.getMonth() + 1}월 ${d.getDate()}일`;   // 날짜가 없거나 깨진 기록
+    const what = h.view ? `영상 ${{ side: '옆모습', front: '앞모습', back: '뒷모습' }[h.view]}` : ACT[h.activity ?? 'walk'];
+    return `<button class="dayrec" data-i="${i}"><span>${when} · ${what}${h.practice ? ' <span class="sub">(연습)</span>' : ''}${h.receipt ? `<br><span class="sub">접수 ${h.receipt}</span>` : ''}${h.ctx && ctxText(h.ctx) ? `<br><span class="sub">${ctxText(h.ctx)}</span>` : ''}</span><span class="sub" style="text-align:right;white-space:nowrap">${histNum(h)} ›</span></button>`;
+  }).join('');
+}
+// 기록 줄의 대표 숫자: 걷기·러닝 = 케이던스, 옆 영상 = 유각기 무릎 최대 굽힘, 앞·뒤 영상 = 골반 내려감(큰 쪽), 12분 테스트 = 거리. 없으면 비움
+function histNum(h) {
+  const m = h.r?.m, r0 = v => Math.round(v);
+  if (h.activity === 'cooper') return h.distance ? `${r0(h.distance).toLocaleString()}m` : '';
+  if (h.activity === 'video') return h.view === 'side' ? (m?.kneeSwingMax != null ? `무릎 ${r0(m.kneeSwingMax)}°` : '')
+    : (m?.dropL != null || m?.dropR != null ? `골반 ${r0(Math.max(m.dropL ?? -Infinity, m.dropR ?? -Infinity))}°` : '');
+  const c = h.cadence ?? h.r?.cadence; return c != null ? `${r0(c)}걸음/분` : '';
 }
 renderHistory();
 
@@ -1455,7 +1480,7 @@ function weekBars(vals, color) {
   return `<svg width="72" height="32" viewBox="0 0 72 32" aria-hidden="true">${vals.map((v, i) => { const h = Math.max(2, 28 * v / hi); return `<rect x="${3 + i * 10}" y="${30 - h}" width="5" height="${h}" rx="2" fill="${color}" opacity="${i === vals.length - 1 ? 1 : .25}"/>`; }).join('')}</svg>`;
 }
 function mcard({ label, color, date = '', value, unit, sub, i, vals = [], k }) {
-  const top = `<div class="mtop"><span class="mlab" style="color:${color}">${label}</span><span class="mdate">${date}${i != null && value != null ? (k ? ' ⌄' : ' ›') : ''}</span></div>`;
+  const top = `<div class="mtop"><span class="mlab">${label}</span><span class="mdate">${date}${i != null && value != null ? (k ? ' ⌄' : ' ›') : ''}</span></div>`;
   if (value == null) return `<div class="mcard empty">${top}<div class="mrow"><div class="mnum">기록 없음</div></div><div class="msub">${sub}</div></div>`;
   return `<button class="mcard" ${i != null ? `data-i="${i}"` : ''}${k ? ` data-k="${k}" aria-expanded="false"` : ''}>${top}<div class="mrow"><div class="mnum">${value}<small>${unit}</small></div>${spark(vals, color)}</div><div class="msub">${sub}</div></button>`;
 }
@@ -1515,21 +1540,20 @@ function renderWeek() {
     <table class="wk"><tr class="sub"><td></td><td class="num">${thisWeek ? '이번 주' : '그 주'}</td><td class="num">전 주 대비</td></tr>
     ${row('측정 횟수', cur.n, prev.n, '회')}${row('걷기 케이던스 평균', cur.walkCad, prev.walkCad, '걸음/분')}${row('걷는 속도 평균', cur.speed, prev.speed, 'm/s', 2)}
     ${row('러닝 케이던스 평균', cur.runCad, prev.runCad, '걸음/분')}${row('슬로우 조깅', cur.jog, prev.jog, '분')}${row('영상 분석', cur.video, prev.video, '회')}</table>
-    <div class="row" style="margin-top:4px"><button class="ghost" data-card="week">이 주 카드 공유</button><button class="ghost" data-card="month">이 달 카드 공유</button></div>
-    <button class="ghost" data-card="best" style="margin-top:8px">최고 기록 카드 공유</button>
-    <div class="sub" style="font-size:.75rem;margin-top:6px">카드에는 걸음·건강 숫자가 담겨요. 공유하면 받는 사람이 그 숫자를 보게 돼요.</div>
-    <div class="sub" style="margin-top:6px">월요일~일요일 기록이에요(연습 측정 제외). 점수로 바꾸지 않고 잰 숫자만 모았어요. 날짜를 누르면 그날 기록과 그 주 통계가 보여요.</div>`;
+    <button class="textlike" data-sharepick>공유 카드 만들기 ›</button>
+    <details class="sub weekInfo"><summary>월~일 기록 · 연습 측정 제외 <span aria-label="설명 보기">ⓘ</span></summary>월요일~일요일 기록이에요(연습 측정 제외). 점수로 바꾸지 않고 잰 숫자만 모았어요. 날짜를 누르면 그날 기록과 그 주 통계가 보여요.</details>`;   // 공유 경고는 공유 판 안 (openShare)
 }
 $('week').addEventListener('click', e => {
   const m = e.target.closest('button[data-m]'), d = e.target.closest('.cday'), r = e.target.closest('.dayrec'), c = e.target.closest('button[data-card]');
-  if (c) shareSummary(c.dataset.card);
+  if (e.target.closest('[data-sharepick]')) openShare();
+  else if (c) shareSummary(c.dataset.card);
   else if (m) { calMonth.setMonth(calMonth.getMonth() + +m.dataset.m); renderWeek(); loadSteps(); }
   else if (d) { calSel = d.dataset.d; const t = new Date(calSel + 'T00:00'); if (t.getMonth() !== calMonth.getMonth()) calMonth = new Date(t.getFullYear(), t.getMonth(), 1); renderWeek(); }
   else if (r) showRecord(+r.dataset.i);
 });
 // 요약 카드: 주간·월간(달력 점 그림) / 최고 기록 — 잰 숫자와 출처만, 점수·판정 없음
 const CARD_C = { walk: '#008a6e', run: '#2f6fd1', slowrun: '#c46f1c', video: '#8a5cd1' };   // 화면 달력과 같은 색 (밝은 배경 대비 검증 통과)
-const md = d => { d = new Date(d); return `${d.getMonth() + 1}/${d.getDate()}`; };
+const md = d => { d = new Date(d); return Number.isNaN(+d) ? '날짜 모름' : `${d.getMonth() + 1}/${d.getDate()}`; };
 const plusDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
 const paceText = sp => { const s = Math.round(1000 / sp); return `${Math.floor(s / 60)}'${String(s % 60).padStart(2, '0')}"`; };   // 초를 먼저 반올림해야 5'60" 같은 값이 안 나옴
 function sumRows(st, month) {
@@ -1601,7 +1625,7 @@ function bigSpark(vals, color) {
 function openCard(t) {
   const n = t.vals.length, d = n > 1 ? t.vals[n - 1] - t.vals[n - 2] : null;
   return `<div class="mcard open" data-k="${t.k}">
-    <button class="mtop mtoggle" data-k="${t.k}" aria-expanded="true"><span class="mlab" style="color:${t.color}">${t.label}</span><span class="mdate">${t.date} ⌃</span></button>
+    <button class="mtop mtoggle" data-k="${t.k}" aria-expanded="true"><span class="mlab">${t.label}</span><span class="mdate">${t.date} ⌃</span></button>
     <div class="mnum">${t.value}<small>${t.unit}</small></div>
     <div class="sub">${t.ref}</div>
     ${bigSpark(t.vals, t.color)}<div class="sub">${n > 1 ? `최근 ${n}번 · 지난번보다 ${d >= 0 ? '+' : ''}${d.toFixed(t.dp ?? 0)}` : '기록이 2번 이상 쌓이면 추세선이 보여요'}</div>
@@ -1719,11 +1743,11 @@ function renderTrend() {
   svg.addEventListener('pointerleave', () => $('ttip').classList.add('hidden'));
 }
 
-$('histBody').addEventListener('click', e => { const tr = e.target.closest('tr[data-i]'); if (tr) showRecord(+tr.dataset.i); });
+$('histBody').addEventListener('click', e => { const tr = e.target.closest('[data-i]'); if (tr) showRecord(+tr.dataset.i); });
 function showRecord(i) {
   const hist = store.get('history', []), h = hist[i];
   if (!h) return;
-  const when = new Date(h.date).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  const when = whenTxt(h.date);
   const act = h.activity ?? 'walk';
   const banner = `<div class="sub" style="margin-bottom:6px">지난 기록 다시 보기${act === 'video' ? ` · ${when}` : ''}</div>`;
   shownDate = h.date; route = h.route ?? null;
@@ -2231,7 +2255,7 @@ function renderSteps() {
   const n = stepsByDay[dayKey(new Date())] ?? 0, sl = sleepByDay[dayKey(new Date())];
   const missing = [!s.granted && '걸음 수', !s.sleep && '수면', !s.heart && '심박수'].filter(Boolean);
   const week = Array.from({ length: 7 }, (_, k) => stepsByDay[dayKey(plusDays(new Date(), k - 6))] ?? 0);
-  $('steps').innerHTML = (!s.granted ? '' : `<div class="mcard static"><div class="mtop"><span class="mlab" style="color:var(--c-walk)">걸음 수</span><span class="mdate">오늘</span></div>
+  $('steps').innerHTML = (!s.granted ? '' : `<div class="mcard static"><div class="mtop"><span class="mlab">걸음 수</span><span class="mdate">오늘</span></div>
       <div class="mrow"><div class="mnum">${n.toLocaleString()}<small>걸음</small></div>${weekBars(week, 'var(--c-walk)')}</div>
       <div class="bar"><i style="width:${Math.min(100, n / 70)}%"></i></div>
       <div class="msub" style="margin-top:0">7,000걸음 대비 ${Math.round(n / 70)}% · Ding 2025 · 헬스 커넥트</div>
@@ -2272,7 +2296,7 @@ const DICT = [
   { part: 'knee', name: '무릎 안쪽 모임', short: '디딜 때 무릎 방향', mean: '디딜 때 무릎이 엉덩이와 발목을 잇는 선보다 안쪽(+)이나 바깥쪽(−)으로 간 각도예요.',
     why: '왼쪽과 오른쪽을 비교해 봐요. 이 각도는 페리의 보행 분석 기준값이 없어요.', where: '걸음걸이 탭(앞·뒤모습 영상)' },
 ];
-$('dict').innerHTML = DICT.map((d, i) => `<button class="dayrec" data-di="${i}"><span style="display:flex;align-items:center;gap:8px;white-space:nowrap">${partIcon(d.part)}${d.name}</span><span class="sub" style="text-align:right">${d.short} ›</span></button>`).join('');
+$('dict').innerHTML = DICT.map((d, i) => `<button class="dayrec" data-di="${i}"><span style="white-space:nowrap">${d.name}</span><span class="sub" style="text-align:right">${d.short} ›</span></button>`).join('');
 $('dict').addEventListener('click', e => { const b = e.target.closest('[data-di]'); if (b) openDict(+b.dataset.di); });
 // ── 해 볼 만한 프로그램: 연구에서 쓴 방식으로 바로 측정 화면 열기 (처방·목표가 아님) ──
 const PROGS = [

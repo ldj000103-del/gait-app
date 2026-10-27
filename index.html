@@ -51,6 +51,7 @@
   details { margin-top:6px; font-size:.88rem; color:var(--sub); }
   summary { cursor:pointer; color:var(--accent); font-weight:600; }
   details li { margin:4px 0; }
+  details.weekInfo { margin-top:2px; font-size:.8125rem; } details.weekInfo > summary { cursor:pointer; list-style:none; padding:4px 0; } details.weekInfo > summary::-webkit-details-marker { display:none; }
   details.howto { margin:8px 0 4px; } details.howto > summary { font-weight:600; color:var(--accent); cursor:pointer; padding:6px 0; }
   .warn { background:color-mix(in srgb, var(--o) 9%, transparent); border-left:3px solid var(--o);
           padding:10px 12px; border-radius:6px; margin:8px 0; font-size:.875rem; }
@@ -77,6 +78,12 @@
   /* 홈 다듬기 (디자인 팀 10/27): 맨 위 연한 초록 띠, 큰 '요약' + '나' 동그라미, 그림자 없는 카드, 묶음 제목 */
   body[data-tab="home"]:not(.needConsent) { background:linear-gradient(var(--top-band) 0, var(--top-band) 96px, var(--bg) 200px) no-repeat, var(--bg); }
   body[data-tab="home"]:not(.needConsent) main > h1, body[data-tab="home"]:not(.needConsent) main > h1 + .sub { display:none; }
+  /* 탭 맨 위 = 탭 이름만 크게 (디자인 팀 10/28: 소개는 홈 '이 앱의 근거'에 한 번만). 동의 화면만 앱 이름 + 소개 */
+  main > h1 .tabT, body:not(.needConsent) main > h1 .brand, body:not(.needConsent) #intro { display:none; }
+  body[data-tab="measure"]:not(.needConsent) main > h1 .tabT[data-t="measure"], body[data-tab="video"]:not(.needConsent) main > h1 .tabT[data-t="video"],
+  body[data-tab="records"]:not(.needConsent) main > h1 .tabT[data-t="records"], body[data-tab="community"]:not(.needConsent) main > h1 .tabT[data-t="community"] { display:inline; }
+  #tiles .mlab, #steps .mlab { color:var(--sub); }   /* 홈 요약 카드 이름은 회색 하나, 활동 색은 달력 점·범례·그래프에만 */
+  #dict .dayrec { background:none; margin:0; padding:12px 2px; border-radius:0; } #dict .dayrec + .dayrec { border-top:1px solid var(--line); }
   .homehead { display:flex; justify-content:space-between; align-items:center; margin:8px 2px 4px; }
   .homehead .sec { font-size:1.625rem; margin:0; }
   #meBtn { width:26px; height:26px; margin:0; padding:0; border-radius:50%; font-size:.75rem; line-height:26px; flex:none; color:var(--card); }   /* 다크에선 밝은 바탕에 어두운 글자 */
@@ -133,6 +140,8 @@
   #tip .sub { color:inherit; opacity:.7; }
   .gloss { margin-top:14px; } .gloss dt { font-weight:600; margin-top:8px; color:var(--ink); } .gloss dd { margin:2px 0 0; }
   .btnlike { display:block; text-decoration:none; text-align:center; font-weight:600; border-radius:12px; padding:14px; margin-top:14px; background:var(--accent); color:#fff; cursor:pointer; }
+  .textlike { display:block; width:100%; background:none; border:0; color:var(--accent); font-weight:600; text-align:center; padding:12px; margin:4px 0 0; cursor:pointer; }   /* 글자만 있는 버튼 (디자인 팀 10/28) */
+  #pocketNote { background:none; border:1px solid var(--o); color:var(--o); } #pocketNote a { color:inherit; }
   .ghostlike { background:transparent; color:var(--accent); border:1px solid var(--accent); }
   .bar2 { height:10px; border-radius:6px; background:var(--line); overflow:hidden; margin-top:12px; } .bar2 i { display:block; height:100%; width:0; background:var(--accent); }
   svg.chart { width:100%; height:auto; margin-top:8px; }
@@ -271,8 +280,8 @@
 </head>
 <body data-tab="home">
 <main>
-  <h1>스텝미러 <span class="sub" style="font-weight:500">StepMirror</span></h1>
-  <div class="sub">10초 걷는 영상을 찍으면, 페리의 보행 분석 기준 걸음과 내 걸음을 단계별로 나란히 보여 줘요. 평소 걸음 수는 앱을 켜지 않아도 쌓여요(설치형 앱). 의료 진단이 아니에요.</div>
+  <h1><span class="brand">스텝미러 <span class="sub" style="font-weight:500">StepMirror</span></span><span class="tabT" data-t="measure">측정</span><span class="tabT" data-t="video">걸음걸이</span><span class="tabT" data-t="records">기록</span><span class="tabT" data-t="community">커뮤니티</span></h1>
+  <div class="sub" id="intro">10초 걷는 영상을 찍으면, 페리의 보행 분석 기준 걸음과 내 걸음을 단계별로 나란히 보여 줘요. 평소 걸음 수는 앱을 켜지 않아도 쌓여요(설치형 앱). 의료 진단이 아니에요.</div>
 
   <section class="card" id="consent">
     <h2>시작하기 전에</h2>
@@ -411,20 +420,16 @@
     <div id="locBox" class="sub hidden" style="margin-top:8px"><label><input type="checkbox" id="locOk"> <a href="location-terms.html" target="_blank">위치기반서비스 이용약관</a>에 동의해요</label> (GPS로 거리·경로를 잴 때 필요해요. 체크를 풀면 언제든 철회돼요)</div>
     </div>
     <button id="start" class="bigstart">시작<small>누르고 3초 안에 주머니에 넣어요</small></button>
-    <div class="warn hidden" id="pocketNote">웹은 주머니에 넣으면 화면이 꺼져 기록이 끊겨요. 주머니·허리 측정은 <a href="install.html">설치형 앱</a>을 쓰세요. 웹에서는 손에 들고 화면을 켠 채로 재는 게 가장 잘 기록돼요.</div>
-    <details class="howto" id="firstGuide"><summary>처음 쓰는 법</summary><ol>
+    <div class="warn hidden" id="pocketNote">웹은 화면을 켠 채 손에 들고 재요 · <a href="install.html">설치형 앱</a></div>
+    <details class="howto" id="firstGuide"><summary>처음 쓰는 법</summary><ol class="guide">
       <li>(선택) 위 <b>내 정보</b>에 성별·나이를 넣으면 나이·성별에 맞는 기준값과 나란히 보여 줘요.</li>
       <li><b>무엇을 할까요</b>는 잘 모르겠으면 <b>자동</b>으로 두세요. 걷기·러닝·슬로우 러닝을 알아서 나눠요.</li>
       <li>휴대폰은 <b>바지 앞주머니</b>에 넣을 때 가장 정확해요.</li>
-      <li><b>시작</b>을 누르고 3초 안에 주머니에 넣은 뒤, 평소처럼 걷거나 달려요.</li>
-      <li>다 했으면 멈춰서 휴대폰을 꺼내 <b>측정 종료</b>를 누르고 한 번 더 확인해요. 결과는 휴대폰에 저절로 저장돼요.</li>
+      <li data-web><b>시작</b>을 누르고 3초 안에 주머니에 넣어요. 화면이 까맣게 바뀌는 <b>주머니 모드</b>가 돼요. <b>전원 버튼은 누르지 마세요</b> — 누르면 휴대폰이 센서를 멈춰요.</li>
+      <li data-web id="webOnly">웹은 주머니에 넣으면 화면이 꺼져 기록이 끊겨요. 주머니·허리 측정은 <a href="install.html">설치형 앱</a>을 쓰세요. 웹에서는 손에 들고 화면을 켠 채로 재는 게 가장 잘 기록돼요. <b>측정 중에는 다른 앱·탭으로 넘어가지 마세요.</b></li>
+      <li data-web><b>평소처럼</b> 걸어요. 케이던스만 볼 땐 20초 이상, GPS로 속도까지 볼 땐 <b>야외에서 1분 이상</b>. 특정 지점을 밟으려고 하지 마세요.</li>
+      <li data-web>다 했으면 멈춰서 휴대폰을 꺼내 <b>측정 종료</b>를 누르고 한 번 더 확인해요. 결과는 휴대폰에 저절로 저장돼요.</li>
       <li>결과 화면 아래 <b>이 숫자 읽는 법</b>을 눌러 보세요.</li></ol></details>
-    <ol class="guide sub">
-      <li><b>시작</b>을 누르고 3초 안에 주머니에 넣어요. 화면이 까맣게 바뀌는 <b>주머니 모드</b>가 돼요. <b>전원 버튼은 누르지 마세요</b> — 누르면 휴대폰이 센서를 멈춰요.</li>
-      <li id="webOnly"><b>측정 중에는 화면을 켜 둔 채 다른 앱·탭으로 넘어가지 마세요.</b> 넘어가면 웹에서는 기록이 끊겨요. <a href="install.html">설치형 앱</a>은 끊기지 않아요.</li>
-      <li><b>평소처럼</b> 걸어요. 케이던스만 볼 땐 20초 이상, GPS로 속도까지 볼 땐 <b>야외에서 1분 이상</b>. 특정 지점을 밟으려고 하지 마세요.</li>
-      <li>멈춰서 휴대폰을 꺼내 <b>측정 종료</b>를 누르고 한 번 더 확인해요.</li>
-    </ol>
     <button id="demo" class="ghost hidden">데모 데이터로 보기</button>
   </section>
 
@@ -437,10 +442,8 @@
       <option value="back">뒷모습 — 카메라에서 멀어지기</option>
     </select>
     <ol class="guide sub" id="vguide"></ol>
-    <div class="row">
-      <label class="btnlike" for="vcam">촬영하기</label>
-      <label class="btnlike ghostlike" for="vfile">갤러리에서 고르기</label>
-    </div>
+    <label class="btnlike" for="vcam">촬영하기</label>
+    <label class="textlike" for="vfile">갤러리에서 고르기</label>
     <input id="vcam" type="file" accept="video/*" capture="environment" class="hidden">
     <input id="vfile" type="file" accept="video/*" class="hidden">
     <div class="sub" style="margin-top:8px">영상은 이 휴대폰 안에서만 분석하고 저장하거나 보내지 않아요. 처음 한 번은 자세 인식 프로그램(약 10MB)을 내려받아요.</div>
@@ -482,6 +485,7 @@
 
   <section class="card sub" id="about" data-tab="home">
     <h2>이 앱의 근거</h2>
+    <p style="margin:0 0 8px">10초 걷는 영상을 찍으면, 페리의 보행 분석 기준 걸음과 내 걸음을 단계별로 나란히 보여 줘요. 평소 걸음 수는 앱을 켜지 않아도 쌓여요(설치형 앱).</p>
     페리의 보행 분석 기준 걸음은 Perry 『Gait Analysis』(1992)를 기본으로 하고, 최신 학술지 연구를 함께 씁니다.
     각 결과의 <b>정확도 등급</b>: <span class="badge b-g">정확</span> <span class="badge b-y">참고</span>
     <span class="badge b-o">부정확할 수 있음</span> <span class="badge b-n">검증 안 됨</span>
