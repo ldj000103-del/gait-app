@@ -1,5 +1,5 @@
 // 오프라인에서도 열리도록 앱 파일 저장 (파일을 고치면 VERSION을 올리기)
-const VERSION = 'v114';
+const VERSION = 'v115';
 const FILES = ['./', 'index.html', 'app.js', 'gait.js', 'video.js', 'manifest.webmanifest', 'icon.svg', 'icon-192.png', 'icon-512.png', 'privacy.html', 'location-terms.html',
   ...['side', 'front', 'back'].flatMap(v => ['pelvis', 'femur', 'shank', 'foot'].map(p => `assets/bones/${v}-${p}.webp`))];   // 걸음걸이 탭 뼈 그림 12장(약 39KB)도 오프라인에서 보이게
 // 새 버전은 기다리지 않고 바로 적용 (앱을 완전히 끄지 않아도 옛 화면이 남지 않게)
