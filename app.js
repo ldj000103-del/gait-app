@@ -699,7 +699,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v120';
+const APP_VERSION = 'v121';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -1941,11 +1941,11 @@ function cmpTable(i) {
 }
 function frontTable(m, i) {
   const c = v => v == null ? '-' : `${Math.round(v)}°`, q = phaseMid(i), fc = cmpFC;
-  const side = (v, a, b) => Math.abs(v) < 0.5 ? '거의 수평' : `${v > 0 ? a : b} ${Math.abs(Math.round(v))}°`;
+  const side = (v, a, b, tail = '') => Math.abs(v) < 0.5 ? '거의 수평' : `${v > 0 ? a : b} ${Math.abs(Math.round(v))}°${tail}`;
   const perryPel = i === 1 ? '왼쪽 약 4° 낮음' : i === 4 ? '오른쪽 약 4° 낮음' : '-';   // 체중 받기(오른발 2~12%, 왼발은 오른발 주기 50~62%) 때 반대쪽 골반 약 4°
-  const now = fc ? `<tr><th>이 단계 가운데 (${q}%)</th><th>페리</th><th>나</th></tr><tr><th>골반 좌우</th><td>${perryPel}</td><td>${side(fc.tilt[q], '왼쪽', '오른쪽')} 낮음</td></tr>
+  const now = fc ? `<tr><th>이 단계 가운데 (${q}%)</th><th>페리</th><th>나</th></tr><tr><th>골반 좌우</th><td>${perryPel}</td><td>${side(fc.tilt[q], '왼쪽', '오른쪽', ' 낮음')}</td></tr>
     <tr><th>몸통 옆 기울기</th><td>기준값 없음</td><td>${side(fc.lean[q], '왼쪽으로', '오른쪽으로')}</td></tr><tr><th>무릎 안쪽 모임</th><td>기준값 없음</td><td>왼발 ${c(fc.valgusL[q])} · 오른발 ${c(fc.valgusR[q])}</td></tr>`
-    : `<tr><td colspan="3" class="sub">이 기록에는 단계별 값이 없어요 (v120 전에 분석한 영상)</td></tr>`;
+    : `<tr><td colspan="3" class="sub">${fc === null ? '걸음 주기(디딘 발이 바뀌는 순간)를 찾지 못해 단계별 값이 없어요' : '이 기록에는 단계별 값이 없어요 (v120 전에 분석한 영상)'}</td></tr>`;   // 새 기록은 fc: null, 옛 기록은 fc 키 없음
   return now + `<tr><th>상위 10% 값</th><th>페리</th><th>나</th></tr><tr><th>골반 내려감</th><td>약 4°</td><td>왼발 ${c(m?.dropL)} · 오른발 ${c(m?.dropR)}</td></tr>
     <tr><th>몸통 옆 기울기</th><td>기준값 없음</td><td>왼쪽 ${c(m?.leanL)} · 오른쪽 ${c(m?.leanR)}</td></tr><tr><th>무릎 안쪽 모임</th><td>기준값 없음</td><td>왼발 ${c(m?.valgusL)} · 오른발 ${c(m?.valgusR)}</td></tr>`;
 }
@@ -1988,11 +1988,11 @@ const BONE_DEFS = `<defs><filter id="bf-far"><feColorMatrix type="matrix" values
   <filter id="bf-me"><feColorMatrix type="matrix" values=".2 .2 .2 0 0  .3 .3 .3 0 0  .27 .27 .27 0 0  0 0 0 1 0"/></filter>
   <filter id="bf-me-far"><feColorMatrix type="matrix" values=".14 .14 .14 0 0  .21 .21 .21 0 0  .19 .19 .19 0 0  0 0 0 1 0"/></filter></defs>`;
 // 옆 결과: 이번 곡선 + 최근 앞·뒤 값 · 앞·뒤 결과: 이번 값(fm) + 최근 옆 곡선(없으면 페리만), 처음 보기는 영상 방향
-function compareFigures(curves, fm = null, view = 'side', fc = null) {
+function compareFigures(curves, fm = null, view = 'side', fc) {
   cmpCurves = curves ?? latestVid(v => v === 'side', r => r.curves);
   cmpSideLatest = !curves && !!cmpCurves;
   const fr = fm ? { m: fm, fc } : latestVid(v => v === 'front' || v === 'back', r => r.m ? r : null);   // 옆 결과에선 가장 최근 앞·뒤 기록 하나에서 m·fc를 같이
-  cmpFM = fr?.m ?? null; cmpFC = fr?.fc ?? null;
+  cmpFM = fr?.m ?? null; cmpFC = fr?.fc;                                  // null(주기 못 찾음)과 undefined(옛 기록)를 구분해 둠
   cancelAnimationFrame(cmpSt.raf);
   Object.assign(cmpSt, { q: phaseMid(1), view, playing: false, drawn: null, raf: 0 });   // 처음엔 체중 받기에 멈춘 채
   setTimeout(() => { const b = document.querySelector('.cmp'); if (b) cmpRender(b); });   // 화면에 넣은 뒤 그림·표를 보기(옆·앞·뒤)에 맞춤
