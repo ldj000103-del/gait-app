@@ -699,7 +699,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v117';
+const APP_VERSION = 'v118';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -2358,11 +2358,16 @@ homeReady = true;
   $('result').insertAdjacentHTML('afterbegin', `<div class="warn" style="font-size:1rem"><b>웹(브라우저)으로 측정해서 끊겼어요.</b> 나가기 직전까지의 기록으로 분석했어요. 웹은 다른 앱으로 가면 측정이 멈춰요. 설치형 안드로이드 앱은 다른 앱을 써도 계속 측정돼요.
     ${/Android/.test(navigator.userAgent) ? '<a class="btnlike" href="install.html">설치형 앱 받기</a>' : ''}</div>`);   // 검수팀 제안 d
 })();
-if (document.body.dataset.tab === 'home') setTab('home');   // 측정 이어 하기로 이미 측정 탭을 열었으면 그대로
+let savedTab = null; try { savedTab = sessionStorage.getItem('tab'); sessionStorage.removeItem('tab'); } catch {}
+if (document.body.dataset.tab === 'home') setTab(savedTab || 'home');   // 측정 이어 하기로 이미 측정 탭을 열었으면 그대로, 새 버전 새로고침이면 보던 탭으로
 // 새 화면 버전이 적용되면 한 번 새로고침 (옛 화면이 남지 않게)
 if ('serviceWorker' in navigator) {
   const had = !!navigator.serviceWorker.controller;
-  navigator.serviceWorker.addEventListener('controllerchange', () => { if (had && !window.__reloaded && !t0) { window.__reloaded = true; location.reload(); } });
+  // 새 버전은 쓰는 도중에 새로고침하지 않고(탭을 누르다 홈으로 튕겼음) 화면을 떠날 때 새로고침, 보던 탭은 기억. 측정 중(t0)엔 안 함
+  let swNew = false;
+  const swReload = () => { if (!swNew || !document.hidden || window.__reloaded || t0) return; window.__reloaded = true; try { sessionStorage.setItem('tab', document.body.dataset.tab); } catch {} location.reload(); };
+  navigator.serviceWorker.addEventListener('controllerchange', () => { if (had) { swNew = true; swReload(); } });
+  document.addEventListener('visibilitychange', swReload);
   navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(r => r.update()).catch(() => {});
 }
 // 웹인지 설치형인지 + 버전 (검수팀 제안 c). 앱 버전은 0.14부터 네이티브가 알려 줌, 그 전 앱은 버전 없이
