@@ -104,7 +104,7 @@ export function analyzeSide(frames, W, H) {
 // ── 앞·뒤: 골반 좌우 기울기, 몸통 옆 기울기, 무릎 안쪽·바깥쪽, 걸음 폭 (좌우 비교) ──
 export function analyzeFrontal(frames, W, H, view) {
   const need = [P.lShoulder, P.rShoulder, P.lHip, P.rHip, P.lKnee, P.rKnee, P.lAnkle, P.rAnkle];
-  const S = { l: { valgus: [], drop: [] }, r: { valgus: [], drop: [] } }, lean = { l: [], r: [] }, widths = [], tilts = [];
+  const S = { l: { valgus: [], drop: [] }, r: { valgus: [], drop: [] } }, lean = { l: [], r: [] }, widths = [], tilts = [], rows = [];
   let n = 0;
   for (const f of frames) {
     const p = px(f, W, H);
@@ -127,7 +127,8 @@ export function analyzeFrontal(frames, W, H, view) {
       return Math.sign(k.x - xl) === Math.sign(mH.x - xl) ? dev : -dev;
     };
     // 디딤 다리 = 발목이 화면에서 더 아래(땅 쪽)에 있는 다리 (근사)
-    const diff = (p[P.lAnkle].y - p[P.rAnkle].y) / H;
+    const diff = (p[P.lAnkle].y - p[P.rAnkle].y) / H, vL = knee('l'), vR = knee('r');
+    rows.push({ t: f.t, st: Math.abs(diff) < 0.01 ? null : diff > 0 ? 'l' : 'r', tilt: pelvis, lean: leanL, valgusL: vL, valgusR: vR });
     if (Math.abs(diff) < 0.01) continue;
     const st = diff > 0 ? 'l' : 'r';
     S[st].valgus.push(knee(st));
@@ -135,8 +136,31 @@ export function analyzeFrontal(frames, W, H, view) {
   }
   if (n < frames.length * 0.3 || n < 15) return { error: 'noPerson', validFrac: n / Math.max(1, frames.length), diag: { frames: frames.length, bodyFrames: n } };
   const q90 = xs => xs.length >= 5 ? pct(xs, 0.9) : null;               // 튀는 값을 피하려 최대 대신 상위 10% 값
+  // 오른발 보행 주기: 디딘 다리가 왼발 → 오른발로 바뀌는 순간 = 오른발 첫 닿기 (근사, 검증 안 됨). 주기마다 0~100%로 펴서 평균
+  const ics = [];
+  let prev = null;
+  for (let i = 0; i < rows.length; i++) {
+    const st = rows[i].st; if (!st) continue;
+    if (prev === 'l' && st === 'r' && (!ics.length || rows[i].t - rows[ics[ics.length - 1]].t > 0.6)) ics.push(i);
+    prev = st;
+  }
+  const KEYS = ['tilt', 'lean', 'valgusL', 'valgusR'], cyc = [];
+  for (let k = 1; k < ics.length; k++) {
+    const a = ics[k - 1], b = ics[k], dur = rows[b].t - rows[a].t;
+    if (dur < 0.6 || dur > 2.2) continue;                              // 옆모습과 같은 범위 (케이던스 약 55~200)
+    const seg = rows.slice(a, b + 1), curve = {};
+    for (const key of KEYS) curve[key] = Array.from({ length: 101 }, (_, q) => {
+      const t = rows[a].t + dur * q / 100;
+      let j = seg.findIndex(r => r.t >= t); if (j <= 0) return seg[j < 0 ? seg.length - 1 : 0][key];
+      const r0 = seg[j - 1], r1 = seg[j], w = (t - r0.t) / (r1.t - r0.t || 1);
+      return r0[key] + (r1[key] - r0[key]) * w;
+    });
+    cyc.push(curve);
+  }
+  const fc = cyc.length ? Object.fromEntries(KEYS.map(key => [key, Array.from({ length: 101 }, (_, q) => mean(cyc.map(c => c[key][q])))])) : null;
+  if (fc) fc.n = cyc.length;
   return {
-    view, validFrac: n / frames.length,
+    view, validFrac: n / frames.length, fc,                             // fc: 오른발 주기 0~100% 평균 (tilt + = 왼쪽 골반 낮음, lean + = 몸통 왼쪽, valgus + = 무릎 안쪽)
     m: {
       dropL: q90(S.l.drop), dropR: q90(S.r.drop),                       // 왼발/오른발 디딜 때 반대쪽 골반 내려감
       valgusL: q90(S.l.valgus), valgusR: q90(S.r.valgus),

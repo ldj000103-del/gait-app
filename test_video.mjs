@@ -64,6 +64,12 @@ for (const view of ['front', 'back']) {
   console.log(`${view}: 반대쪽 골반 내려감 왼발 ${m.dropL.toFixed(1)}°(0) 오른발 ${m.dropR.toFixed(1)}°(5), 무릎 안쪽 왼 ${m.valgusL.toFixed(1)}°(8) 오른 ${m.valgusR.toFixed(1)}°(0), 걸음폭/골반폭 ${m.width.toFixed(2)}(1.00)`);
   assert.ok(Math.abs(m.dropR - 5) < 0.6 && Math.abs(m.dropL) < 0.6, '골반');
   assert.ok(Math.abs(m.valgusL - 8) < 0.8 && Math.abs(m.valgusR) < 0.8, '무릎');
+  // 단계별(오른발 주기): 오른발 디딤(앞 절반) = 왼쪽 골반 5° 낮음, 왼발 디딤(뒤 절반) = 왼무릎 8° 안쪽
+  const fc = r.fc, at = (k, q) => fc[k][q];
+  console.log(`${view} 단계별: 주기 ${fc.n}개, 골반 q25 ${at('tilt', 25).toFixed(1)}°(5) q75 ${at('tilt', 75).toFixed(1)}°(0), 왼무릎 q25 ${at('valgusL', 25).toFixed(1)}°(0) q75 ${at('valgusL', 75).toFixed(1)}°(8)`);
+  assert.ok(fc.n >= 3 && fc.tilt.length === 101, '주기');
+  assert.ok(Math.abs(at('tilt', 25) - 5) < 0.6 && Math.abs(at('tilt', 75)) < 0.6, '단계별 골반');
+  assert.ok(Math.abs(at('valgusL', 75) - 8) < 0.8 && Math.abs(at('valgusL', 25)) < 0.8 && Math.abs(at('valgusR', 50)) < 0.8, '단계별 무릎');
 }
 // 골반 높이: 왼쪽 엉덩이가 늘 3° 낮게 → tilt +3 (= 오른쪽이 3° 높음)
 for (const view of ['front', 'back']) {

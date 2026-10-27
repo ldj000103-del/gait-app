@@ -699,7 +699,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v119';
+const APP_VERSION = 'v120';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -1843,7 +1843,7 @@ const rad = d => d * Math.PI / 180, sdeg = (x, y) => Math.atan2(y, x) * 180 / Ma
 const rot = ([x, y], a) => [x * Math.cos(rad(a)) - y * Math.sin(rad(a)), x * Math.sin(rad(a)) + y * Math.cos(rad(a))];
 const add = (p, v) => [p[0] + v[0], p[1] + v[1]], f1 = n => n.toFixed(1);
 const num = x => x == null || Number.isNaN(x) ? null : x;
-let cmpCurves = null, cmpFM = null, cmpSideLatest = false;   // 옆 곡선 · 앞뒤 값(m) · 옆 곡선을 최근 옆 영상에서 빌려 왔는지
+let cmpCurves = null, cmpFM = null, cmpFC = null, cmpSideLatest = false;   // 옆 곡선 · 앞뒤 값(m) · 앞뒤 단계별 곡선(fc, v120부터) · 옆 곡선을 최근 옆 영상에서 빌려 왔는지
 const cmpSt = { q: 0, view: 'side', playing: false, drawn: null, last: 0, raf: 0 };   // 보행 주기 위치(%)·보기·재생 중인지
 const CMP_T = 8000;                                                        // 재생할 때 한 주기 8초
 // 단계 구간 = Perry 2장 (화면 % 글자·용어 풀이와 같음). PHASES[i][1]은 Perry 각도를 뽑은 지점이라 각도 보간(perryAt)에만 씀
@@ -1897,7 +1897,11 @@ function frontFig(x, who, q, view, m) {
   const sgn = view === 'front' ? 1 : -1, leftSt = q < 50, sL = leftSt ? 1 : -1, u = (q % 50) / 50;
   const w = u < 0.15 ? Math.sin(Math.PI / 2 * u / 0.15) : Math.cos(Math.PI / 2 * (u - 0.15) / 0.85), me = who === 'me';
   const val = (l, r) => (leftSt ? l : r) ?? 0;
-  const drop = (me ? val(m.dropL, m.dropR) : 4) * w, valg = me ? val(m.valgusL, m.valgusR) * w : 0, lean = me ? val(m.leanL, m.leanR) * w : 0;   // 페리는 골반 약 4°만, 몸통·무릎은 기준값 없음
+  // 나: 단계별 곡선(fc)이 있으면 그 순간 잰 값(오른발 주기 qR), 없으면(옛 기록) 상위 10% 값을 디딜 때 가장 크게 맞춘 모양. 페리는 골반 약 4°만, 몸통·무릎은 기준값 없음
+  const qR = Math.round((q + 50) % 100), fq = me && cmpFC ? k => cmpFC[k][qR] ?? 0 : null;
+  const drop = fq ? (leftSt ? -1 : 1) * fq('tilt') : (me ? val(m.dropL, m.dropR) : 4) * w;   // tilt + = 왼쪽 골반 낮음 → 디딘 발 반대쪽이 내려간 각도로
+  const valg = fq ? fq(leftSt ? 'valgusL' : 'valgusR') : me ? val(m.valgusL, m.valgusR) * w : 0;
+  const lean = fq ? (leftSt ? 1 : -1) * fq('lean') : me ? val(m.leanL, m.leanR) * w : 0;   // 디딘 쪽으로 기운 각도 (lean + = 몸통 왼쪽)
   const P = BONE[view].pelvis[2], H = Math.abs(P.hipL[0] - P.hipR[0]) * BK;
   const stDir = sgn * sL;                                                   // 디딘 다리가 화면에서 놓인 쪽 (+1 오른쪽)
   const pivot = [x + stDir * H / 2, HIPY], rP = -stDir * drop;              // 안 디딘 쪽 골반이 내려가게 디딘 고관절을 축으로 돌림 (SVG는 y가 아래로 +)
@@ -1905,7 +1909,7 @@ function frontFig(x, who, q, view, m) {
   const pel = bone(view, 'pelvis', leftSt ? 'hipL' : 'hipR', pivot, rP, me ? 'bf-me' : null);
   const leg = (hip, isStance, bodyLeft) => {
     const flip = bodyLeft, mdir = -sgn * (bodyLeft ? 1 : -1);               // 무릎 안쪽 = 화면에서 몸 가운데 쪽
-    const vg = isStance ? valg : 0, rF = -mdir * vg / 2, rS = mdir * vg / 2;
+    const vg = fq ? fq(bodyLeft ? 'valgusL' : 'valgusR') : isStance ? valg : 0, rF = -mdir * vg / 2, rS = mdir * vg / 2;
     const knee = add(hip, rot(bvec(view, 'femur', 'hipR', 'knee', flip), rF)), ankle = add(knee, rot(bvec(view, 'shank', 'knee', 'ankle', flip), rS));
     const filt = me ? (isStance ? 'bf-me' : 'bf-me-far') : (isStance ? null : 'bf-far');
     return { svg: bone(view, 'foot', 'ankle', ankle, rS, filt, flip) + bone(view, 'shank', 'knee', knee, rS, filt, flip) + bone(view, 'femur', 'hipR', hip, rF, filt, flip), knee };
@@ -1935,9 +1939,14 @@ function cmpTable(i) {
   return `<tr><th>단계 가운데</th><th>고관절</th><th>무릎</th><th>발목</th></tr><tr><th>페리</th>${p.map(v => `<td>${cell(v)}</td>`).join('')}</tr>
     <tr><th>나</th>${m.map(v => `<td>${cell(v)}</td>`).join('')}</tr><tr><th>차이</th>${m.map((v, j) => `<td>${diff(v, p[j])}</td>`).join('')}</tr>`;
 }
-function frontTable(m) {
-  const c = v => v == null ? '-' : `${Math.round(v)}°`;
-  return `<tr><th>상위 10% 값</th><th>페리</th><th>나</th></tr><tr><th>골반 내려감</th><td>약 4°</td><td>왼발 ${c(m?.dropL)} · 오른발 ${c(m?.dropR)}</td></tr>
+function frontTable(m, i) {
+  const c = v => v == null ? '-' : `${Math.round(v)}°`, q = phaseMid(i), fc = cmpFC;
+  const side = (v, a, b) => Math.abs(v) < 0.5 ? '거의 수평' : `${v > 0 ? a : b} ${Math.abs(Math.round(v))}°`;
+  const perryPel = i === 1 ? '왼쪽 약 4° 낮음' : i === 4 ? '오른쪽 약 4° 낮음' : '-';   // 체중 받기(오른발 2~12%, 왼발은 오른발 주기 50~62%) 때 반대쪽 골반 약 4°
+  const now = fc ? `<tr><th>이 단계 가운데 (${q}%)</th><th>페리</th><th>나</th></tr><tr><th>골반 좌우</th><td>${perryPel}</td><td>${side(fc.tilt[q], '왼쪽', '오른쪽')} 낮음</td></tr>
+    <tr><th>몸통 옆 기울기</th><td>기준값 없음</td><td>${side(fc.lean[q], '왼쪽으로', '오른쪽으로')}</td></tr><tr><th>무릎 안쪽 모임</th><td>기준값 없음</td><td>왼발 ${c(fc.valgusL[q])} · 오른발 ${c(fc.valgusR[q])}</td></tr>`
+    : `<tr><td colspan="3" class="sub">이 기록에는 단계별 값이 없어요 (v120 전에 분석한 영상)</td></tr>`;
+  return now + `<tr><th>상위 10% 값</th><th>페리</th><th>나</th></tr><tr><th>골반 내려감</th><td>약 4°</td><td>왼발 ${c(m?.dropL)} · 오른발 ${c(m?.dropR)}</td></tr>
     <tr><th>몸통 옆 기울기</th><td>기준값 없음</td><td>왼쪽 ${c(m?.leanL)} · 오른쪽 ${c(m?.leanR)}</td></tr><tr><th>무릎 안쪽 모임</th><td>기준값 없음</td><td>왼발 ${c(m?.valgusL)} · 오른발 ${c(m?.valgusR)}</td></tr>`;
 }
 // 단계 버튼으로 멈춰 봄 (사용자 10/27: 재생 대신 입각기·유각기 막대 + 단계 버튼). 그림·표는 누른 단계 가운데 순간의 값
@@ -1962,8 +1971,9 @@ function cmpRender(box) {
   }
   const m = frontM();
   box.querySelector('.phN').textContent = `오른발 기준 · ${st.view === 'front' ? '앞에서 본 모습(거울처럼 반대)' : '뒤에서 본 모습'}`;
-  box.querySelector('.cmpTab').innerHTML = m ? frontTable(m) : '';
-  box.querySelector('.cmpTabNote').textContent = m ? '단계는 오른발의 보행 주기예요. 오른발 유각기에는 왼발이 디뎌요. 표는 앞·뒤 영상의 상위 10% 값이고, 그림은 이 값을 발을 디딜 때(체중 받기)에 가장 크게 맞춰 보여 줘요. 몸통은 기울어진 쪽(왼쪽·오른쪽)으로 나눠 잰 값을 디딘 쪽에 맞춰 보여 줘요.' : '걸음걸이 탭에서 앞모습이나 뒷모습 영상을 분석하면 여기에 보여요.';
+  box.querySelector('.cmpTab').innerHTML = m ? frontTable(m, i) : '';
+  box.querySelector('.cmpTabNote').textContent = m ? (cmpFC ? `단계는 오른발의 보행 주기예요(디딘 발이 왼발에서 오른발로 바뀌는 순간을 첫 닿기로 본 근사, 주기 ${cmpFC.n}개 평균). 오른발 유각기에는 왼발이 디뎌요. 그림과 위 표는 그 순간 잰 값, 아래 표는 영상 전체의 상위 10% 값이에요. 휴대폰 영상의 앞·뒤 단계별 각도는 검증 연구를 찾지 못했어요.`
+    : '단계는 오른발의 보행 주기예요. 오른발 유각기에는 왼발이 디뎌요. 표는 앞·뒤 영상의 상위 10% 값이고, 그림은 이 값을 발을 디딜 때(체중 받기)에 가장 크게 맞춰 보여 줘요. 몸통은 기울어진 쪽(왼쪽·오른쪽)으로 나눠 잰 값을 디딘 쪽에 맞춰 보여 줘요.') : '걸음걸이 탭에서 앞모습이나 뒷모습 영상을 분석하면 여기에 보여요.';
 }
 // 재생: 한 주기를 CMP_T 동안 돌림. 카드가 안 보이면(다른 탭) 일시정지
 const playTxt = () => cmpSt.playing ? '❚❚ 일시정지' : '▶ 재생';
@@ -1978,10 +1988,11 @@ const BONE_DEFS = `<defs><filter id="bf-far"><feColorMatrix type="matrix" values
   <filter id="bf-me"><feColorMatrix type="matrix" values=".2 .2 .2 0 0  .3 .3 .3 0 0  .27 .27 .27 0 0  0 0 0 1 0"/></filter>
   <filter id="bf-me-far"><feColorMatrix type="matrix" values=".14 .14 .14 0 0  .21 .21 .21 0 0  .19 .19 .19 0 0  0 0 0 1 0"/></filter></defs>`;
 // 옆 결과: 이번 곡선 + 최근 앞·뒤 값 · 앞·뒤 결과: 이번 값(fm) + 최근 옆 곡선(없으면 페리만), 처음 보기는 영상 방향
-function compareFigures(curves, fm = null, view = 'side') {
+function compareFigures(curves, fm = null, view = 'side', fc = null) {
   cmpCurves = curves ?? latestVid(v => v === 'side', r => r.curves);
   cmpSideLatest = !curves && !!cmpCurves;
-  cmpFM = fm ?? latestVid(v => v === 'front' || v === 'back', r => r.m);
+  const fr = fm ? { m: fm, fc } : latestVid(v => v === 'front' || v === 'back', r => r.m ? r : null);   // 옆 결과에선 가장 최근 앞·뒤 기록 하나에서 m·fc를 같이
+  cmpFM = fr?.m ?? null; cmpFC = fr?.fc ?? null;
   cancelAnimationFrame(cmpSt.raf);
   Object.assign(cmpSt, { q: phaseMid(1), view, playing: false, drawn: null, raf: 0 });   // 처음엔 체중 받기에 멈춘 채
   setTimeout(() => { const b = document.querySelector('.cmp'); if (b) cmpRender(b); });   // 화면에 넣은 뒤 그림·표를 보기(옆·앞·뒤)에 맞춤
@@ -2138,7 +2149,7 @@ function renderVideo(r, dur) {
     const m = r.m, side = r.view === 'front' ? '앞모습' : '뒷모습';
     const diff = (a, b) => a != null && b != null ? `좌우 차이 ${Math.abs(a - b).toFixed(0)}°` : '';
     html += `<h2>영상 분석 결과 · ${side}</h2><div class="sub">몸이 잡힌 장면 ${Math.round(r.validFrac * 100)}% · 앞·뒤 각도는 휴대폰 영상으로 검증된 연구를 찾지 못했어요. 골반 값은 다른 도구 연구에서 기준 장비와 차이가 커서 "부정확할 수 있음", 나머지는 "검증 안 됨"이에요. 같은 조건으로 찍어 좌우 비교·변화 추적에 쓰세요.</div>`;
-    html += `<div class="metric"><div class="mhead"><div><b>페리의 보행 분석 기준 걸음과 나란히</b></div><span class="badge b-y">참고</span></div>${compareFigures(null, m, r.view)}<div class="sub">앞·뒤 각도는 휴대폰 영상으로 검증된 연구를 찾지 못했어요. 페리의 보행 분석 기준 값: 골반 내려감 약 4°(체중 받기), 몸통·무릎은 기준값 없음. ${REF.perry9}</div></div>`;
+    html += `<div class="metric"><div class="mhead"><div><b>페리의 보행 분석 기준 걸음과 나란히</b></div><span class="badge b-y">참고</span></div>${compareFigures(null, m, r.view, r.fc)}<div class="sub">앞·뒤 각도는 휴대폰 영상으로 검증된 연구를 찾지 못했어요. 페리의 보행 분석 기준 값: 골반 내려감 약 4°(체중 받기), 몸통·무릎은 기준값 없음. ${REF.perry9}</div></div>`;
     html += glanceFront(r, dur != null);
     html += metric({ title: '골반 내려감 정도 (반대쪽)', value: `왼발 ${f0(m.dropL)} · 오른발 ${f0(m.dropR)}`, unit: '', grade: 'o',
       body: `<div class="calc">한 발로 디딜 때 반대쪽 골반이 내려간 각도 (상위 10% 값)<br>${diff(m.dropL, m.dropR)}<br>페리의 보행 분석 기준: 체중 받기 때 반대쪽 골반 약 4°, 엉덩이 벌림근이 5° 이하로 제한</div>`,
