@@ -1,7 +1,7 @@
 // 걸음 분석 자체 점검: node test_gait.mjs
 // 가짜 걷기 신호(앞뒤 3초 서 있기 포함)를 만들어 케이던스를 2% 안으로 맞히는지 확인
 import assert from 'node:assert/strict';
-import { analyzeWalk, fastMinutes, withDistance, gpsSpeed, gpsDistance, guessActivity, guessPosition, routeMarks } from './gait.js';
+import { analyzeWalk, fastMinutes, withDistance, gpsSpeed, gpsDistance, guessActivity, guessPosition, routeMarks, analyzeJog } from './gait.js';
 
 function fakeWalk({ cadence, walkS = 20, position, hz = 60, seed = 1, amp = 1 }) {   // amp: 달리기는 흔들림이 큼
   let r = seed;
@@ -89,6 +89,14 @@ for (const position of ['pocket', 'waist']) {
     assert.equal(guessActivity(f), 'run'); assert.equal(guessPosition(f, 'run'), position);
   }
 }
+// 슬로우 러닝 조깅 구간: 실제로 걸었으면 걷기로 계산(2배 안 나옴), 진짜 조깅은 그대로
+for (const position of ['pocket', 'waist']) {
+  const w = analyzeJog(fakeWalk({ cadence: 110, position, walkS: 60 }), position), j = analyzeJog(fakeWalk({ cadence: 165, position, walkS: 60, amp: 4 }), position);
+  console.log(`조깅 구간 ${position}: 걸음 110 → ${w.jog ? '조깅' : '걷기'} ${w.r.cadence.toFixed(0)} / 조깅 165 → ${j.jog ? '조깅' : '걷기'} ${j.r.cadence.toFixed(0)}`);
+  assert.ok(!w.jog && Math.abs(w.r.cadence - 110) < 4, '걸은 조깅 구간');
+  assert.ok(j.jog && Math.abs(j.r.cadence - 165) < 5, '진짜 조깅 구간');
+}
+console.log('슬로우 러닝 조깅 구간 점검 통과');
 const flat = fakeWalk({ cadence: 110, position: 'pocket' }).map(p => ({ t: p.t, x: 0, y: 1, z: p.y }));   // 화면이 하늘을 봄
 assert.equal(guessPosition(flat, 'walk'), 'hand');
 console.log('모든 점검 통과');

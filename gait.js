@@ -167,6 +167,12 @@ export function guessActivity(samples) {
   if (r.error) return null;
   return r.cadence >= RUN_CAD && r.sd > RUN_SD ? 'run' : 'walk';
 }
+// 슬로우 러닝의 '조깅 1분' 구간: 실제로 걸었으면(guessActivity와 같은 기준) 걷기 방식으로 다시 계산 → 한 걸음을 한 주기로 읽어 케이던스가 2배로 나오던 문제 (데이터분석팀 10/27, 230걸음/분 기록 2건)
+export function analyzeJog(samples, position) {
+  const r = analyzeWalk(samples, { position, activity: 'run' });
+  if (r.error || (r.cadence >= RUN_CAD && r.sd > RUN_SD)) return { r, jog: true };
+  return { r: analyzeWalk(samples, { position, activity: 'walk' }), jog: false };
+}
 // 휴대폰 위치: 화면이 하늘을 보면 손, 아니면 허벅지(같은 다리 주기만 강함) / 허리(걸음마다 비슷, Perry 7장)
 // ponytail: 0.7·0.5 기준은 검증 안 됨. 손을 옆에 늘어뜨리고 걸으면 손으로 못 알아봄
 export function guessPosition(samples, activity) {

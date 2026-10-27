@@ -1,4 +1,4 @@
-import { analyzeWalk, fastMinutes, withDistance, gpsSpeed, gpsDistance, guessActivity, guessPosition, routeMarks, RUN_CAD } from './gait.js';
+import { analyzeWalk, fastMinutes, withDistance, gpsSpeed, gpsDistance, guessActivity, guessPosition, routeMarks, RUN_CAD, analyzeJog } from './gait.js';
 import { analyzeSide, analyzeFrontal, extractPose, drawSnapshot, PART_ICON } from './video.js';
 
 const $ = id => document.getElementById(id);
@@ -533,18 +533,22 @@ function finishSlow(data, demo, position, auto = {}) {
   shownDate = null;
   const t0s = data[0].t, segs = [];
   const parts = auto.act ? chunks(data, 30).map(({ s }) => ({ s, jog: guessActivity(s) === 'run' })) : chunks(data, INTERVAL_S).map(({ k, s }) => ({ s, jog: k % 2 === 0 }));
+  let asWalk = 0, walkLike = false;
   for (const { s: slice, jog } of parts) {
-    const r = analyzeWalk(slice, { position, activity: jog ? 'run' : 'walk' });
-    if (!r.error) segs.push({ jog, cadence: r.cadence, steps: r.steps, activeS: r.activeS, regularity: r.regularity });
+    const a = jog ? analyzeJog(slice, position) : { r: analyzeWalk(slice, { position, activity: 'walk' }), jog: false }, r = a.r;
+    if (jog && !a.jog && !r.error) asWalk++;                               // 조깅 시간인데 걷기로 잡힘 → 걷기로 계산
+    if (a.jog && r.warnings?.includes('walkLike')) walkLike = true;
+    if (!r.error) segs.push({ jog: a.jog, cadence: r.cadence, steps: r.steps, activeS: r.activeS, regularity: r.regularity });
   }
   const jogs = segs.filter(x => x.jog), walks = segs.filter(x => !x.jog);
-  if (!jogs.length) return showHtml(`<h2>다시 측정해 주세요</h2><div class="warn">조깅 구간을 찾지 못했어요. 첫 1분은 조깅, 다음 1분은 걷기로 번갈아 해 주세요. 조깅 구간이 20초 이상 있어야 분석해요.</div>`);
+  if (!jogs.length) return showHtml(`<h2>다시 측정해 주세요</h2><div class="warn">조깅 구간을 찾지 못했어요.${asWalk ? ' 조깅 시간에 잡힌 움직임이 걷기와 비슷했어요(흔들림이 작음).' : ''} 첫 1분은 조깅, 다음 1분은 걷기로 번갈아 해 주세요. 조깅 구간이 20초 이상 있어야 분석해요.</div>`);
   const avg = (xs, k) => xs.reduce((s, x) => s + x[k], 0) / xs.length, sum = (xs, k) => xs.reduce((s, x) => s + x[k], 0);
   const hist = store.get('history', []);
   const rec = { date: new Date().toISOString(), start: Date.now() - (data[data.length - 1].t - t0s), activity: 'slowrun', position, auto, practice: false,
     cadence: avg(jogs, 'cadence'), walkCadence: walks.length ? avg(walks, 'cadence') : null,
     steps: sum(segs, 'steps'), activeS: sum(jogs, 'activeS'), walkS: sum(walks, 'activeS'),
-    regularity: avg(jogs, 'regularity'), jogCount: jogs.length, warnings: [],
+    regularity: avg(jogs, 'regularity'), jogCount: jogs.length,
+    warnings: [`jog${jogs.length}`, ...(asWalk ? [`jogAsWalk${asWalk}`] : []), ...(walkLike ? ['walkLike'] : [])],   // 조깅으로 계산한 구간 수 · 조깅 시간인데 걷기로 계산한 구간 수 · 달리기치고 낮은 케이던스
     diag: { src: Native ? 'app' : 'web', durS: (data[data.length - 1].t - t0s) / 1000, hz: data.length / Math.max(1, (data[data.length - 1].t - t0s) / 1000), gapS: 0, gpsGood: 0 } };
   saveRec(rec, hist, demo, data);
   shownDate = rec.date;
@@ -699,7 +703,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v121';
+const APP_VERSION = 'v122';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
