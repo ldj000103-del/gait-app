@@ -4,3 +4,4 @@ upload/
 node_modules/
 www/
 dist/
+.ua/
