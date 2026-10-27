@@ -622,7 +622,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v99';
+const APP_VERSION = 'v100';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -1777,7 +1777,7 @@ function avatar(x, who, q, view) {
   // 옆 보기: 고관절·무릎 굽힘 호 + 바깥쪽 말풍선 (페리 = 왼쪽, 나 = 오른쪽)
   const arc = (c, a, b, r) => { const p = P(c, a, r), e = P(c, b, r); return `<path d="M${f(p)} A${r},${r} 0 0 ${b > a ? 0 : 1} ${f(e)}" fill="none" stroke="${col.hi}" stroke-width="2"/>`; };
   out += arc(near.hip, 0, near.t, 16) + arc(near.knee, near.t, near.t - near.k, 12);
-  const W = 76, left = who === 'perry', bx = left ? 1 : 319 - W;   // 글씨 12: 320px 폰에서도 약 10px로 보이게
+  const W = 72, left = who === 'perry', bx = left ? 1 : 319 - W;   // 글씨 12: 320px 폰에서도 약 10px로 보이게
   let y = 0;
   [['고관절', near.hip, near.v[0]], ['무릎', near.knee, near.v[1]], ['발목', near.ankle, near.v[2]]].forEach(([name, p, v]) => {
     y = Math.max(p[1], y + 26);
@@ -1790,7 +1790,8 @@ function avatar(x, who, q, view) {
 function cmpScene(q, view) {
   return `<line x1="0" x2="320" y1="205" y2="205" stroke="currentColor" opacity=".25"/><line x1="0" x2="320" y1="213" y2="213" stroke="currentColor" opacity=".12"/><line x1="0" x2="320" y1="224" y2="224" stroke="currentColor" opacity=".07"/>
     <line x1="70" y1="205" x2="30" y2="228" stroke="currentColor" opacity=".08"/><line x1="160" y1="205" x2="160" y2="228" stroke="currentColor" opacity=".08"/><line x1="250" y1="205" x2="290" y2="228" stroke="currentColor" opacity=".08"/>
-    ${avatar(108, 'perry', q, view)}${avatar(192, 'me', q, view)}`;
+    ${avatar(106, 'perry', q, view)}${avatar(196, 'me', q, view)}
+    <text x="106" y="242" font-size="11" text-anchor="middle" fill="currentColor" opacity=".75">페리 기준</text><text x="196" y="242" font-size="11" text-anchor="middle" fill="currentColor" opacity=".75">나 (이번 영상)</text>`;   // 이름은 각 인물 바로 아래
 }
 function cmpTable(i) {
   const q = phaseMid(i), p = [2, 3, 4].map(k => perryAt(q, k)), m = angAt('me', q);
@@ -1830,8 +1831,7 @@ function compareFigures(curves) {
     <div class="cmpChips">${chip('data-view', 'side', '옆', cmpSt.view === 'side')}${chip('data-view', 'oblique', '비스듬히', cmpSt.view === 'oblique')}${chip('data-view', 'front', '앞', cmpSt.view === 'front')}
       <span class="cmpGap"></span>${chip('data-speed', 11000, '느리게', cmpSt.T === 11000)}${chip('data-speed', 5500, '보통', cmpSt.T === 5500)}</div>
     <div class="sub cmpNote"${cmpSt.view === 'side' ? ' hidden' : ''}>옆 각도만 잰 값 · 각도 숫자는 '옆'에서 보여요</div>
-    <svg class="chart cmpSvg" viewBox="0 0 320 230" role="img" aria-label="페리의 보행 분석 기준 걸음과 내 걸음 입체 인물 비교">${cmpScene(1, cmpSt.view)}</svg>
-    <div style="display:flex;justify-content:space-around;font-size:.75rem;color:var(--sub);margin-top:-4px"><span>페리의 보행 분석 기준</span><span>나 (이번 영상)</span></div>
+    <svg class="chart cmpSvg" viewBox="0 0 320 248" role="img" aria-label="페리의 보행 분석 기준 걸음과 내 걸음 입체 인물 비교">${cmpScene(1, cmpSt.view)}</svg>
     <div class="cmpCtl"><button class="chip" data-cplay>${cmpSt.playing ? '❚❚ 일시정지' : '▶ 재생'}</button><input type="range" class="cmpRange" min="0" max="100" step="1" value="1" aria-label="보행 주기 위치(%)"></div>
     <div class="cmpPh"><b class="phName">${OLD_PH[0]}</b> <span class="sub phN">1 / 8 단계</span></div>
     <div class="phBar">${PHASES.map((_, j) => `<i${j === 0 ? ' class="on"' : ''}></i>`).join('')}</div>
