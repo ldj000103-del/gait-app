@@ -153,10 +153,14 @@
   .cmpChips { display:flex; flex-wrap:wrap; gap:5px; margin:6px 0; } .cmpChips .chip { padding:5px 9px; font-size:.75rem; } .cmpGap { flex:1; }
   .cmpPh .phName { font-size:1.25rem; }
   #boneSrc p { overflow-wrap:anywhere; }
-  .gcBar { display:grid; grid-template-columns:5fr 3fr; gap:2px; margin:10px 0 2px; }   /* 입각기 5칸 : 유각기 3칸 ≈ 62 : 38 */
-  .gcBar > span { border-radius:8px; padding:5px 8px; font-size:.8125rem; font-weight:600; background:var(--line); color:var(--sub); } .gcBar > span.on { background:var(--accent); color:var(--bg); } .gcBar small { font-weight:500; opacity:.8; }
-  .gcPh { display:grid; grid-template-columns:repeat(8,1fr); gap:2px; margin-bottom:10px; }
-  .gcPh .chip { min-width:0; padding:6px 1px; border-radius:6px; font-size:.6875rem; line-height:1.2; word-break:keep-all; }
+  .gc { display:grid; grid-template-columns:repeat(8,auto); gap:2px; margin:10px 0; }   /* 위: 입각기(5칸)·유각기(3칸) 막대, 아래: 단계 8칸. 한 격자라 경계가 맞음 */
+  .gc > span { grid-column:span 5; border-radius:8px; padding:5px 8px; font-size:.8125rem; font-weight:600; background:var(--line); color:var(--sub); } .gc > span + span { grid-column:span 3; }
+  .gc > span.on { background:var(--accent); color:var(--bg); } .gc > span small { font-weight:500; opacity:.8; }
+  .gc .chip { min-width:0; padding:6px 1px; border-radius:6px; font-size:.625rem; line-height:1.2; word-break:keep-all; }
+  .cmpPh .phName small { font-size:.75rem; font-weight:500; color:var(--sub); }
+  @media (max-width:400px) {   /* 좁은 폰: 8칸 한 줄엔 '발뒤꿈치 닿기'가 안 들어가 입각기 줄(5칸)·유각기 줄(3칸) 두 줄로 */
+    .gc { grid-template-columns:repeat(15,1fr); } .gc > span, .gc > span + span { grid-column:1 / -1; } .gc > span + span { order:1; margin-top:4px; }
+    .gc .chip { grid-column:span 3; font-size:.6875rem; } .gc .chip:nth-of-type(n+6) { grid-column:span 5; order:2; } }
   .cmpTab { width:100%; border-collapse:collapse; font-size:.875rem; text-align:center; } .cmpTab th, .cmpTab td { padding:5px 2px; border-top:1px solid var(--line); } .cmpTab th { font-weight:600; color:var(--sub); font-size:.75rem; }
   .rbar { position:relative; height:8px; border-radius:4px; background:var(--line); margin:12px 0 4px; }
   .rbar b { position:absolute; top:0; bottom:0; border-radius:4px; background:color-mix(in srgb, var(--c-walk) 35%, transparent); }
