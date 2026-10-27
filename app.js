@@ -115,38 +115,74 @@ function showLoc() {
   $('locBox').classList.toggle('hidden', !need);
   if (need && !store.get('locConsent', null)) openSet(true);                 // 위치 약관 동의가 필요하면 시작 전에 꼭 보이게 펼침
 }
-// 측정 종류 고르기 (디자인 팀 시안 C): 숨긴 select가 값의 원본, 판에서 고르면 select 값을 바꾸고 change를 보냄 → 기존 동작 그대로
-const ACT_PICK = [['auto', '자동', '걷기·달리기를 알아서 나눠요', '<path d="M4 20 14 10"/><path d="M15 3v4M13 5h4M19 9v3M17.5 10.5h3"/>'],
-  ['walk', '걷기', '', '<circle cx="13" cy="4" r="2"/><path d="M10 21l2-6-2-3 1-4 3 3h3M10.5 9 7 11.5M12 15l3 6"/>'],
-  ['run', '러닝', '', '<circle cx="16" cy="4" r="2"/><path d="M4 20l4-4h3l1.5-4-3-1.5L7 13M12.5 12l3.5 2 3-2.5M13 16l2 5"/>'],
-  ['slowrun', '슬로우 러닝', '조깅 1분 + 걷기 1분', '<path d="M17 2l3 3-3 3"/><path d="M4 11V9a4 4 0 0 1 4-4h12"/><path d="M7 22l-3-3 3-3"/><path d="M20 13v2a4 4 0 0 1-4 4H4"/>'],
-  ['easyrun', '천천히 달리기', '걷는 속도로 쭉', '<path d="M20 4C12 4 7 9 7 17l-3 3"/><path d="M7 17c6 0 10-3 12-8M10 13h5"/>'],
-  ['cooper', '12분 달리기 테스트', '쿠퍼 테스트', '<circle cx="12" cy="13" r="8"/><path d="M12 9v4l3 2M9 2h6"/>']];   // 스톱워치 (STAT_ICON.time과 같은 모양, 그건 아래에서 정의돼 여기서 못 씀)
-$('actList').innerHTML = ACT_PICK.map(([v, name, desc, ic]) => `<button data-act="${v}" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true">${ic}</svg><span>${name}${desc ? `<small>${desc}</small>` : ''}</span><b class="ok" aria-hidden="true">✓</b></button>`).join('');
-function closeActSheet(back = true) {
-  if ($('actSheet').hidden) return;
-  $('actSheet').hidden = true; $('actBtn').focus();
-  if (back && history.state?.actSheet) history.back();                    // 판을 열 때 넣은 기록 한 칸을 되돌림
+// 고르기 판 (디자인 팀 시안 C, 5곳이 판 하나를 같이 씀): 숨긴 select가 값의 원본, 판에서 고르면 select 값을 바꾸고 change를 보냄 → 기존 동작 그대로
+// select 앞에 '아이콘 + 이름 + ›' 줄(#<select id>Btn)을 만들고, 줄 이름·아이콘은 syncPicks()가 select 값에서 다시 읽음 (코드로 값을 바꾼 곳도 따라오게)
+const IC = {
+  wand: '<path d="M4 20 14 10"/><path d="M15 3v4M13 5h4M19 9v3M17.5 10.5h3"/>',
+  walk: '<circle cx="13" cy="4" r="2"/><path d="M10 21l2-6-2-3 1-4 3 3h3M10.5 9 7 11.5M12 15l3 6"/>',
+  run: '<circle cx="16" cy="4" r="2"/><path d="M4 20l4-4h3l1.5-4-3-1.5L7 13M12.5 12l3.5 2 3-2.5M13 16l2 5"/>',
+  loop: '<path d="M17 2l3 3-3 3"/><path d="M4 11V9a4 4 0 0 1 4-4h12"/><path d="M7 22l-3-3 3-3"/><path d="M20 13v2a4 4 0 0 1-4 4H4"/>',
+  feather: '<path d="M20 4C12 4 7 9 7 17l-3 3"/><path d="M7 17c6 0 10-3 12-8M10 13h5"/>',
+  watch: '<circle cx="12" cy="13" r="8"/><path d="M12 9v4l3 2M9 2h6"/>',   // STAT_ICON.time과 같은 모양 (그건 아래에서 정의돼 여기서 못 씀)
+  pants: '<path d="M7 3h10l1 18h-4l-2-11-2 11H6z"/><path d="M7 7h10"/>',
+  belt: '<rect x="2" y="9" width="20" height="6" rx="1"/><rect x="9" y="8" width="6" height="8" rx="1"/><path d="M12 12h3"/>',
+  hand: '<path d="M8 13V5a1.5 1.5 0 0 1 3 0v6M11 11V4a1.5 1.5 0 0 1 3 0v7M14 11V5.5a1.5 1.5 0 0 1 3 0V14c0 4-2.5 7-6 7-2.5 0-4-1.5-5.5-4L4 14a1.5 1.5 0 0 1 2.5-1.5L8 14"/>',
+  ask: '<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6V14M12 17.5v.01"/>',
+  pin: '<path d="M12 21s-7-6.5-7-12a7 7 0 0 1 14 0c0 5.5-7 12-7 12z"/><circle cx="12" cy="9" r="2.5"/>',
+  ruler: '<rect x="2" y="8" width="20" height="8" rx="1"/><path d="M6 8v3M10 8v4M14 8v3M18 8v4"/>',
+  none: '<circle cx="12" cy="12" r="9"/><path d="M6 18 18 6"/>',
+  toward: '<path d="M12 3v13M7 11l5 5 5-5"/><path d="M5 21h14"/>',
+  away: '<path d="M12 21V8M7 13l5-5 5 5"/><path d="M5 3h14"/>',
+  steps: '<path d="M7 3c2 0 3 2.5 3 5.5S9 13 7 13s-3-1.5-3-4.5S5 3 7 3zM5 16h4v1.5a2 2 0 0 1-4 0zM17 7c2 0 3 2.5 3 5.5S19 17 17 17s-3-1.5-3-4.5S15 7 17 7zM15 20h4v.5a2 2 0 0 1-4 0z"/>',
+  pace: '<path d="M4 18a8 8 0 1 1 16 0"/><path d="M12 18l4-6"/>',
+  knee: '<path d="M9 3l2.5 8.5L9 21"/><circle cx="11.5" cy="11.5" r="2"/>',
+};
+const PICKS = {   // select id → 판 제목, [값, 이름, 설명, 아이콘, 표시]
+  act: ['무엇을 잴까요?', [['auto', '자동', '걷기·달리기를 알아서 나눠요', IC.wand], ['walk', '걷기', '', IC.walk], ['run', '러닝', '', IC.run],
+    ['slowrun', '슬로우 러닝', '조깅 1분 + 걷기 1분', IC.loop], ['easyrun', '천천히 달리기', '걷는 속도로 쭉', IC.feather], ['cooper', '12분 달리기 테스트', '쿠퍼 테스트', IC.watch]]],
+  pos: ['휴대폰을 어디에 둘까요?', [['pocket', '바지 앞주머니', '허벅지에 밀착', IC.pants, '권장'], ['waist', '허리', '벨트·밴드', IC.belt], ['hand', '손에 들고', '', IC.hand], ['auto', '자동 짐작', '검증 안 된 방법', IC.ask]]],
+  dmode: ['거리는 어떻게 잴까요?', [['gps', 'GPS 자동', '야외 1분 이상', IC.pin], ['manual', '거리를 직접 입력', '', IC.ruler], ['none', '재지 않음', '케이던스만', IC.none]]],
+  vview: ['어느 방향에서 찍을까요?', [['side', '옆모습', '무릎·넓적다리·발목 각도', IC.walk], ['front', '앞모습', '카메라 쪽으로 걸어오기', IC.toward], ['back', '뒷모습', '카메라에서 멀어지기', IC.away]]],
+  tmetric: ['무엇을 볼까요?', [['walkCad', '걷기 케이던스', '', IC.steps], ['walkSpeed', '걷는 속도', '', IC.pace], ['runCad', '러닝 케이던스', '', IC.run], ['knee', '영상: 유각기 무릎 굽힘', '', IC.knee]]],
+};
+const svgIc = ic => `<svg viewBox="0 0 24 24" aria-hidden="true">${ic}</svg>`;
+for (const id of Object.keys(PICKS)) {
+  $(id).hidden = true;
+  $(id).insertAdjacentHTML('beforebegin', `<button id="${id}Btn" class="pickRow${id === 'tmetric' ? ' mini' : ''}" data-pick="${id}" aria-haspopup="dialog"><span class="pIc"></span><span class="pName"></span><span class="pChev" aria-hidden="true">›</span></button>`);
 }
-$('actBtn').addEventListener('click', () => {
-  $('actSheet').hidden = false; history.pushState({ actSheet: 1 }, '');   // 뒤로 가기 = 판 닫기
-  $('actList').querySelector('[aria-pressed="true"]')?.focus();
+{ const h = $('tmetricBtn').previousElementSibling; h.classList.add('pickHead'); h.append($('tmetricBtn')); }   // 변화 그래프: 제목 오른쪽에 작게
+function syncPicks() {
+  for (const [id, [, items]] of Object.entries(PICKS)) {
+    const it = items.find(x => x[0] === $(id).value) ?? items[0], b = $(`${id}Btn`);
+    b.querySelector('.pIc').innerHTML = id === 'tmetric' ? '' : svgIc(it[3]); b.querySelector('.pName').textContent = it[1];
+  }
+}
+let pickFor = null, pickDragY = null;
+function openPick(id) {
+  const [title, items] = PICKS[id], v = $(id).value;
+  pickFor = id; $('pickQ').textContent = title;
+  $('pickList').innerHTML = items.map(([val, name, desc, ic, tag]) => `<button data-val="${val}" aria-pressed="${val === v}">${svgIc(ic)}<span>${name}${tag ? ` <em>${tag}</em>` : ''}${desc ? `<small>${desc}</small>` : ''}</span><b class="ok" aria-hidden="true">✓</b></button>`).join('');
+  $('pickSheet').hidden = false; history.pushState({ pickSheet: 1 }, '');   // 뒤로 가기 = 판 닫기
+  $('pickList').querySelector('[aria-pressed="true"]')?.focus();
+}
+function closePick(back = true) {
+  if ($('pickSheet').hidden) return;
+  $('pickSheet').hidden = true; $(`${pickFor}Btn`).focus();
+  if (back && history.state?.pickSheet) history.back();                  // 판을 열 때 넣은 기록 한 칸을 되돌림
+}
+document.addEventListener('click', e => { const b = e.target.closest('[data-pick]'); if (b) openPick(b.dataset.pick); });
+addEventListener('popstate', () => closePick(false));
+$('pickList').addEventListener('click', e => {
+  const b = e.target.closest('[data-val]'); if (!b) return;
+  if ($(pickFor).value !== b.dataset.val) { $(pickFor).value = b.dataset.val; $(pickFor).dispatchEvent(new Event('change')); syncPicks(); }
+  closePick();
 });
-addEventListener('popstate', () => closeActSheet(false));
-$('actList').addEventListener('click', e => {
-  const b = e.target.closest('[data-act]'); if (!b) return;
-  if ($('act').value !== b.dataset.act) { $('act').value = b.dataset.act; $('act').dispatchEvent(new Event('change')); }
-  closeActSheet();
-});
-$('actSheet').addEventListener('click', e => { if (e.target.id === 'actSheet') closeActSheet(); });   // 바깥 = 닫기
-$('actSheet').addEventListener('keydown', e => { if (e.key === 'Escape') closeActSheet(); });
-let actDragY = null;                                                       // 아래로 끌면 닫기
-$('actSheet').addEventListener('pointerdown', e => { actDragY = e.clientY; });
-$('actSheet').addEventListener('pointerup', e => { if (actDragY != null && e.clientY - actDragY > 60) closeActSheet(); actDragY = null; });
+$('pickSheet').addEventListener('click', e => { if (e.target.id === 'pickSheet') closePick(); });   // 바깥 = 닫기
+$('pickSheet').addEventListener('keydown', e => { if (e.key === 'Escape') closePick(); });
+$('pickSheet').addEventListener('pointerdown', e => { pickDragY = e.clientY; });          // 아래로 끌면 닫기
+$('pickSheet').addEventListener('pointerup', e => { if (pickDragY != null && e.clientY - pickDragY > 60) closePick(); pickDragY = null; });
 function showAct() { showLoc(); const a = $('act').value;
-  const pick = ACT_PICK.find(x => x[0] === a) ?? ACT_PICK[0];
-  $('actName').textContent = pick[1]; $('actIc').innerHTML = pick[3];
-  for (const b of $('actList').children) b.setAttribute('aria-pressed', b.dataset.act === a); $('autoNote').classList.toggle('hidden', a !== 'auto'); $('easyNote').classList.toggle('hidden', a !== 'easyrun'); $('slowNote').classList.toggle('hidden', a !== 'slowrun'); $('cooperNote').classList.toggle('hidden', a !== 'cooper'); $('dmodeBox').classList.toggle('hidden', a === 'slowrun' || a === 'cooper'); }
+  syncPicks(); $('autoNote').classList.toggle('hidden', a !== 'auto'); $('easyNote').classList.toggle('hidden', a !== 'easyrun'); $('slowNote').classList.toggle('hidden', a !== 'slowrun'); $('cooperNote').classList.toggle('hidden', a !== 'cooper'); $('dmodeBox').classList.toggle('hidden', a === 'slowrun' || a === 'cooper'); }
 $('act').addEventListener('change', () => { store.set('act', $('act').value); showAct(); showSetSum(); });
 showAct();
 if (!store.get('history', []).length) $('firstGuide').open = true;   // 처음 쓰는 사람에겐 사용법을 펼쳐 둠
@@ -184,6 +220,7 @@ const POS_NAME = { pocket: '바지 앞주머니', waist: '허리', hand: '손에
 const DMODE_NAME = { gps: 'GPS 자동', manual: '거리 직접 입력', none: '거리 안 잼' };
 function openSet(open) { $('setEdit').hidden = !open; $('setSum').hidden = $('setSumNote').hidden = open || store.get('act', null) == null; $('setOpen').setAttribute('aria-expanded', open); }
 function showSetSum() {
+  syncPicks();
   const a = $('act').value, gpsBox = !$('dmodeBox').classList.contains('hidden');
   $('setSumTxt').textContent = [ACT[a] ?? a, POS_NAME[$('pos').value], gpsBox ? DMODE_NAME[$('dmode').value] : a === 'cooper' ? 'GPS 자동' : ''].filter(Boolean).join(' · ');
 }
@@ -653,7 +690,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v110';
+const APP_VERSION = 'v111';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -1380,6 +1417,7 @@ renderHistory();
 // ── 아래 탭 ──
 var homeReady = false;   // var: 위쪽 renderHistory가 먼저 불려도 오류 없이 false로 보임
 function setTab(name) {
+  syncPicks();                                                            // 측정 이어 하기 등 코드로 바꾼 select 값을 줄에 반영
   document.body.dataset.tab = name;
   for (const b of document.querySelectorAll('#tabbar button')) b.setAttribute('aria-selected', b.dataset.go === name);
   if (name === 'home') renderHome();
@@ -2313,3 +2351,4 @@ $('appver').textContent = Native ? `설치형 앱 · 화면 ${APP_VERSION}` : `�
 $('recMode').textContent = Native ? '설치형 앱 · 화면 꺼도 돼요' : '웹 · 화면을 켜 두세요';   // 웹인지 설치형인지 스스로 구분 (아버님 민원, v86)
 $('recMode').classList.toggle('web', !Native);
 if (Native) (async () => { try { const { version } = await Native.info(); if (version) $('appver').textContent = `설치형 앱 ${version} · 화면 ${APP_VERSION}`; } catch {} })();
+syncPicks();                                                               // 처음 불러온 select 값(지난 선택)을 고르기 줄에 반영

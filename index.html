@@ -250,17 +250,21 @@
   #stopSheet { position:fixed; inset:0; z-index:40; background:rgba(0,0,0,.6); display:flex; align-items:flex-end; }
   #stopSheet[hidden] { display:none; }
   /* 측정 종류 고르기 (디자인 팀 시안 C): 한 줄 + 아래에서 올라오는 판 */
-  .actRow { display:flex; align-items:center; gap:10px; margin:0; padding:12px; background:var(--bg); color:var(--ink); border:1px solid var(--line); border-radius:12px; text-align:left; font-weight:600; }
-  .actRow #actName { flex:1; } .actChev { color:var(--sub); font-size:1.25rem; line-height:1; }
-  .actRow svg, #actList svg { width:24px; height:24px; flex:none; fill:none; stroke:var(--accent); stroke-width:1.75; stroke-linecap:round; stroke-linejoin:round; }
-  #actSheet { position:fixed; inset:0; z-index:40; background:rgba(0,0,0,.45); display:flex; align-items:flex-end; }
-  #actSheet[hidden] { display:none; }
-  #actSheet .dsheet { max-height:85vh; overflow-y:auto; padding-top:8px; touch-action:pan-y; }
-  #actSheet .grab { display:block; width:40px; height:4px; border-radius:2px; background:var(--line); margin:0 auto 10px; }
-  #actQ { margin:0 20px 6px; font-size:1.0625rem; }
-  #actList button { display:flex; align-items:center; gap:14px; margin:0; padding:13px 20px; background:none; color:var(--ink); border-radius:0; border-top:1px solid var(--line); text-align:left; font-weight:600; }
-  #actList button span { flex:1; min-width:0; } #actList small { display:block; font-weight:400; font-size:.8125rem; color:var(--sub); margin-top:2px; }
-  #actList .ok { flex:none; width:20px; color:var(--accent); font-size:1.125rem; visibility:hidden; } #actList [aria-pressed="true"] .ok { visibility:visible; }
+  .pickRow { display:flex; align-items:center; gap:10px; margin:0; padding:12px; background:var(--bg); color:var(--ink); border:1px solid var(--line); border-radius:12px; text-align:left; font-weight:600; }
+  .pickRow .pName { flex:1; } .pChev { color:var(--sub); font-size:1.25rem; line-height:1; } .pIc:empty { display:none; } .pIc svg { display:block; }
+  .pickRow svg, #pickList svg { width:24px; height:24px; flex:none; fill:none; stroke:var(--accent); stroke-width:1.75; stroke-linecap:round; stroke-linejoin:round; }
+  .pickHead { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+  .pickRow.mini { width:auto; gap:4px; padding:4px 2px 4px 8px; border:0; background:none; color:var(--sub); font-size:.8125rem; font-weight:500; }
+  .pickRow.mini .pChev { font-size:1rem; }
+  #pickSheet { position:fixed; inset:0; z-index:40; background:rgba(0,0,0,.45); display:flex; align-items:flex-end; }
+  #pickSheet[hidden] { display:none; }
+  #pickSheet .dsheet { max-height:85vh; overflow-y:auto; padding-top:8px; touch-action:pan-y; }
+  #pickSheet .grab { display:block; width:40px; height:4px; border-radius:2px; background:var(--line); margin:0 auto 10px; }
+  #pickQ { margin:0 20px 6px; font-size:1.0625rem; }
+  #pickList button { display:flex; align-items:center; gap:14px; margin:0; padding:13px 20px; background:none; color:var(--ink); border-radius:0; border-top:1px solid var(--line); text-align:left; font-weight:600; }
+  #pickList button span { flex:1; min-width:0; } #pickList small { display:block; font-weight:400; font-size:.8125rem; color:var(--sub); margin-top:2px; }
+  #pickList em { font-style:normal; font-size:.6875rem; font-weight:600; color:var(--accent); border:1px solid var(--accent); border-radius:999px; padding:1px 6px; margin-left:4px; vertical-align:2px; }
+  #pickList .ok { flex:none; width:20px; color:var(--accent); font-size:1.125rem; visibility:hidden; } #pickList [aria-pressed="true"] .ok { visibility:visible; }
   #stopSheet .dsheet { background:#1a201e; color:#fff; } #stopNo { color:#c4ccc9; border-color:#2a3330; margin-top:10px; }
   ol.guide { padding-left:20px; margin:6px 0; } ol.guide li { margin:3px 0; }
 </style>
@@ -371,9 +375,7 @@
     <div class="sub" id="setSumNote" hidden>지난번과 같은 설정이에요</div>
     <div id="setEdit">
     <label for="actBtn">무엇을 할까요?</label>
-    <button id="actBtn" class="actRow" aria-haspopup="dialog"><svg viewBox="0 0 24 24" aria-hidden="true" id="actIc"></svg><span id="actName"></span><span class="actChev" aria-hidden="true">›</span></button>
-    <div id="actSheet" hidden role="dialog" aria-modal="true" aria-labelledby="actQ"><div class="dsheet"><i class="grab" aria-hidden="true"></i><h3 id="actQ">무엇을 잴까요?</h3><div id="actList"></div></div></div>
-    <select id="act" hidden>
+    <select id="act">
       <option value="auto">자동 (걷기·러닝·슬로우 러닝을 알아서 구분)</option>
       <option value="walk">걷기</option>
       <option value="run">러닝</option>
@@ -385,7 +387,7 @@
     <div class="sub hidden" id="autoNote">시작만 누르면 케이던스와 흔들림 세기로 걷기·러닝·슬로우 러닝을 알아서 나눠요. 이 앱이 정한 규칙이라 결과에 "참고"로 표시해요. 천천히 달리기와 12분 테스트는 직접 골라 주세요.</div>
     <div class="sub hidden" id="easyNote">걷기를 섞지 않고, 걷는 속도 정도로 쭉 천천히 달려요. 근거: Lee 2014(55,137명, 평균 15년) — 하루 5~10분, 시속 9.7km 미만으로 달려도 달리지 않는 사람보다 전체 사망 30%, 심혈관 사망 45% 낮음. 관찰 연구라 인과관계는 아니에요.</div>
     <div class="sub hidden" id="slowNote">조깅 1분, 걷기 1분을 번갈아 해요. 바뀔 때마다 진동이 와요(조깅 = 길게 1번, 걷기 = 짧게 2번). 조깅은 걷는 속도 정도로 아주 천천히. 근거: Ikenaga 2017 무작위 연구.</div>
-    <label for="pos">휴대폰 위치</label>
+    <label for="posBtn">휴대폰 위치</label>
     <select id="pos">
       <option value="pocket">바지 앞주머니 (허벅지에 밀착) — 권장</option>
       <option value="waist">허리 (벨트·밴드)</option>
@@ -393,7 +395,7 @@
       <option value="auto">자동 짐작 (검증 안 된 방법)</option>
     </select>
     <div id="dmodeBox">
-    <label for="dmode">걸은 거리 재는 방법 (속도·걸음 길이 계산용)</label>
+    <label for="dmodeBtn">걸은 거리 재는 방법 (속도·걸음 길이 계산용)</label>
     <select id="dmode">
       <option value="gps">GPS 자동 (야외 1분 이상)</option>
       <option value="manual">거리를 직접 입력</option>
@@ -428,7 +430,7 @@
 
   <section class="card" id="vsetup" data-tab="video">
     <h2>영상 분석 <span class="sub">(옆·앞·뒤)</span></h2>
-    <label for="vview">어느 방향에서 찍을까요?</label>
+    <label for="vviewBtn">어느 방향에서 찍을까요?</label>
     <select id="vview">
       <option value="side">옆모습 — 무릎·넓적다리·발목 각도</option>
       <option value="front">앞모습 — 카메라 쪽으로 걸어오기</option>
@@ -466,6 +468,7 @@
   </section>
 
   <section class="card hidden" id="result" data-tab="measure"></section>
+  <div id="pickSheet" hidden role="dialog" aria-modal="true" aria-labelledby="pickQ"><div class="dsheet"><i class="grab" aria-hidden="true"></i><h3 id="pickQ"></h3><div id="pickList"></div></div></div>
 
   <section class="card" id="history" data-tab="records">
     <h2>지난 기록</h2>
