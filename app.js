@@ -115,7 +115,38 @@ function showLoc() {
   $('locBox').classList.toggle('hidden', !need);
   if (need && !store.get('locConsent', null)) openSet(true);                 // 위치 약관 동의가 필요하면 시작 전에 꼭 보이게 펼침
 }
-function showAct() { showLoc(); const a = $('act').value; $('autoNote').classList.toggle('hidden', a !== 'auto'); $('easyNote').classList.toggle('hidden', a !== 'easyrun'); $('slowNote').classList.toggle('hidden', a !== 'slowrun'); $('cooperNote').classList.toggle('hidden', a !== 'cooper'); $('dmodeBox').classList.toggle('hidden', a === 'slowrun' || a === 'cooper'); }
+// 측정 종류 고르기 (디자인 팀 시안 C): 숨긴 select가 값의 원본, 판에서 고르면 select 값을 바꾸고 change를 보냄 → 기존 동작 그대로
+const ACT_PICK = [['auto', '자동', '걷기·달리기를 알아서 나눠요', '<path d="M4 20 14 10"/><path d="M15 3v4M13 5h4M19 9v3M17.5 10.5h3"/>'],
+  ['walk', '걷기', '', '<circle cx="13" cy="4" r="2"/><path d="M10 21l2-6-2-3 1-4 3 3h3M10.5 9 7 11.5M12 15l3 6"/>'],
+  ['run', '러닝', '', '<circle cx="16" cy="4" r="2"/><path d="M4 20l4-4h3l1.5-4-3-1.5L7 13M12.5 12l3.5 2 3-2.5M13 16l2 5"/>'],
+  ['slowrun', '슬로우 러닝', '조깅 1분 + 걷기 1분', '<path d="M17 2l3 3-3 3"/><path d="M4 11V9a4 4 0 0 1 4-4h12"/><path d="M7 22l-3-3 3-3"/><path d="M20 13v2a4 4 0 0 1-4 4H4"/>'],
+  ['easyrun', '천천히 달리기', '걷는 속도로 쭉', '<path d="M20 4C12 4 7 9 7 17l-3 3"/><path d="M7 17c6 0 10-3 12-8M10 13h5"/>'],
+  ['cooper', '12분 달리기 테스트', '쿠퍼 테스트', '<circle cx="12" cy="13" r="8"/><path d="M12 9v4l3 2M9 2h6"/>']];   // 스톱워치 (STAT_ICON.time과 같은 모양, 그건 아래에서 정의돼 여기서 못 씀)
+$('actList').innerHTML = ACT_PICK.map(([v, name, desc, ic]) => `<button data-act="${v}" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true">${ic}</svg><span>${name}${desc ? `<small>${desc}</small>` : ''}</span><b class="ok" aria-hidden="true">✓</b></button>`).join('');
+function closeActSheet(back = true) {
+  if ($('actSheet').hidden) return;
+  $('actSheet').hidden = true; $('actBtn').focus();
+  if (back && history.state?.actSheet) history.back();                    // 판을 열 때 넣은 기록 한 칸을 되돌림
+}
+$('actBtn').addEventListener('click', () => {
+  $('actSheet').hidden = false; history.pushState({ actSheet: 1 }, '');   // 뒤로 가기 = 판 닫기
+  $('actList').querySelector('[aria-pressed="true"]')?.focus();
+});
+addEventListener('popstate', () => closeActSheet(false));
+$('actList').addEventListener('click', e => {
+  const b = e.target.closest('[data-act]'); if (!b) return;
+  if ($('act').value !== b.dataset.act) { $('act').value = b.dataset.act; $('act').dispatchEvent(new Event('change')); }
+  closeActSheet();
+});
+$('actSheet').addEventListener('click', e => { if (e.target.id === 'actSheet') closeActSheet(); });   // 바깥 = 닫기
+$('actSheet').addEventListener('keydown', e => { if (e.key === 'Escape') closeActSheet(); });
+let actDragY = null;                                                       // 아래로 끌면 닫기
+$('actSheet').addEventListener('pointerdown', e => { actDragY = e.clientY; });
+$('actSheet').addEventListener('pointerup', e => { if (actDragY != null && e.clientY - actDragY > 60) closeActSheet(); actDragY = null; });
+function showAct() { showLoc(); const a = $('act').value;
+  const pick = ACT_PICK.find(x => x[0] === a) ?? ACT_PICK[0];
+  $('actName').textContent = pick[1]; $('actIc').innerHTML = pick[3];
+  for (const b of $('actList').children) b.setAttribute('aria-pressed', b.dataset.act === a); $('autoNote').classList.toggle('hidden', a !== 'auto'); $('easyNote').classList.toggle('hidden', a !== 'easyrun'); $('slowNote').classList.toggle('hidden', a !== 'slowrun'); $('cooperNote').classList.toggle('hidden', a !== 'cooper'); $('dmodeBox').classList.toggle('hidden', a === 'slowrun' || a === 'cooper'); }
 $('act').addEventListener('change', () => { store.set('act', $('act').value); showAct(); showSetSum(); });
 showAct();
 if (!store.get('history', []).length) $('firstGuide').open = true;   // 처음 쓰는 사람에겐 사용법을 펼쳐 둠
@@ -622,7 +653,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v109';
+const APP_VERSION = 'v110';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -1766,7 +1797,8 @@ const rot = ([x, y], a) => [x * Math.cos(rad(a)) - y * Math.sin(rad(a)), x * Mat
 const add = (p, v) => [p[0] + v[0], p[1] + v[1]], f1 = n => n.toFixed(1);
 const num = x => x == null || Number.isNaN(x) ? null : x;
 let cmpCurves = null, cmpFM = null, cmpSideLatest = false;   // 옆 곡선 · 앞뒤 값(m) · 옆 곡선을 최근 옆 영상에서 빌려 왔는지
-const cmpSt = { i: 1, view: 'side' };   // 누른 단계(PHASES 번호)와 보기
+const cmpSt = { q: 0, view: 'side', playing: false, drawn: null, last: 0, raf: 0 };   // 보행 주기 위치(%)·보기·재생 중인지
+const CMP_T = 8000;                                                        // 재생할 때 한 주기 8초
 const phaseMid = i => { const a = PHASES[i][1], b = PHASES[(i + 1) % PHASES.length][1] + (i === PHASES.length - 1 ? 100 : 0); return Math.round((a + b) / 2) % 100; };
 const angAt = (who, q) => who === 'perry' ? [perryAt(q, 2), perryAt(q, 3), perryAt(q, 4)] : ['thigh', 'knee', 'ankle'].map(k => num(cmpCurves?.[k]?.[Math.round(q) % 101]));
 // 그림 속 관절 a → b 벡터 (화면 단위, flip = 왼쪽 다리)
@@ -1862,9 +1894,12 @@ function frontTable(m) {
 // 단계 버튼으로 멈춰 봄 (사용자 10/27: 재생 대신 입각기·유각기 막대 + 단계 버튼). 그림·표는 누른 단계 가운데 순간의 값
 // 앞·뒤는 오른발 기준 보행 주기: frontFig는 q<50이 왼발 디딤이라 반 주기 밀어서 넘김 (오른발 입각기 = 0~60%)
 const STANCE_N = 5;                                                        // PHASES 0~4 입각기(0~62%), 5~7 유각기
+const phaseIdx = q => { let i = PHASES.length - 1; PHASES.forEach((p, j) => { if (p[1] <= q) i = j; }); return q < PHASES[0][1] ? PHASES.length - 1 : i; };
 function cmpRender(box) {
-  const st = cmpSt, side = st.view === 'side', i = st.i, q = phaseMid(i);
+  const st = cmpSt, side = st.view === 'side', q = st.q, i = phaseIdx(q);
   box.querySelector('.cmpScene').innerHTML = cmpScene(side ? q : (q + 50) % 100, st.view);
+  if (st.drawn === `${st.view}${i}`) return;                               // 단계 버튼·막대·표는 단계가 바뀔 때만 (그 단계 가운데 순간의 값)
+  st.drawn = `${st.view}${i}`;
   box.querySelectorAll('[data-ph]').forEach(b => b.setAttribute('aria-pressed', +b.dataset.ph === i));
   box.querySelectorAll('.gc > span').forEach((s, j) => s.classList.toggle('on', j === (i < STANCE_N ? 0 : 1)));
   box.querySelector('.phName').innerHTML = `${OLD_PH[i]} <small>(${OLD_EN[i]})</small>`;
@@ -1872,13 +1907,21 @@ function cmpRender(box) {
   if (side) {
     box.querySelector('.phN').textContent = `페리: ${PHASES[i][0]} · ${i + 1} / 8 단계`;
     box.querySelector('.cmpTab').innerHTML = cmpTable(i);
-    box.querySelector('.cmpTabNote').textContent = (cmpSideLatest ? '옆: 가장 최근 옆 영상 값 · ' : '') + '그림과 표는 누른 단계 가운데 순간의 값이에요';
+    box.querySelector('.cmpTabNote').textContent = (cmpSideLatest ? '옆: 가장 최근 옆 영상 값 · ' : '') + '표는 그 단계 가운데 순간의 값이에요';
     return;
   }
   const m = frontM();
   box.querySelector('.phN').textContent = `오른발 기준 · ${st.view === 'front' ? '앞에서 본 모습(거울처럼 반대)' : '뒤에서 본 모습'}`;
   box.querySelector('.cmpTab').innerHTML = m ? frontTable(m) : '';
   box.querySelector('.cmpTabNote').textContent = m ? '단계는 오른발의 보행 주기예요. 오른발 유각기에는 왼발이 디뎌요. 표는 앞·뒤 영상의 상위 10% 값이고, 그림은 이 값을 발을 디딜 때(체중 받기)에 가장 크게 맞춰 보여 줘요. 몸통은 기울어진 쪽(왼쪽·오른쪽)으로 나눠 잰 값을 디딘 쪽에 맞춰 보여 줘요.' : '걸음걸이 탭에서 앞모습이나 뒷모습 영상을 분석하면 여기에 보여요.';
+}
+// 재생: 한 주기를 CMP_T 동안 돌림. 카드가 안 보이면(다른 탭) 일시정지
+const playTxt = () => cmpSt.playing ? '❚❚ 일시정지' : '▶ 재생';
+function cmpLoop(now) {
+  const box = document.querySelector('.cmp');
+  if (!cmpSt.playing || !box?.offsetParent) { cmpSt.raf = 0; if (cmpSt.playing) { cmpSt.playing = false; box && (box.querySelector('[data-cplay]').textContent = playTxt()); } return; }
+  cmpSt.q = (cmpSt.q + (now - cmpSt.last) / CMP_T * 100) % 100; cmpSt.last = now;
+  cmpRender(box); cmpSt.raf = requestAnimationFrame(cmpLoop);
 }
 // 뼈 그림 색: 페리 = 원래 상아색, 나 = 초록 기운, 뒤쪽 다리 = 어둡게 (그림은 한 벌, 색만 필터로 바꿈)
 const BONE_DEFS = `<defs><filter id="bf-far"><feColorMatrix type="matrix" values=".7 0 0 0 0  0 .7 0 0 0  0 0 .7 0 0  0 0 0 1 0"/></filter>
@@ -1889,7 +1932,8 @@ function compareFigures(curves, fm = null, view = 'side') {
   cmpCurves = curves ?? latestVid(v => v === 'side', r => r.curves);
   cmpSideLatest = !curves && !!cmpCurves;
   cmpFM = fm ?? latestVid(v => v === 'front' || v === 'back', r => r.m);
-  Object.assign(cmpSt, { i: 1, view });                                    // 처음엔 체중 받기
+  cancelAnimationFrame(cmpSt.raf);
+  Object.assign(cmpSt, { q: phaseMid(1), view, playing: false, drawn: null, raf: 0 });   // 처음엔 체중 받기에 멈춘 채
   setTimeout(() => { const b = document.querySelector('.cmp'); if (b) cmpRender(b); });   // 화면에 넣은 뒤 그림·표를 보기(옆·앞·뒤)에 맞춤
   const chip = (attr, v, label, on) => `<button class="chip" ${attr}="${v}" aria-pressed="${on}">${label}</button>`;
   const phBtns = (a, b) => PHASES.slice(a, b).map((p, j) => chip('data-ph', a + j, OLD_PH[a + j], a + j === 1)).join('');
@@ -1897,6 +1941,7 @@ function compareFigures(curves, fm = null, view = 'side') {
     <div class="cmpChips">${chip('data-view', 'side', '옆', view === 'side')}${chip('data-view', 'front', '앞', view === 'front')}${chip('data-view', 'back', '뒤', view === 'back')}</div>
     <svg class="chart cmpSvg" viewBox="0 0 320 204" role="img" aria-label="페리의 보행 분석 기준 걸음과 내 걸음 뼈 그림 비교">${BONE_DEFS}<g class="cmpScene">${cmpScene(view === 'side' ? phaseMid(1) : (phaseMid(1) + 50) % 100, view)}</g></svg>
     <div class="sub" style="font-size:.75rem">뼈 그림: BodyParts3D·Z-Anatomy 모델로 만듦 (CC BY-SA) · <a href="#" data-bonesrc>출처 보기</a></div>
+    <button class="chip cmpPlay" data-cplay>▶ 재생</button>
     <div class="gc" role="group" aria-label="보행 주기 단계"><span class="on">입각기 <small>0~62%</small></span><span>유각기 <small>62~100%</small></span>${phBtns(0, PHASES.length)}</div>
     <div class="cmpPh"><b class="phName">${OLD_PH[1]} <small>(${OLD_EN[1]})</small></b> <span class="sub phN">페리: ${PHASES[1][0]} · 2 / 8 단계</span></div>
     <table class="cmpTab">${cmpTable(1)}</table>
@@ -1907,12 +1952,16 @@ document.addEventListener('click', e => {
   if (e.target.closest('[data-bonesrc]')) {                                // 출처 보기 → 홈 '이 앱의 근거' 카드의 뼈 그림 출처 펼침
     e.preventDefault(); setTab('home'); const d = $('boneSrc'); d.open = true; d.scrollIntoView({ block: 'center' }); return;
   }
-  const b = e.target.closest('.cmp [data-view], .cmp [data-ph]');
+  const b = e.target.closest('.cmp [data-view], .cmp [data-ph], .cmp [data-cplay]');
   if (!b) return;
   if (b.dataset.view) {
-    cmpSt.view = b.dataset.view;
+    cmpSt.view = b.dataset.view; cmpSt.drawn = null;
     for (const x of b.parentElement.querySelectorAll('[data-view]')) x.setAttribute('aria-pressed', x === b);
-  } else cmpSt.i = +b.dataset.ph;
+  } else if ('cplay' in b.dataset) {
+    cmpSt.playing = !cmpSt.playing; b.textContent = playTxt();
+    if (cmpSt.playing) { cmpSt.last = performance.now(); cmpSt.raf = requestAnimationFrame(cmpLoop); }
+    return;
+  } else { cmpSt.q = phaseMid(+b.dataset.ph); cmpSt.playing = false; b.closest('.cmp').querySelector('[data-cplay]').textContent = playTxt(); }   // 단계를 누르면 멈추고 그 단계로
   cmpRender(b.closest('.cmp'));
 });
 function videoRecs(r) {
