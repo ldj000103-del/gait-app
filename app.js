@@ -172,6 +172,12 @@ function closePick(back = true) {
 }
 document.addEventListener('click', e => { const b = e.target.closest('[data-pick]'); if (b) openPick(b.dataset.pick); });
 addEventListener('popstate', () => closePick(false));
+// 설치형 앱 휴대폰 뒤로 가기: MainActivity가 먼저 물어봄. 열린 판을 닫았으면 true(앱은 그대로), 아니면 false(예전처럼 앱 닫힘)
+window.gaitBack = () => {
+  if (!$('pickSheet').hidden) { closePick(); return true; }
+  if (!$('stopSheet').hidden) { closeStopSheet(); $('stop').focus(); return true; }   // 측정 종료 확인 창 = '계속 측정'
+  return false;
+};
 $('pickList').addEventListener('click', e => {
   const b = e.target.closest('[data-val]'); if (!b) return;
   if ($(pickFor).value !== b.dataset.val) { $(pickFor).value = b.dataset.val; $(pickFor).dispatchEvent(new Event('change')); syncPicks(); }
@@ -690,7 +696,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v111';
+const APP_VERSION = 'v112';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
