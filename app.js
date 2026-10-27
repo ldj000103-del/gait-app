@@ -622,7 +622,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v108';
+const APP_VERSION = 'v109';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -1868,6 +1868,7 @@ function cmpRender(box) {
   box.querySelectorAll('[data-ph]').forEach(b => b.setAttribute('aria-pressed', +b.dataset.ph === i));
   box.querySelectorAll('.gc > span').forEach((s, j) => s.classList.toggle('on', j === (i < STANCE_N ? 0 : 1)));
   box.querySelector('.phName').innerHTML = `${OLD_PH[i]} <small>(${OLD_EN[i]})</small>`;
+  markTerms(box.querySelector('.phName'));                                 // 다시 쓴 단계 이름에 용어 풀이 밑줄 (누르면 뜻)
   if (side) {
     box.querySelector('.phN').textContent = `페리: ${PHASES[i][0]} · ${i + 1} / 8 단계`;
     box.querySelector('.cmpTab').innerHTML = cmpTable(i);
