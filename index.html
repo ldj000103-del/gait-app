@@ -185,6 +185,10 @@
   .bar { height:8px; background:var(--line); border-radius:4px; margin:8px 0; overflow:hidden; } .bar i { display:block; height:100%; background:var(--series); border-radius:4px; }
   /* 홈 위쪽 '내 걸음 거울' (디자인 팀 시안 C, 10/28) */
   .mirror { text-align:center; } .mirror svg { display:block; height:110px; margin:0 auto; color:var(--ink); }
+  /* 거울 카드 버튼 (디자인 팀 10/29): 밝은 화면 검정·어두운 화면 흰색, 촬영 선 아이콘 + 글자 가운데 한 줄 */
+  .mirror .mshoot { background:#000; color:#fff; display:flex; align-items:center; justify-content:center; gap:8px; }
+  .mirror .mshoot svg { width:20px; height:20px; margin:0; color:inherit; flex:none; fill:none; stroke:currentColor; stroke-width:1.75; stroke-linecap:round; stroke-linejoin:round; }
+  @media (prefers-color-scheme: dark) { .mirror .mshoot { background:#fff; color:#000; } }
   .mirror .mlabs { display:flex; justify-content:center; gap:28px; font-size:.75rem; color:var(--sub); margin:2px 0 12px; }
   .hchips { display:flex; flex-wrap:wrap; justify-content:center; gap:6px; margin:10px 0 0; }
   .hlinks { font-size:.8125rem; color:var(--sub); margin-top:10px; } .hlinks a { color:var(--accent); text-decoration:none; font-weight:600; }

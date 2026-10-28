@@ -803,7 +803,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v155';
+const APP_VERSION = 'v156';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -2545,7 +2545,7 @@ function renderHomeTop() {
   $('homeTop').innerHTML = `<div class="card mirror">
       <div id="mirrorFig">${mirrorSvg(mirrorQ || phaseMid(1))}</div>
       <div class="mlabs"><span>페리의 보행 분석 기준</span><span>나</span></div>
-      <button data-shoot="">내 걸음 비춰 보기</button>
+      <button data-shoot="" class="mshoot"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="6" width="13" height="12" rx="2.5"/><path d="M15.5 10.5 21 7.5v9l-5.5-3"/></svg>내 걸음 비춰 보기</button>
       <div class="mrows"><button data-shoot="perry">페리 기준과 비교<span>›</span></button><button data-shoot="shoes">새 신발 전후<span>›</span></button><button data-shoot="run">달릴 때 무릎<span>›</span></button></div>
       <div class="mfoot"><span class="sub">혼자 찍기 어렵다면</span><span><a href="#" data-open="vSolo">폰 세우는 법</a> · <a href="#" data-open="vHelper">가족이 찍어 주기</a></span></div></div>
     <div class="card"><div class="chk"><div class="mdots" aria-label="최근 4개월 영상 점검">${mon.map(m => `<div><i class="${v.some(x => sameM(x.d, m)) ? 'on' : ''}"></i>${m.getMonth() + 1}월</div>`).join('')}</div>
