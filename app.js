@@ -179,7 +179,7 @@ addEventListener('popstate', () => closePick(false));
 window.gaitBack = () => {
   if (!$('pickSheet').hidden) { closePick(); return true; }
   if (!$('stopSheet').hidden) { closeStopSheet(); $('stop').focus(); return true; }   // 측정 종료 확인 창 = '계속 측정'
-  const btn = document.querySelector('#permOv [data-p=later], #fbOv [data-f=close], #dictOv [data-dx=skip]');   // 권한 안내 = '나중에', 건의하기 = '닫기'(Esc와 같음), 지표 사전 = '건너뛰기'(닫기)
+  const btn = document.querySelector('#permOv [data-p=later], #fbOv [data-f=close], #dictOv [data-dx=skip], #lessonOv [data-lx=close]');   // 권한 안내 = '나중에', 건의하기 = '닫기'(Esc와 같음), 지표 사전 = '건너뛰기'(닫기)
   if (btn) { btn.click(); return true; }
   if (!$('tip').classList.contains('hidden')) { $('tip').classList.add('hidden'); return true; }   // 용어 풀이 팝업
   if (subOpen) { closeSub(); return true; }                                 // 홈 하위 화면 → 홈
@@ -759,7 +759,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v142';
+const APP_VERSION = 'v143';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -2507,7 +2507,47 @@ function closeSub(back = true) {
 document.addEventListener('click', e => { const s = e.target.closest('[data-sub]'), b = e.target.closest('.spBack'); if (s) openSub(s.dataset.sub); else if (b) closeSub(); });
 addEventListener('popstate', () => { if (subOpen && history.state?.sub !== subOpen) closeSub(false); });   // 새로고침 전에 남은 다른 {sub} 칸으로 돌아가도 닫히게 (검수팀)
 if (history.state?.sub || history.state?.pickSheet) history.replaceState(null, '');   // 새로고침하면 판·하위 화면은 닫힌 채라 남은 기록 칸을 비움 (뒤로 가기가 한 번 헛돌지 않게)
-$('lessonCard').addEventListener('click', e => { const l = e.target.closest('[data-lesson]'); if (l) openDict(+l.dataset.lesson); });
+// 걸음 수업 판: 근육 그림(assets/muscle, 보행 주기 2% 간격 50장)을 캔버스로 반복 재생 + 주기에 맞는 자막·단계 막대 (디자인 팀 10/28, 법률 검토 20번)
+// 투명 WebP를 캔버스에 그려 밝은·어두운 화면 모두 바탕이 자연스럽고 사파리에서도 재생됨. 이용자 측정값과는 연결하지 않음
+const LESSON_N = 50, LESSON_MS = 111;                                      // 한 걸음 약 5.6초 (근육 영상 시안과 같은 빠르기)
+const LESSON_SUB = [[0, '① 뒤꿈치 흔들의자 · 정강이 앞 근육이 발이 ‘탁’ 떨어지지 않게 천천히 내려놓아요'],
+  [12, '② 발목 흔들의자 · 가자미근이 정강이가 너무 빨리 넘어가지 않게 붙잡아요'],
+  [31, '③ 앞발 흔들의자 · 발가락 뿌리를 축으로 뒤꿈치가 들려요. 걸을 때 가장 강한 추진력이 여기서 나와요'],
+  [62, '흔들기 · 발이 바닥에서 떨어져 앞으로 가요']];
+function openLesson(di) {
+  const o = document.createElement('div');
+  o.id = 'lessonOv'; o.setAttribute('role', 'dialog'); o.setAttribute('aria-modal', 'true'); o.setAttribute('aria-label', '걸음 수업');
+  o.innerHTML = `<div class="dsheet lesson"><div class="lhead"><h3>걸음 수업 · 30초</h3><button class="lx" data-lx="close" aria-label="닫기">✕</button></div>
+    <div class="lfig"><canvas width="480" height="403" role="img" aria-label="페리의 보행 분석 기준 걸음에서 정강이·발 근육의 길이가 바뀌는 그림"></canvas><button class="chip lplay" data-lx="play"></button></div>
+    <p class="lsub"></p>
+    <div class="gc" aria-label="보행 주기 단계"><span>입각기 <small>0~62%</small></span><span>유각기 <small>62~100%</small></span>${OLD_PH.map(n => `<b class="chip">${n}</b>`).join('')}</div>
+    <button class="textlike" data-lx="more" style="text-align:left;padding-left:0">더 알아보기 › ${DICT[di].name}</button>
+    <p class="lfine">근육 그림: BodyParts3D·Z-Anatomy 모델로 만듦 (CC BY-SA) · <a href="#" data-bonesrc>출처 보기 ›</a><br>페리의 보행 분석 기준: Perry 『Gait Analysis』 4장 · 일반적인 걸음 정보이며 진료를 대신하지 않아요</p></div>`;
+  document.body.append(o);
+  for (const el of [document.querySelector('main'), $('tabbar')]) el.inert = true;
+  const cv = o.querySelector('canvas'), g = cv.getContext('2d'), imgs = [], btn = o.querySelector('[data-lx=play]');
+  let k = 0, playing = !matchMedia('(prefers-reduced-motion: reduce)').matches, timer = 0, shownSub = -1, shownPh = -1;
+  for (let i = 0; i < LESSON_N; i++) { const im = new Image(); im.src = `assets/muscle/m${String(i).padStart(2, '0')}.webp`; if (i === 0) im.onload = () => draw(); imgs.push(im); }
+  const draw = () => {
+    const im = imgs[k]; if (im.complete && im.naturalWidth) { g.clearRect(0, 0, cv.width, cv.height); g.drawImage(im, 0, 0, cv.width, cv.height); }
+    const q = k * 2, s = LESSON_SUB.reduce((a, x, j) => q >= x[0] ? j : a, 0), ph = phaseIdx(q);
+    if (s !== shownSub) { shownSub = s; o.querySelector('.lsub').textContent = LESSON_SUB[s][1]; }
+    if (ph !== shownPh) { shownPh = ph; o.querySelectorAll('.gc > .chip').forEach((c, j) => c.setAttribute('aria-pressed', j === ph)); o.querySelectorAll('.gc > span').forEach((c, j) => c.classList.toggle('on', j === (ph < 5 ? 0 : 1))); }
+  };
+  const tick = () => { if (playing) { k = (k + 1) % LESSON_N; draw(); } };
+  const setBtn = () => { btn.textContent = playing ? '❚❚ 일시정지' : '▶ 재생'; };
+  const close = () => { clearInterval(timer); for (const el of [document.querySelector('main'), $('tabbar')]) el.inert = false; o.remove(); $('lessonCard').querySelector('[data-lesson]')?.focus(); };
+  setBtn(); draw(); timer = setInterval(tick, LESSON_MS);
+  o.addEventListener('click', e => {
+    const b = e.target.closest('[data-lx]');
+    if (e.target === o || b?.dataset.lx === 'close' || e.target.closest('[data-bonesrc]')) return close();   // 출처 보기는 판을 닫고 홈 '이 앱의 근거'로 (아래 공용 처리)
+    if (b?.dataset.lx === 'play') { playing = !playing; setBtn(); }
+    else if (b?.dataset.lx === 'more') { close(); openDict(di); }
+  });
+  o.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
+  o.querySelector('[data-lx=close]').focus();
+}
+$('lessonCard').addEventListener('click', e => { const l = e.target.closest('[data-lesson]'); if (l) openLesson(+l.dataset.lesson); });
 $('homeTop').addEventListener('click', e => {
   const s = e.target.closest('[data-shoot]'), o = e.target.closest('[data-open]'), p = e.target.closest('[data-pair]'), l = e.target.closest('[data-lesson]');
   if (s) goShoot(s.dataset.shoot);
