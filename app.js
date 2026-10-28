@@ -217,6 +217,7 @@ async function deleteRec(date) {
     const b = $('pickList').querySelector('[data-del]'); b.disabled = true;
     const ok = await askDelete(hist[i].receipt); b.disabled = false;
     if (!ok) {                                                            // 접수번호가 먼저 사라지면 안 되니 휴대폰 기록은 그대로 (체크를 풀면 기록만 지울 수 있음)
+      if ($('pickSheet').hidden) return toast('삭제 요청을 보내지 못해 기록을 그대로 뒀어요');   // 보내는 중에 판을 닫았으면 판 밖에서 알림
       $('pickList').querySelector('.delErr')?.remove();
       $('pickList').querySelector('.delActs').insertAdjacentHTML('beforebegin', '<p class="delDesc delErr" role="alert">삭제 요청을 보내지 못했어요. 인터넷 연결 후 다시 시도해 주세요</p>');
       return;
@@ -759,7 +760,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v143';
+const APP_VERSION = 'v144';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');

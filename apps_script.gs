@@ -47,7 +47,12 @@ function doPost(e) {
     const rc = String(d.receipt || '').replace(/[^0-9a-zA-Z]/g, '').slice(0, 16), sh = book.getSheetByName(RESULT_SHEET);
     if (rc && sh && sh.getLastRow() > 1) {
       const col = KEYS.indexOf('receipt') + 2, vals = sh.getRange(2, col, sh.getLastRow() - 1, 1).getValues();
-      for (let i = vals.length - 1; i >= 0; i--) if (String(vals[i][0]) === rc) sh.deleteRow(i + 2);   // 아래에서 위로 (줄 번호가 안 밀리게)
+      let n = 0;
+      for (let i = vals.length - 1; i >= 0; i--) {                   // 아래에서 위로 (줄 번호가 안 밀리게)
+        const v = vals[i][0];                                         // 숫자만인 접수번호(01234567 등)는 시트가 숫자로 바꿔 저장함 → 숫자로도 비교 (검수팀)
+        if (String(v) === rc || (typeof v === 'number' && v === Number(rc))) { sh.deleteRow(i + 2); n++; }
+      }
+      console.log('delete request', n);                               // 삭제 요청 수만 기록 (이상한 대량 요청을 알아채려고, 접수번호는 남기지 않음)
     }
     return ContentService.createTextOutput('ok');
   }
