@@ -22,6 +22,7 @@ import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
 import android.os.PowerManager;
+import android.os.SystemClock;
 import android.os.VibrationEffect;
 import android.os.Vibrator;
 import androidx.core.app.NotificationCompat;
@@ -35,6 +36,8 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -46,6 +49,15 @@ public class GaitService extends Service implements SensorEventListener, Locatio
     // 휴대폰이 앱 프로세스를 정리하면 위 메모리 값은 사라짐 → 10초마다 새 값만 앱 내부 파일에 덧붙여 두고, 끝낼 때 메모리가 비었으면 파일에서 읽음
     static final String ACC_FILE = "rec_acc.bin", GPS_FILE = "rec_gps.bin";
     static volatile boolean running = false;                // 이 프로세스에서 측정 중인지 (프로세스가 새로 뜨면 false)
+    // 오래 걷지 않을 때 (민원팀 10/28, 아버님 병원 대기): 걷지 않는 상태가 IDLE_ASK 이어지면 진동·알림으로 물음 [끝내기][계속 재기],
+    // 물은 뒤 IDLE_END 동안 답이 없거나 MAX_REC가 되면 지금까지 잰 것을 파일에 남기고 측정을 끝냄 → 앱을 열면 그 기록으로 저장 (기록은 버리지 않음)
+    // app.js의 IDLE_ASK_S·IDLE_END_S·MAX_REC_S·STILL_SD와 같은 값 (데이터분석팀이 조정)
+    static final long IDLE_ASK_MS = 15 * 60 * 1000L, IDLE_END_MS = 15 * 60 * 1000L, MAX_REC_MS = 3 * 3600 * 1000L;
+    static final double STILL_SD = 0.6;                     // 5초 동안 가속도 크기의 흔들림(표준편차, m/s²)이 이보다 작으면 '걷지 않음'
+    static final String END_FILE = "rec_end.txt", ACTION_END = "gait.END", ACTION_CONTINUE = "gait.CONTINUE";
+    static volatile String endReason = null;                // idleEnd(답 없음) · maxEnd(3시간) · stop(알림에서 끝내기)
+    private long startAt, lastMove, askedAt;
+    private double wSum, wSq; private int wN; private long wStart;
     private int savedAcc = 0, savedGps = 0;
     private Runnable save;
     private static final String CHANNEL = "gait";
@@ -59,6 +71,13 @@ public class GaitService extends Service implements SensorEventListener, Locatio
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
+        String action = intent != null ? intent.getAction() : null;
+        if (ACTION_CONTINUE.equals(action)) {                                // 알림 '계속 재기' → 다시 처음부터 셈
+            lastMove = SystemClock.elapsedRealtime(); askedAt = 0;
+            getSystemService(NotificationManager.class).cancel(2);
+            return START_NOT_STICKY;
+        }
+        if (ACTION_END.equals(action)) { finishRec("stop"); return START_NOT_STICKY; }   // 알림 '끝내기'
         boolean useGps = intent != null && intent.getBooleanExtra("gps", false)
                 && ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED;
 
@@ -79,12 +98,13 @@ public class GaitService extends Service implements SensorEventListener, Locatio
 
         synchronized (ACC) { ACC.clear(); }
         synchronized (GPS) { GPS.clear(); }
-        clearFiles(this); savedAcc = savedGps = 0; running = true;
-        save = () -> { savedAcc = append(ACC, ACC_FILE, savedAcc); savedGps = append(GPS, GPS_FILE, savedGps); handler.postDelayed(save, 10000); };
+        clearFiles(this); savedAcc = savedGps = 0; running = true; endReason = null;
+        startAt = lastMove = wStart = SystemClock.elapsedRealtime(); askedAt = 0; wSum = wSq = 0; wN = 0;
+        save = () -> { savedAcc = append(ACC, ACC_FILE, savedAcc); savedGps = append(GPS, GPS_FILE, savedGps); checkIdle(); if (running) handler.postDelayed(save, 10000); };
         handler.postDelayed(save, 10000);
-        // 최대 3시간이면 자동 해제 (앱도 3시간 넘은 측정은 버림)
+        // MAX_REC(3시간)가 되면 checkIdle이 측정을 끝내고 저장 (잠금은 여유 1분 두고 자동 해제)
         wakeLock = getSystemService(PowerManager.class).newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "gait:rec");
-        wakeLock.acquire(3 * 3600 * 1000L);
+        wakeLock.acquire(MAX_REC_MS + 60 * 1000L);
         sensors = getSystemService(SensorManager.class);
         sensors.registerListener(this, sensors.getDefaultSensor(Sensor.TYPE_ACCELEROMETER), 20000);   // 20ms = 50Hz
         if (useGps) {
@@ -136,6 +156,73 @@ public class GaitService extends Service implements SensorEventListener, Locatio
     @Override
     public void onSensorChanged(SensorEvent e) {
         synchronized (ACC) { ACC.add(new double[]{e.timestamp / 1e6, e.values[0], e.values[1], e.values[2]}); }
+        double m = Math.sqrt(e.values[0] * e.values[0] + e.values[1] * e.values[1] + e.values[2] * e.values[2]);
+        wSum += m; wSq += m * m; wN++;
+        long now = SystemClock.elapsedRealtime();
+        if (now - wStart >= 5000) {                                          // 5초마다 흔들림 세기 → 걷고 있으면 lastMove 갱신
+            double mean = wSum / wN, sd = Math.sqrt(Math.max(0, wSq / wN - mean * mean));
+            if (sd >= STILL_SD) lastMove = now;
+            wSum = wSq = 0; wN = 0; wStart = now;
+        }
+    }
+
+    // 10초마다: 오래 걷지 않음 → 물음, 물은 뒤 답 없음·3시간 → 끝내고 저장. 다시 걸으면 물음을 거둠
+    private void checkIdle() {
+        if (!running) return;
+        long now = SystemClock.elapsedRealtime();
+        if (now - startAt >= MAX_REC_MS) { finishRec("maxEnd"); return; }
+        if (askedAt > 0 && lastMove > askedAt) { askedAt = 0; getSystemService(NotificationManager.class).cancel(2); return; }
+        if (askedAt > 0 && now - askedAt >= IDLE_END_MS) { finishRec("idleEnd"); return; }
+        if (askedAt == 0 && now - lastMove >= IDLE_ASK_MS) { askedAt = now; ask(); }
+    }
+
+    private NotificationManager alertChannel() {
+        NotificationManager nm = getSystemService(NotificationManager.class);
+        if (Build.VERSION.SDK_INT >= 26) nm.createNotificationChannel(new NotificationChannel("gait_alert", "걸음 측정 확인", NotificationManager.IMPORTANCE_HIGH));
+        return nm;
+    }
+    private void buzz(long[] pattern) {
+        Vibrator v = getSystemService(Vibrator.class);
+        if (v == null) return;
+        if (Build.VERSION.SDK_INT >= 26) v.vibrate(VibrationEffect.createWaveform(pattern, -1)); else v.vibrate(pattern, -1);
+    }
+    private void ask() {
+        buzz(new long[]{0, 400, 200, 400});
+        PendingIntent open = PendingIntent.getActivity(this, 0, new Intent(this, MainActivity.class), PendingIntent.FLAG_IMMUTABLE);
+        PendingIntent end = PendingIntent.getService(this, 1, new Intent(this, GaitService.class).setAction(ACTION_END), PendingIntent.FLAG_IMMUTABLE);
+        PendingIntent cont = PendingIntent.getService(this, 2, new Intent(this, GaitService.class).setAction(ACTION_CONTINUE), PendingIntent.FLAG_IMMUTABLE);
+        alertChannel().notify(2, new NotificationCompat.Builder(this, "gait_alert")
+                .setContentTitle(IDLE_ASK_MS / 60000 + "분째 걷지 않았어요")
+                .setContentText("측정을 끝낼까요? " + IDLE_END_MS / 60000 + "분 동안 답이 없으면 지금까지 잰 것을 저장하고 끝내요")
+                .setSmallIcon(android.R.drawable.ic_menu_directions)
+                .setContentIntent(open).setAutoCancel(true)
+                .addAction(0, "끝내기", end).addAction(0, "계속 재기", cont)
+                .build());
+    }
+    // 측정을 끝내고 지금까지 값을 파일에 남김 (메모리 값도 그대로라 앱이 stop()으로 가져감). 기록은 앱을 열 때 저장
+    private void finishRec(String reason) {
+        if (!running) {                                                      // 프로세스가 새로 떠서 측정 상태가 없음 → 끝났다는 표시만
+            writeEnd(this, reason); stopSelf(); return;
+        }
+        savedAcc = append(ACC, ACC_FILE, savedAcc); savedGps = append(GPS, GPS_FILE, savedGps);
+        endReason = reason; writeEnd(this, reason);
+        NotificationManager nm = alertChannel(); nm.cancel(2);
+        if (!"stop".equals(reason)) buzz(new long[]{0, 600});
+        PendingIntent open = PendingIntent.getActivity(this, 0, new Intent(this, MainActivity.class), PendingIntent.FLAG_IMMUTABLE);
+        nm.notify(3, new NotificationCompat.Builder(this, "gait_alert")
+                .setContentTitle("idleEnd".equals(reason) ? "오래 움직임이 없어 측정을 끝냈어요" : "maxEnd".equals(reason) ? "3시간이 지나 측정을 끝냈어요" : "측정을 끝냈어요")
+                .setContentText("앱을 열면 지금까지 잰 기록으로 결과를 저장해요")
+                .setSmallIcon(android.R.drawable.ic_menu_directions)
+                .setContentIntent(open).setAutoCancel(true).build());
+        ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE);
+        stopSelf();
+    }
+    static void writeEnd(Context c, String reason) {
+        try { Files.write(new File(c.getFilesDir(), END_FILE).toPath(), reason.getBytes(StandardCharsets.UTF_8)); } catch (IOException e) { /* 다음에 앱이 alive=false로 알아챔 */ }
+    }
+    static String ended(Context c) {                                         // 끝난 이유 (프로세스가 새로 떴으면 파일에서)
+        if (endReason != null) return endReason;
+        try { return new String(Files.readAllBytes(new File(c.getFilesDir(), END_FILE).toPath()), StandardCharsets.UTF_8); } catch (IOException e) { return null; }
     }
 
     @Override
@@ -166,6 +253,7 @@ public class GaitService extends Service implements SensorEventListener, Locatio
     static void clearFiles(Context c) {
         new File(c.getFilesDir(), ACC_FILE).delete();
         new File(c.getFilesDir(), GPS_FILE).delete();
+        new File(c.getFilesDir(), END_FILE).delete(); endReason = null;
     }
 
     @Override

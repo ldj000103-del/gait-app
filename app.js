@@ -52,7 +52,13 @@ const LEAD_S = 3;        // 시작 후 주머니에 넣는 시간 (계산에서 
 const GRADE = {
   g: ['b-g', '정확'], y: ['b-y', '참고'], o: ['b-o', '부정확할 수 있음'], n: ['b-n', '검증 안 됨'],
 };
+// 오래 걷지 않을 때 (민원팀 10/28): 걷지 않는 상태가 IDLE_ASK_S 이어지면 물음, 물은 뒤 IDLE_END_S 동안 답이 없으면 저장하고 끝냄, MAX_REC_S가 되면 저장하고 끝냄
+// 설치형 앱은 GaitService.java가 같은 값으로 화면이 꺼져도 처리, 웹은 화면이 켜져 있는 동안만. 데이터분석팀이 조정
+const IDLE_ASK_S = 15 * 60, IDLE_END_S = 15 * 60, MAX_REC_S = 3 * 3600, STILL_SD = 0.6;   // STILL_SD: 5초 가속도 크기 흔들림(m/s²)이 이보다 작으면 걷지 않음
+let pendingEnd = null;                                                   // 이번 측정이 자동으로 끝난 이유 → 저장할 기록의 warnings에 붙임
 const WARN = {
+  idleEnd: `오래 움직임이 없어 자동으로 끝냈어요. ${IDLE_ASK_S / 60}분 넘게 걷지 않아 물었고 ${IDLE_END_S / 60}분 동안 답이 없어, 그때까지 잰 기록으로 분석했어요.`,
+  maxEnd: `측정이 ${MAX_REC_S / 3600}시간이 되어 자동으로 끝냈어요. 그때까지 잰 기록으로 분석했어요.`,
   shortWalk: '걸은 시간이 짧아 시작·끝 구간을 빼지 못했어요. 20초 이상 걸으면 더 정확해요.',
   irregular: '걸음 신호가 불규칙해요. 휴대폰이 주머니에서 흔들렸거나 방향을 자주 바꿨을 수 있어요.',
   running: '달리기로 보여요(케이던스 170 이상). 이 분석은 걷기에서만 정확해요.',
@@ -408,7 +414,7 @@ const setArc = f => { $('recArc').style.strokeDashoffset = (565.5 * (1 - Math.mi
 function runRec(act) {
   const { startWall } = store.get('rec', {});
   $('recTitle').textContent = { walk: '걷는 중 · 평소처럼', run: '달리는 중 · 평소 페이스로', easyrun: '천천히 달리는 중 · 걷는 속도 정도로', cooper: '12분 동안 최대한 멀리', auto: '측정 중 · 걷거나 달려요' }[act] ?? '조깅 1분';
-  t0 = startWall; liveSteps = 0; $('recAct').textContent = ACT[act] ?? '';
+  t0 = startWall; liveSteps = 0; lastMoveAt = 0; idleAskedAt = 0; $('recAct').textContent = ACT[act] ?? '';
   for (const id of ['lvCad', 'lvSteps', 'lvDist']) $(id).textContent = '–';
   $('recFind').textContent = '걸음 신호 찾는 중…';
   $('lvDistBox').hidden = !usesGps(act);
@@ -442,8 +448,11 @@ function runRec(act) {
 let liveSteps = 0;
 async function updateLive(act, el) {
   let s, g;
-  if (Native) { try { ({ samples: s, gps: g } = await Native.peek({ sec: 20 })); } catch { return; } }   // 0.10 이하 앱엔 peek가 없음 → 조용히 넘어감
-  else { const cut = (samples[samples.length - 1]?.t ?? 0) - 20000; s = samples.filter(p => p.t >= cut); g = gpsPts; }
+  if (Native) {
+    let ended; try { ({ samples: s, gps: g, ended } = await Native.peek({ sec: 20 })); } catch { return; }   // 0.10 이하 앱엔 peek가 없음 → 조용히 넘어감
+    if (ended && t0) return stopRec(false, ended);                         // 서비스가 오래 걷지 않음·3시간·알림 '끝내기'로 끝냄 → 그때까지 잰 것으로 저장
+  }
+  else { const cut = (samples[samples.length - 1]?.t ?? 0) - 20000; s = samples.filter(p => p.t >= cut); g = gpsPts; webIdle(el); }
   if (!t0) return;
   const ok = s?.length > 50, pos = $('pos').value === 'auto' ? 'pocket' : $('pos').value;
   const mode = !ok ? null : act === 'slowrun' ? (Math.floor(el / INTERVAL_S) % 2 === 0 ? 'run' : 'walk') : act === 'auto' ? guessActivity(s, $('pos').value) ?? 'walk' : act === 'walk' ? 'walk' : 'run';
@@ -454,10 +463,32 @@ async function updateLive(act, el) {
   const d = g?.length > 1 ? gpsDistance(g) : null;
   if (d) $('lvDist').textContent = Math.round(d.dist).toLocaleString();
 }
+// 웹: 화면이 켜져 있는 동안 '오래 걷지 않음' (설치형 앱은 서비스가 처리). 측정 종료 확인 창을 문구만 바꿔 씀
+let lastMoveAt = 0, idleAskedAt = 0;
+function webIdle(el) {
+  const now = Date.now();
+  if (el >= MAX_REC_S) return stopRec(false, 'maxEnd');
+  const w = samples.filter(p => p.t >= (samples[samples.length - 1]?.t ?? 0) - 5000).map(p => Math.hypot(p.x, p.y, p.z));
+  if (w.length > 20) { const m = w.reduce((a, b) => a + b, 0) / w.length, sd = Math.sqrt(w.reduce((a, b) => a + (b - m) ** 2, 0) / w.length); if (sd >= STILL_SD) lastMoveAt = now; }
+  if (!lastMoveAt) lastMoveAt = now;
+  if (idleAskedAt && lastMoveAt > idleAskedAt) return closeIdleAsk(true);   // 다시 걸으면 물음을 거둠
+  if (idleAskedAt && now - idleAskedAt >= IDLE_END_S * 1000) return stopRec(false, 'idleEnd');
+  if (!idleAskedAt && now - lastMoveAt >= IDLE_ASK_S * 1000) {
+    idleAskedAt = now; navigator.vibrate?.([400, 200, 400]);
+    $('stopQ').textContent = `${IDLE_ASK_S / 60}분째 걷지 않았어요. 측정을 끝낼까요?`; $('stopYes').textContent = '끝내기'; $('stopNo').textContent = '계속 재기';
+    $('stopSheet').hidden = false; $('stopNo').focus();
+  }
+}
+function closeIdleAsk(hide) {
+  if (!idleAskedAt) return;
+  idleAskedAt = 0; lastMoveAt = Date.now();
+  $('stopQ').textContent = '측정을 끝낼까요?'; $('stopYes').textContent = '측정 종료'; $('stopNo').textContent = '계속 측정';
+  if (hide) $('stopSheet').hidden = true;
+}
 // 측정 종료: 한 번 누르면 확인 창, '측정 종료'를 눌러야 끝 (사용자 결정 10/27: 길게 누르기 대신 확인 창 하나로 주머니 오작동 막기)
 const closeStopSheet = () => { $('stopSheet').hidden = true; };
 $('stop').addEventListener('click', () => { $('stopSheet').hidden = false; $('stopNo').focus(); });
-$('stopNo').addEventListener('click', () => { closeStopSheet(); $('stop').focus(); });
+$('stopNo').addEventListener('click', () => { closeStopSheet(); closeIdleAsk(); $('stop').focus(); });   // '계속 재기'면 다시 처음부터 셈
 $('stopYes').addEventListener('click', () => { closeStopSheet(); stopRec(); });
 $('stopSheet').addEventListener('click', e => { if (e.target.id === 'stopSheet') closeStopSheet(); });   // 시트 바깥 = 계속 측정
 $('stopSheet').addEventListener('keydown', e => { if (e.key === 'Escape') closeStopSheet(); });
@@ -482,8 +513,10 @@ const sentText = rc => rc ? `
 
 측정 정보만 익명으로 보냈어요. 접수번호 ${rc} (지우려면 이 번호를 ldj000103@gmail.com으로 보내 주세요)` : '';
 const noDiag = () => ({ src: Native ? 'app' : 'web', durS: 0, hz: 0, gapS: 0, gpsGood: 0 });   // 센서 값이 거의 없어 측정 정보를 못 만든 경우
-async function stopRec(killed = false) {
+async function stopRec(killed = false, reason = null) {
   killed = killed === true;                                                // 혹시 클릭 이벤트가 넘어와도 진짜 true일 때만
+  reason = typeof reason === 'string' && reason in WARN ? reason : null;   // idleEnd·maxEnd만 기록에 남김 (알림의 '끝내기'는 보통 종료)
+  closeIdleAsk();
   closeStopSheet();                                                        // 12분 자동 종료·앱 정리로 끝날 때 확인 창이 남지 않게
   shownDate = null;                                                        // 실패 화면에 앞 측정의 공유·원본·상황 버튼이 붙지 않게 (finish는 따로 다시 정함)
   const rec = store.get('rec', null), ran = t0, lead = rec?.lead ?? 0; clearInterval(timer); t0 = 0;
@@ -504,7 +537,7 @@ async function stopRec(killed = false) {
       const rc = sendEnd([endTag], act, $('pos').value, noDiag());
       return alert('측정 시간이 너무 짧아요. 시작 후 3초 동안은 주머니에 넣는 시간이라 빼고, 그 뒤부터 재요. 걷고 나서 측정 종료를 눌러 주세요.' + sentText(rc));
     }
-    finish(s, false, g);
+    pendingEnd = reason; finish(s, false, g); endNote(reason);
     if (killed || r.fromFile) $('result').insertAdjacentHTML('afterbegin', `<div class="warn">측정 중에 휴대폰이 앱을 정리해서 측정이 중간에 멈췄어요. 멈추기 전까지 저장된 기록으로 분석했어요(걸음 수·시간이 실제보다 적을 수 있어요).<br>${BATTERY_TIP}</div>`);
     return;
   }
@@ -513,7 +546,12 @@ async function stopRec(killed = false) {
   stopGps();
   $('rec').classList.add('hidden'); $('setup').classList.remove('hidden');
   if (samples.length < 20) { const rc = sendEnd([endTag], $('act').value, $('pos').value, noDiag()); if (endTag === 'end:cancel') return; return alert('센서 값이 거의 들어오지 않았어요. 다시 시도해 주세요.' + sentText(rc)); }
-  finish(samples, false, gpsPts);
+  pendingEnd = reason; finish(samples, false, gpsPts); endNote(reason);
+}
+// 슬로우 러닝·12분 테스트 결과는 경고 목록을 따로 안 그려서 자동 종료 이유를 맨 위에 한 번 더 보여 줌 (걷기·러닝은 warnHtml이 보여 줌)
+function endNote(reason) {
+  pendingEnd = null;
+  if (reason && !$('result').textContent.includes(WARN[reason].slice(0, 10))) $('result').insertAdjacentHTML('afterbegin', `<div class="warn">${WARN[reason]}</div>`);
 }
 
 function finish(data, demo = false, gps = []) {
@@ -669,6 +707,7 @@ async function rawGet(key) {
   return new Promise(ok => { const q = db.transaction('raw').objectStore('raw').get(key); q.onsuccess = () => ok(q.result ?? null); q.onerror = () => ok(null); });
 }
 function saveRec(rec, hist, demo, raw) {
+  if (pendingEnd) { rec.warnings = [...(rec.warnings ?? []), pendingEnd]; pendingEnd = null; }   // 결과·기록·익명 전송에 '자동으로 끝냄'
   if (raw && !demo && !raw[0]?.mag) rawPut(rec.date, raw.map(p => [Math.round(p.t * 10) / 10, +p.x.toFixed(3), +p.y.toFixed(3), +p.z.toFixed(3)])).catch(() => {});
   hist.unshift(rec);
   hist.forEach((h, i) => { if (i >= ROUTE_KEEP) delete h.route; });     // ponytail: 휴대폰 저장 공간(약 5MB) 때문에 최근 30개만. 더 필요하면 IndexedDB로
@@ -761,7 +800,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v151';
+const APP_VERSION = 'v152';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -813,6 +852,8 @@ const STAT_ICON = { time: '<circle cx="12" cy="13" r="8"/><path d="M12 9v4l3 2M9
   steps: '<path d="M7 3c2 0 3 2.5 3 5.5S9 13 7 13s-3-1.5-3-4.5S5 3 7 3zM5 16h4v1.5a2 2 0 0 1-4 0zM17 7c2 0 3 2.5 3 5.5S19 17 17 17s-3-1.5-3-4.5S15 7 17 7zM15 20h4v.5a2 2 0 0 1-4 0z"/>',
   pace: '<path d="M4 18a8 8 0 1 1 16 0"/><path d="M12 18l4-6"/>', jog: '<path d="M4 12h3l2-5 4 10 2-5h5"/>' };
 const clock = s => { const t = Math.round(s); return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`; };
+// 전체 시간(측정)과 걸은 시간(꾸준히 걸은 구간)을 나란히 (민원팀 10/28: 오래 멈춘 측정도 걸은 시간이 보이게). 둘이 거의 같으면 하나만
+const timeStats = r => { const all = r.diag?.durS ?? r.activeS; return all - r.activeS >= 30 ? [{ icon: 'time', value: clock(all), label: '전체 시간' }, { icon: 'time', value: clock(r.activeS), label: '걸은 시간' }] : [{ icon: 'time', value: clock(all), label: '시간' }]; };
 const statRow = stats => { const ok = stats.filter(s => s.value != null && s.value !== ''); return ok.length ? `<div class="rstats" style="grid-template-columns:repeat(${ok.length},1fr)">${ok.map(s =>
   `<div><svg viewBox="0 0 24 24" aria-hidden="true">${STAT_ICON[s.icon]}</svg><b>${s.value}</b><small>${s.label}</small></div>`).join('')}</div>` : ''; };
 function topCards(r, hero, cells) {
@@ -899,7 +940,7 @@ function render(r, prev) {
   html += topCards(r, { label: '케이던스', value: c.toFixed(0), unit: '걸음/분', grade: cadGrade,
     bar: `<div class="rbar" aria-hidden="true"><b style="left:${lo - 60}%;width:${hi - lo}%"></b><i style="left:${pos}%"></i></div>`,
     sub: `페리의 보행 분석 기준 ${norm} · 차이 ${signed(+c.toFixed(0) - norm)}${prev ? ` · 지난번보다 ${signed(c - prev.cadence)}` : ''}`,
-    stats: [{ icon: 'time', value: clock(r.diag?.durS ?? r.activeS), label: '시간' }, { icon: 'dist', value: r.distance && (r.distance / 1000).toFixed(2), label: '거리 km' },
+    stats: [...timeStats(r), { icon: 'dist', value: r.distance && (r.distance / 1000).toFixed(2), label: '거리 km' },
       { icon: 'steps', value: r.steps, label: '걸음' }] }, [   // 걸음 길이·속도는 기준값이 있는 작은 카드에만 (같은 값이 두 번 안 보이게)
     { label: '걷기 속도', value: r.speed ? r.speed.toFixed(2) : '-', unit: 'm/s', grade: dGrade, sub: r.speed ? `페리 1.37 · 차이 ${signed(+r.speed.toFixed(2) - 1.37, 2)}` : 'GPS·거리 입력 필요' },
     { label: '걸음 길이', value: r.stepLength ? (r.stepLength * 100).toFixed(0) : '-', unit: 'cm', grade: dGrade, sub: !r.stepLength ? 'GPS·거리 입력 필요' : ideal ? `효율 기준 약 ${(ideal * c * 100).toFixed(0)}cm` : '성별을 넣으면 기준이 보여요' },
@@ -1049,7 +1090,7 @@ function renderRun(r, prev) {
   const cGrade = r.warnings.includes('hand') || r.warnings.includes('irregular') ? 'o' : 'y';
   const head = `<h2>${easy ? '천천히 달리기' : '러닝'} 결과</h2>` + autoNote(r) + warnHtml(r)
     + topCards(r, { label: '케이던스', value: c.toFixed(0), unit: '걸음/분', grade: cGrade, sub: prev ? `기준선 없음 · 지난 러닝보다 ${signed(c - prev.cadence)}` : '기준선 없음 · 내 기록의 변화만 봐요',
-      stats: [{ icon: 'time', value: clock(r.diag?.durS ?? r.activeS), label: '시간' }, { icon: 'dist', value: r.distance && (r.distance / 1000).toFixed(2), label: '거리 km' },
+      stats: [...timeStats(r), { icon: 'dist', value: r.distance && (r.distance / 1000).toFixed(2), label: '거리 km' },
         { icon: 'pace', value: r.speed && paceText(r.speed), label: '페이스 /km' }, { icon: 'steps', value: r.steps, label: '걸음' }] }, [
       { label: '속도', value: r.speed ? r.speed.toFixed(2) : '-', unit: 'm/s', grade: r.medAcc > 10 ? 'o' : 'y', sub: r.speed ? `페이스 ${paceText(r.speed)}/km` : 'GPS 조건 안 됨' },
     ]);
@@ -2585,10 +2626,11 @@ homeReady = true;
 (async function resumeRec() {
   const rec = store.get('rec', null);
   if (!rec?.startWall) return;
-  if (Date.now() - rec.startWall > 3 * 3600e3) { store.set('rec', null); store.set('recSnap', null); return; }   // 3시간 넘은 건 버림
+  // 3시간이 넘은 측정도 버리지 않고 그때까지 잰 것으로 저장 (민원팀 10/28)
   $('act').value = rec.act; showAct(); setTab('measure');
   if (Native && rec.native) {                                              // 설치형 앱: 측정 서비스는 계속 도는 중 → 측정 화면만 다시 띄움
-    const { alive } = await Native.peek({ sec: 1 }).catch(() => ({}));      // 0.12 이하 앱은 alive를 안 줌 → 예전처럼 살아 있다고 봄
+    const { alive, ended } = await Native.peek({ sec: 1 }).catch(() => ({}));   // 0.12 이하 앱은 alive를 안 줌 → 예전처럼 살아 있다고 봄
+    if (ended) { t0 = rec.startWall; return stopRec(false, ended); }       // 서비스가 스스로 끝냄(오래 걷지 않음·3시간·알림 끝내기) → 저장
     if (alive === false) { t0 = rec.startWall; return stopRec(true); }      // 휴대폰이 앱을 정리함 → 파일에 남은 값으로 바로 결과
     document.body.classList.add('recording');
     $('setup').classList.add('hidden'); $('result').classList.add('hidden'); $('rec').classList.remove('hidden');

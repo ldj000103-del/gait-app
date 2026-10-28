@@ -13,7 +13,7 @@ import com.getcapacitor.annotation.Permission;
 import org.json.JSONArray;
 import java.util.List;
 
-// JS에서 Capacitor.Plugins.GaitRecorder.start({gps, intervalSec, endSec}) / stop() → {samples:[{t,x,y,z}], gps:[{t,lat,lon,acc}], fromFile} / peek({sec}) → {samples, gps, alive}
+// JS에서 Capacitor.Plugins.GaitRecorder.start({gps, intervalSec, endSec}) / stop() → {samples:[{t,x,y,z}], gps:[{t,lat,lon,acc}], fromFile} / peek({sec}) → {samples, gps, alive, ended?}
 // 권한은 기본 제공 requestPermissions({permissions:['location','notifications']})로 요청
 @CapacitorPlugin(name = "GaitRecorder", permissions = {
         @Permission(alias = "location", strings = {Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION}),
@@ -69,6 +69,8 @@ public class GaitRecorderPlugin extends Plugin {
         ret.put("samples", toArray(tail, new String[]{"t", "x", "y", "z"}));
         ret.put("gps", toArray(GaitService.GPS, new String[]{"t", "lat", "lon", "acc"}));
         ret.put("alive", GaitService.running);                 // false면 측정 중에 휴대폰이 앱을 정리한 것
+        String ended = GaitService.ended(getContext());
+        if (ended != null) ret.put("ended", ended);              // 서비스가 스스로 끝냄 (오래 걷지 않음·3시간·알림의 끝내기) → 앱이 저장
         call.resolve(ret);
     }
 
