@@ -183,6 +183,15 @@
   .ctxrow { display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin:6px 0; } .ctxk { font-size:.75rem; color:var(--sub); width:44px; flex:none; }
   .chip { width:auto; margin:0; padding:6px 11px; border-radius:var(--r-pill); font-size:.8125rem; font-weight:500; background:var(--card); color:var(--ink); border:1px solid var(--line); }
   .bar { height:8px; background:var(--line); border-radius:4px; margin:8px 0; overflow:hidden; } .bar i { display:block; height:100%; background:var(--series); border-radius:4px; }
+  /* 홈 위쪽 '내 걸음 거울' (디자인 팀 시안 C, 10/28) */
+  .mirror { text-align:center; } .mirror svg { display:block; height:110px; margin:0 auto; color:var(--ink); }
+  .mirror .mlabs { display:flex; justify-content:center; gap:28px; font-size:.75rem; color:var(--sub); margin:2px 0 12px; }
+  .hchips { display:flex; flex-wrap:wrap; justify-content:center; gap:6px; margin:10px 0 0; }
+  .hlinks { font-size:.8125rem; color:var(--sub); margin-top:10px; } .hlinks a { color:var(--accent); text-decoration:none; font-weight:600; }
+  .mdots { display:flex; gap:14px; align-items:flex-end; } .mdots div { text-align:center; font-size:.75rem; color:var(--sub); }
+  .mdots i { display:block; width:12px; height:12px; margin:0 auto 4px; border-radius:50%; border:1.5px solid var(--line); box-sizing:border-box; } .mdots i.on { background:var(--accent); border-color:var(--accent); }
+  .chk { display:flex; justify-content:space-between; align-items:center; gap:10px; } .chkLeft { font-weight:600; font-size:.875rem; white-space:nowrap; }
+  .hgrid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:10px; } .hgrid .mcard { margin:0; min-width:0; }
   .chip[aria-pressed="true"] { background:var(--accent); color:#fff; border-color:var(--accent); }
   .calhead { display:flex; align-items:center; justify-content:space-between; font-weight:700; }
   .calhead button { width:auto; margin:0; padding:6px 14px; background:none; color:var(--accent); font-size:1rem; }
@@ -317,7 +326,8 @@
   </section>
 
   <section id="home" data-tab="home">
-    <div class="homehead"><div class="sec">요약</div><button id="meBtn" aria-label="내 정보 바꾸기">나</button></div>
+    <div class="homehead"><div class="sec">스텝미러</div><button id="meBtn" aria-label="내 정보 바꾸기">나</button></div>
+    <div id="homeTop"></div>
     <div id="stepsCard" hidden><div id="steps"></div></div>
     <div class="msub" style="margin:14px 2px 0">항목별 <b>가장 최근 측정</b>이에요 · 누르면 그 기록을 다시 봐요</div>
     <div id="tiles"></div>
@@ -444,6 +454,8 @@
     <ol class="guide sub" id="vguide"></ol>
     <label class="btnlike" for="vcam">촬영하기</label>
     <label class="textlike" for="vfile">갤러리에서 고르기</label>
+    <details class="howto" id="vSolo"><summary>혼자라면 폰 세우는 법</summary><p class="sub">휴대폰을 <b>허리 높이</b>(의자·선반·책을 쌓은 위)에 <b>가로로</b> 세우고, 넘어지지 않게 물건으로 받쳐요. 촬영을 먼저 누른 뒤 걷는 길에서 3~4m 떨어진 곳으로 가서, 화면 끝에서 끝까지 지나가며 평소처럼 걸어요. 다 걸으면 돌아와 촬영을 멈춰요.</p></details>
+    <details class="howto" id="vHelper"><summary>가족이 찍어 주기</summary><p class="sub">찍어 주는 사람은 걷는 길에서 <b>3~4m 떨어진 옆</b>에 서서 휴대폰을 <b>허리 높이로, 가로로</b> 들어요. 걷는 사람을 따라 몸을 돌리지 말고 제자리에서 휴대폰을 고정해요. 머리부터 발끝까지 화면에 담기게 해요.</p></details>
     <input id="vcam" type="file" accept="video/*" capture="environment" class="hidden">
     <input id="vfile" type="file" accept="video/*" class="hidden">
     <div class="sub" style="margin-top:8px">영상은 이 휴대폰 안에서만 분석하고 저장하거나 보내지 않아요. 처음 한 번은 자세 인식 프로그램(약 10MB)을 내려받아요.</div>

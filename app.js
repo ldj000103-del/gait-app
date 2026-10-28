@@ -716,7 +716,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v132';
+const APP_VERSION = 'v133';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -1684,6 +1684,7 @@ $('tiles').addEventListener('click', e => {
 });
 function renderHome() {
   const hist = store.get('history', []);
+  renderHomeTop();
   renderTiles();
   // 링: 이번 주 슬로우 조깅 분 / 연구의 주간량 90분 (Ikenaga 2017)
   const wk = weekSlowJogMin(hist), frac = Math.min(1, wk / 90), C = 2 * Math.PI * 42;
@@ -1905,7 +1906,7 @@ function sideLeg(hip, q, who, filt) {
   return { svg: (an == null ? '' : bone('side', 'foot', 'ankle', ankle, rS - an, filt)) + bone('side', 'shank', 'knee', knee, rS, filt) + bone('side', 'femur', 'hipR', hip, rF, filt),   // 발목 값이 없으면 발은 안 그림
     hip, knee, ankle, t, k, v: [th, kn, an] };
 }
-function sideFig(x, who, q) {
+function sideFig(x, who, q, bub = true) {
   const hip = [x, HIPY], me = who === 'me';
   const far = sideLeg(hip, (q + 50) % 100, who, me ? 'bf-me-far' : 'bf-far'), near = sideLeg(hip, q, who, me ? 'bf-me' : null);   // 반대 다리 = 반 주기 어긋남, 뒤에 어둡게
   const s1 = add(hip, bvec('side', 'pelvis', 'hipR', 's1'));
@@ -1914,7 +1915,7 @@ function sideFig(x, who, q) {
   return ground(x) + `<line x1="${f1(s1[0])}" y1="${f1(s1[1])}" x2="${f1(s1[0] - 2)}" y2="${f1(s1[1] - 28)}" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity=".2"/>`
     + far.svg + bone('side', 'pelvis', 'hipR', hip, 0, me ? 'bf-me' : null) + near.svg
     + arc(near.hip, 0, near.t, 16) + arc(near.knee, near.t, near.t - near.k, 12)
-    + bubbles(who, [['고관절', near.hip, near.v[0]], ['무릎', near.knee, near.v[1]], ['발목', near.ankle, near.v[2]]]);
+    + (!bub ? '' : bubbles(who, [['고관절', near.hip, near.v[0]], ['무릎', near.knee, near.v[1]], ['발목', near.ankle, near.v[2]]]));
 }
 // 앞·뒤 보기: 왼발(주기 0~50%)·오른발(50~100%)을 번갈아 디딤. 디딜 때(체중 받기, 그 발 구간의 15% 지점)에 상위 10% 값까지 올라갔다 내려옴
 // 앞에서 보면 거울처럼 몸 오른쪽이 화면 왼쪽, 뒤에서 보면 몸 왼쪽이 화면 왼쪽
@@ -2241,7 +2242,7 @@ async function loadSteps() {
     }
   } catch (e) { stepsState = { ...stepsState, error: String(e?.message || e) }; }
   renderSteps();
-  if (document.body.dataset.tab === 'home') renderWeek();
+  if (document.body.dataset.tab === 'home') { renderWeek(); renderHomeTop(); }
 }
 function renderSteps() {
   if (!HS) return;                                                         // 웹앱(아이폰 포함)은 카드를 숨김
@@ -2375,6 +2376,68 @@ $('remindSave').addEventListener('click', async () => {
 });
 renderRemind();
 loadSteps();
+// ── 홈 위쪽 '한 달에 한 번, 내 걸음 거울' (디자인 팀 시안 C 수정본, 사용자 10/28): 거울 카드 · 한 달 점검 · 걸음 수업/오늘 걸음 ──
+const SHOOT_NOTE = { perry: '옆에서 평소처럼 걷는 모습을 찍어요. 결과에서 페리의 보행 분석 기준 뼈대와 나란히 보여요.',
+  shoes: '신기 전과 신은 뒤 한 번씩 찍어요. 같은 곳에서 같은 거리를 걸으면 비교하기 쉬워요.',
+  run: '옆에서 천천히 달리는 모습을 찍어요. 페리의 보행 분석 기준은 걷기 기준이라 달리기 값은 내 기록끼리 비교해요.' };
+function goShoot(note, open) {                                             // 걸음걸이 탭 촬영 화면, 옆모습으로
+  $('vview').value = 'side'; store.set('vview', 'side'); showVGuide(); syncPicks();
+  if (note) $('vguide').insertAdjacentHTML('afterbegin', `<li><b>${SHOOT_NOTE[note]}</b></li>`);
+  setTab('video');
+  const d = open && $(open); if (d) d.open = true;
+  (d || $('vsetup')).scrollIntoView({ block: 'start' });
+}
+const vids = () => store.get('history', []).map((h, i) => ({ h, i, d: new Date(h.date) })).filter(x => x.h.activity === 'video' && !Number.isNaN(+x.d));
+function mirrorSvg(q) {                                                    // 걸음걸이 탭 옆 보기 그림을 작게 (말풍선 없이), 내 옆 영상이 없으면 점선 사람
+  const side = latestVid(v => v === 'side', r => r.curves), keep = cmpCurves;
+  cmpCurves = side;                                                        // angAt이 읽는 곡선을 잠깐 바꿨다 되돌림 (걸음걸이 탭 카드 값은 그대로)
+  const me = side ? sideFig(198, 'me', q, false) : `<g fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="4 4" opacity=".35"><circle cx="198" cy="52" r="10"/><path d="M198 64v40M198 104l-10 60M198 104l10 60M198 74l-14 22M198 74l14 22"/></g>`;
+  const svg = `<svg viewBox="52 30 196 156" role="img" aria-label="페리의 보행 분석 기준 뼈대와 내 뼈대가 나란히 걷는 그림">${BONE_DEFS}${floorLines}${sideFig(102, 'perry', q, false)}${me}</svg>`;
+  cmpCurves = keep; return svg;
+}
+let mirrorQ = 0, mirrorLast = 0, mirrorRaf = 0;
+function mirrorLoop(now) {
+  const box = $('mirrorFig');
+  if (!box?.offsetParent) { mirrorRaf = 0; return; }                       // 홈이 안 보이면 멈춤
+  mirrorQ = (mirrorQ + (now - (mirrorLast || now)) / CMP_T * 100) % 100; mirrorLast = now;
+  box.innerHTML = mirrorSvg(mirrorQ); mirrorRaf = requestAnimationFrame(mirrorLoop);
+}
+function renderHomeTop() {
+  const v = vids(), today = new Date(), mon = [3, 2, 1, 0].map(k => new Date(today.getFullYear(), today.getMonth() - k, 1));
+  const sameM = (a, b) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth();
+  const last = v[0], left = last ? Math.ceil((+last.d + 30 * 864e5 - +today) / 864e5) : null;
+  const prev = last && (v.find(x => !sameM(x.d, last.d)) ?? v[1]);
+  const pair = prev ? (sameM(prev.d, last.d) ? '최근 두 영상' : `${prev.d.getMonth() + 1}월과 ${last.d.getMonth() + 1}월`) : '';
+  const lesson = Math.floor(+today / 864e5) % DICT.length, dl = DICT[lesson];      // 날마다 지표 사전 한 항목
+  const w = store.get('history', []).find(h => (h.activity ?? 'walk') === 'walk' && !h.practice && h.cadence);
+  const stepsN = HS && stepsState?.granted ? stepsByDay[dayKey(today)] ?? 0 : null;   // 오늘 걸음은 설치형 앱(헬스 커넥트)만, 웹은 걷기 케이던스
+  const norm = (({ sex }) => sex === 'm' ? 111 : sex === 'f' ? 117 : 113)(store.get('profile', {}));
+  $('homeTop').innerHTML = `<div class="card mirror">
+      <div id="mirrorFig">${mirrorSvg(mirrorQ || phaseMid(1))}</div>
+      <div class="mlabs"><span>페리의 보행 분석 기준</span><span>나</span></div>
+      <button data-shoot="">내 걸음 비춰 보기</button>
+      <div class="hchips"><button class="chip" data-shoot="perry">페리의 보행 분석 기준과 비교</button><button class="chip" data-shoot="shoes">새 신발 전후</button><button class="chip" data-shoot="run">달릴 때 무릎</button></div>
+      <div class="hlinks"><a href="#" data-open="vSolo">혼자라면 폰 세우는 법 ›</a> · <a href="#" data-open="vHelper">가족이 찍어 주기 ›</a></div></div>
+    <div class="card"><div class="chk"><div class="mdots" aria-label="최근 4개월 영상 점검">${mon.map(m => `<div><i class="${v.some(x => sameM(x.d, m)) ? 'on' : ''}"></i>${m.getMonth() + 1}월</div>`).join('')}</div>
+      <div class="chkLeft">${!last ? '첫 점검을 해 보세요' : left > 0 ? `${left}일 남음` : '점검할 때예요'}</div></div>
+      <div class="sub" style="margin-top:6px">한 달에 한 번, 옆모습 영상으로 내 걸음을 비춰 봐요${last ? ` · 마지막 ${last.d.getMonth() + 1}월 ${last.d.getDate()}일` : ''}</div>
+      ${pair ? `<a href="#" class="textlike" style="text-align:left;padding:8px 0 0;text-decoration:none" data-pair="${prev.i},${last.i}">${pair} 나란히 보기 ›</a>` : ''}</div>
+    <div class="hgrid"><button class="mcard" data-lesson="${lesson}"><div class="mtop"><span class="mlab">걸음 수업 · 30초</span></div><div style="font-weight:700;margin-top:6px">${dl.name}</div><div class="msub">${dl.short} ›</div></button>
+      ${stepsN != null ? `<div class="mcard static"><div class="mtop"><span class="mlab">오늘 걸음</span></div><div class="mnum" style="margin-top:6px">${stepsN.toLocaleString()}<small>걸음</small></div><div class="msub">헬스 커넥트</div></div>`
+        : `<div class="mcard static"><div class="mtop"><span class="mlab">걷기 케이던스</span></div><div class="mnum" style="margin-top:6px">${w ? Math.round(w.cadence) : '-'}<small>걸음/분</small></div><div class="msub">${w ? `페리 ${norm} · ${md(w.date)}` : '측정 탭에서 걸어요'}</div></div>`}</div>`;
+  if (!mirrorRaf && !matchMedia('(prefers-reduced-motion: reduce)').matches) { mirrorLast = 0; mirrorRaf = requestAnimationFrame(mirrorLoop); }
+}
+$('homeTop').addEventListener('click', e => {
+  const s = e.target.closest('[data-shoot]'), o = e.target.closest('[data-open]'), p = e.target.closest('[data-pair]'), l = e.target.closest('[data-lesson]');
+  if (s) goShoot(s.dataset.shoot);
+  else if (o) { e.preventDefault(); goShoot('', o.dataset.open); }
+  else if (p) {                                                           // ponytail: 두 기록을 한 화면에 겹쳐 보기는 아직 — 기록 탭에서 두 줄을 표시만
+    e.preventDefault(); setTab('records');
+    const rows = p.dataset.pair.split(',').map(i => $('histBody').querySelector(`[data-i="${i}"]`)).filter(Boolean);
+    rows.forEach(r => { r.style.outline = '2px solid var(--accent)'; setTimeout(() => { r.style.outline = ''; }, 4000); });
+    rows[0]?.scrollIntoView({ block: 'center' });
+  } else if (l) openDict(+l.dataset.lesson);
+});
 homeReady = true;
 // ── 측정 이어 하기: 측정 중에 전화·카톡 등으로 앱(페이지)이 다시 열린 경우 ──
 (async function resumeRec() {
