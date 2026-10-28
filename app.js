@@ -849,7 +849,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v161';
+const APP_VERSION = 'v162';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -2692,7 +2692,7 @@ const EX = {
     ['ham', '허벅지 뒤 늘이기', '좌우 30초', '한 발을 앞에 두고 발끝을 들어 상체를 살짝 숙여요', 1],
     ['glute', '엉덩이 늘이기', '좌우 30초', '의자에 앉아 한 발목을 반대 무릎에 올리고 상체를 살짝 숙여요', 1]] },
 };
-function openEx(kind) {
+function openEx(kind, fromHome = false) {
   const d = EX[kind], o = document.createElement('div');
   o.id = 'exOv'; o.setAttribute('role', 'dialog'); o.setAttribute('aria-modal', 'true'); o.setAttribute('aria-label', d.title);
   o.innerHTML = `<div class="dsheet lesson"><div class="lhead"><div><div class="sub" style="font-size:.75rem">${d.time}</div><h3>${d.title}</h3></div><button class="lx" data-ex="close" aria-label="닫기">✕</button></div>
@@ -2700,7 +2700,7 @@ function openEx(kind) {
     ${d.items.some(x => x[4]) ? '<p class="exleg"><i aria-hidden="true"></i>늘어나는 곳 <span class="sub">· 해부학 그림에서 흔히 쓰는 근육 색이에요</span></p>' : ''}
     <ol class="exlist">${d.items.map(([k, name, dose, how]) => `<li><picture><source srcset="assets/exercise/${k}-still.webp" media="(prefers-reduced-motion: reduce)"><img src="assets/exercise/${k}.webp" alt="${name} 동작 그림" width="128" height="149" loading="lazy"></picture>
       <div><b>${name}</b> <span class="exdose">${dose}</span><p>${how}</p></div></li>`).join('')}</ol>
-    ${kind === 'warm' ? '<button data-ex="start">측정 시작</button>' : ''}
+    ${kind === 'warm' && !fromHome ? '<button data-ex="start">측정 시작</button>' : ''}
     <p class="lfine">일반적인 운동 안내이며 치료·재활을 대신하지 않아요. 통증이 있거나 어지러우면 멈추고 전문가와 상담하세요.<br>참고한 자료: 운동치료총론 개정8판 4·7장, NASM-CPT 7·8장 · <a href="#" data-ex="src">출처 보기 ›</a></p></div>`;
   const back = document.activeElement;
   document.body.append(o);
@@ -2716,6 +2716,7 @@ function openEx(kind) {
   o.querySelector('[data-ex=close]').focus();
 }
 $('warmBtn').addEventListener('click', () => openEx('warm'));
+$('exCard').addEventListener('click', e => { const b = e.target.closest('[data-exopen]'); if (b) openEx(b.dataset.exopen, true); });   // 홈 '배워 보기'에서도 (본부 10/29). 여기선 [측정 시작] 없음 — 배우는 화면에서 바로 측정이 시작되지 않게
 $('result').addEventListener('click', e => { if (e.target.closest('[data-ex=cool]')) openEx('cool'); });
 $('homeTop').addEventListener('click', e => {
   const s = e.target.closest('[data-shoot]'), o = e.target.closest('[data-open]'), p = e.target.closest('[data-pair]'), l = e.target.closest('[data-lesson]');
