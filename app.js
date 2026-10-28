@@ -716,7 +716,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v133';
+const APP_VERSION = 'v134';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -853,7 +853,7 @@ function render(r, prev) {
   const ideal = sex === 'f' ? 0.0064 : sex === 'm' ? 0.0072 : null;
   html += topCards(r, { label: '케이던스', value: c.toFixed(0), unit: '걸음/분', grade: cadGrade,
     bar: `<div class="rbar" aria-hidden="true"><b style="left:${lo - 60}%;width:${hi - lo}%"></b><i style="left:${pos}%"></i></div>`,
-    sub: `페리 기준 ${norm} · 차이 ${signed(+c.toFixed(0) - norm)}${prev ? ` · 지난번보다 ${signed(c - prev.cadence)}` : ''}`,
+    sub: `페리의 보행 분석 기준 ${norm} · 차이 ${signed(+c.toFixed(0) - norm)}${prev ? ` · 지난번보다 ${signed(c - prev.cadence)}` : ''}`,
     stats: [{ icon: 'time', value: clock(r.diag?.durS ?? r.activeS), label: '시간' }, { icon: 'dist', value: r.distance && (r.distance / 1000).toFixed(2), label: '거리 km' },
       { icon: 'steps', value: r.steps, label: '걸음' }] }, [   // 걸음 길이·속도는 기준값이 있는 작은 카드에만 (같은 값이 두 번 안 보이게)
     { label: '걷기 속도', value: r.speed ? r.speed.toFixed(2) : '-', unit: 'm/s', grade: dGrade, sub: r.speed ? `페리 1.37 · 차이 ${signed(+r.speed.toFixed(2) - 1.37, 2)}` : 'GPS·거리 입력 필요' },
@@ -1093,7 +1093,7 @@ function cardRows(h) {
     push('케이던스', f(c), '걸음/분', `페리의 보행 분석 성인 평균 ${norm}(±10% ${lo.toFixed(0)}–${hi.toFixed(0)}) · ${c < lo ? '기준 범위보다 낮은 값' : c > hi ? '기준 범위보다 높은 값' : '기준 범위 안'}`);
     const level = older ? (c >= 120 ? '약 5 MET' : c >= 110 ? '약 4 MET' : c >= 100 ? '중강도(3 MET)' : '저강도') : (c >= 130 ? '고강도(6 MET)' : c >= 100 ? '중강도(3 MET)' : '저강도');
     push('걷기 강도', level, '', older ? 'CADENCE-Adults 61세 이상 기준: 100 = 중강도' : 'CADENCE-Adults 기준: 100걸음/분 = 중강도, 130 = 고강도');
-    if (h.speed) push('걷는 속도', f(h.speed, 2), 'm/s', `페리의 보행 분석 성인 평균 1.37 · 차이 ${h.speed - 1.37 >= 0 ? '+' : ''}${(h.speed - 1.37).toFixed(2)}`);
+    if (h.speed) push('걷는 속도', f(h.speed, 2), 'm/s', `페리 기준 성인 평균 1.37 · 차이 ${h.speed - 1.37 >= 0 ? '+' : ''}${(h.speed - 1.37).toFixed(2)}`);
     if (h.stepLength && sex) { const ideal = (sex === 'f' ? 0.0064 : 0.0072) * c * 100; push('걸음 길이', f(h.stepLength * 100), 'cm', `Neumann 효율 최적 약 ${ideal.toFixed(0)}cm (${vs(h.stepLength * 100, ideal, ['더 길게 디뎌도 됨', '더 짧게 디뎌도 됨'])})`); }
     push('걸음 수', String(h.steps), '걸음', `걷는 시간 ${Math.round(h.activeS)}초`);
   } else if (act === 'run' || act === 'easyrun') {
@@ -1111,8 +1111,8 @@ function cardRows(h) {
   } else if (h.view === 'side') {
     const m = h.r.m;
     push('유각기 무릎 굽힘', f(m.kneeSwingMax), '°', `페리의 보행 분석 기준 약 60° · ${vs(m.kneeSwingMax, 60, BEND)} — 발끝이 바닥에 걸리지 않게 하는 굽힘`);
-    push('체중 받기 무릎 굽힘', f(m.kneeLoad), '°', `페리의 보행 분석 기준 15~18° · ${vs(m.kneeLoad, 16, BEND)} — 충격 흡수`);
-    push('입각기 무릎 폄', f(m.kneeStanceMin), '°', `페리의 보행 분석 기준 약 5° · ${extTxt(m.kneeStanceMin).replace(/^\(|\)$/g, '')}`);
+    push('체중 받기 무릎 굽힘', f(m.kneeLoad), '°', `페리 기준 15~18° · ${vs(m.kneeLoad, 16, BEND)} — 충격 흡수`);
+    push('입각기 무릎 폄', f(m.kneeStanceMin), '°', `페리 기준 약 5° · ${extTxt(m.kneeStanceMin).replace(/^\(|\)$/g, '')}`);
     push('넓적다리 뒤로 젖힘', f(m.thighExt), '°', `페리의 보행 분석 기준 약 20° · ${vs(m.thighExt, 20, ['더 뒤로 젖혀야 함', '덜 젖혀도 됨'])} — 한걸음 길이`);
   } else {
     const m = h.r.m, d0 = x => f(x) ?? '-';
@@ -1953,9 +1953,9 @@ function frontFig(x, who, q, view, m) {
     + bubbles(who, me ? [['몸통', [(s1[0] + top[0]) / 2, (s1[1] + top[1]) / 2], lean], ['골반', mid, drop], ['무릎', st.knee, valg]] : [['골반', mid, drop]]);
 }
 function cmpScene(q, view) {
-  const lab = (x, t) => `<text x="${x}" y="197" font-size="13" text-anchor="middle" fill="currentColor" opacity=".75">${t}</text>`;   // 이름은 각 인물 바로 아래
-  const label = lab(102, '페리 기준') + lab(198, view === 'side' && cmpSideLatest ? '나 (최근 옆 영상)' : '나 (이번 영상)');
-  if (view === 'side') return floorLines + sideFig(102, 'perry', q) + (cmpCurves ? sideFig(198, 'me', q) + label : lab(102, '페리 기준')
+  const lab = (x, t, fs = 13) => `<text x="${x}" y="197" font-size="${fs}" text-anchor="middle" fill="currentColor" opacity=".75">${t}</text>`;   // 화면 첫 '페리'는 전체 이름 (사용자 10/28), 좁아서 12   // 이름은 각 인물 바로 아래
+  const label = lab(96, '페리의 보행 분석 기준', 12) + lab(204, view === 'side' && cmpSideLatest ? '나 (최근 옆 영상)' : '나 (이번 영상)');
+  if (view === 'side') return floorLines + sideFig(102, 'perry', q) + (cmpCurves ? sideFig(198, 'me', q) + label : lab(96, '페리의 보행 분석 기준', 12)
     + `<text x="230" y="100" font-size="12" text-anchor="middle" fill="currentColor" opacity=".7">옆 영상을 찍으면 보여요</text>`);
   const m = frontM();
   if (!m) return `<text x="160" y="100" font-size="14" text-anchor="middle" fill="currentColor" opacity=".7">앞·뒤 영상을 찍으면 보여요</text>`;
