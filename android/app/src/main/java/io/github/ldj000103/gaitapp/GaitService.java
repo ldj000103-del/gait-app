@@ -46,8 +46,9 @@ import java.util.List;
 public class GaitService extends Service implements SensorEventListener, LocationListener {
     static final List<double[]> ACC = new ArrayList<>();   // t, x, y, z (중력 포함, m/s²)
     static final List<double[]> GPS = new ArrayList<>();   // t, lat, lon, accuracy(m)
+    static final List<double[]> PRS = new ArrayList<>();   // t, 기압(hPa) — 계단 오르기만 (기압계가 없는 폰은 빈 목록)
     // 휴대폰이 앱 프로세스를 정리하면 위 메모리 값은 사라짐 → 10초마다 새 값만 앱 내부 파일에 덧붙여 두고, 끝낼 때 메모리가 비었으면 파일에서 읽음
-    static final String ACC_FILE = "rec_acc.bin", GPS_FILE = "rec_gps.bin";
+    static final String ACC_FILE = "rec_acc.bin", GPS_FILE = "rec_gps.bin", PRS_FILE = "rec_prs.bin";
     static volatile boolean running = false;                // 이 프로세스에서 측정 중인지 (프로세스가 새로 뜨면 false)
     // 오래 걷지 않을 때 (민원팀 10/28, 아버님 병원 대기): 걷지 않는 상태가 IDLE_ASK 이어지면 진동·알림으로 물음 [끝내기][계속 재기],
     // 물은 뒤 IDLE_END 동안 답이 없거나 MAX_REC가 되면 지금까지 잰 것을 파일에 남기고 측정을 끝냄 → 앱을 열면 그 기록으로 저장 (기록은 버리지 않음)
@@ -58,7 +59,7 @@ public class GaitService extends Service implements SensorEventListener, Locatio
     static volatile String endReason = null;                // idleEnd(답 없음) · maxEnd(3시간) · stop(알림에서 끝내기)
     private long startAt, lastMove, askedAt;
     private double wSum, wSq; private int wN; private long wStart;
-    private int savedAcc = 0, savedGps = 0;
+    private int savedAcc = 0, savedGps = 0, savedPrs = 0;
     private Runnable save;
     private static final String CHANNEL = "gait";
     private PowerManager.WakeLock wakeLock;
@@ -98,15 +99,18 @@ public class GaitService extends Service implements SensorEventListener, Locatio
 
         synchronized (ACC) { ACC.clear(); }
         synchronized (GPS) { GPS.clear(); }
-        clearFiles(this); savedAcc = savedGps = 0; running = true; endReason = null;
+        synchronized (PRS) { PRS.clear(); }
+        clearFiles(this); savedAcc = savedGps = savedPrs = 0; running = true; endReason = null;
         startAt = lastMove = wStart = SystemClock.elapsedRealtime(); askedAt = 0; wSum = wSq = 0; wN = 0;
-        save = () -> { savedAcc = append(ACC, ACC_FILE, savedAcc); savedGps = append(GPS, GPS_FILE, savedGps); checkIdle(); if (running) handler.postDelayed(save, 10000); };
+        save = () -> { saveAll(); checkIdle(); if (running) handler.postDelayed(save, 10000); };
         handler.postDelayed(save, 10000);
         // MAX_REC(3시간)가 되면 checkIdle이 측정을 끝내고 저장 (잠금은 여유 1분 두고 자동 해제)
         wakeLock = getSystemService(PowerManager.class).newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "gait:rec");
         wakeLock.acquire(MAX_REC_MS + 60 * 1000L);
         sensors = getSystemService(SensorManager.class);
         sensors.registerListener(this, sensors.getDefaultSensor(Sensor.TYPE_ACCELEROMETER), 20000);   // 20ms = 50Hz
+        Sensor baro = sensors.getDefaultSensor(Sensor.TYPE_PRESSURE);
+        if (baro != null && intent != null && intent.getBooleanExtra("baro", false)) sensors.registerListener(this, baro, 200000);   // 계단: 기압 5Hz
         if (useGps) {
             location = getSystemService(LocationManager.class);
             location.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000, 0, this, Looper.getMainLooper());
@@ -155,6 +159,7 @@ public class GaitService extends Service implements SensorEventListener, Locatio
 
     @Override
     public void onSensorChanged(SensorEvent e) {
+        if (e.sensor.getType() == Sensor.TYPE_PRESSURE) { synchronized (PRS) { PRS.add(new double[]{e.timestamp / 1e6, e.values[0]}); } return; }
         synchronized (ACC) { ACC.add(new double[]{e.timestamp / 1e6, e.values[0], e.values[1], e.values[2]}); }
         double m = Math.sqrt(e.values[0] * e.values[0] + e.values[1] * e.values[1] + e.values[2] * e.values[2]);
         wSum += m; wSq += m * m; wN++;
@@ -204,7 +209,7 @@ public class GaitService extends Service implements SensorEventListener, Locatio
         if (!running) {                                                      // 프로세스가 새로 떠서 측정 상태가 없음 → 끝났다는 표시만
             writeEnd(this, reason); stopSelf(); return;
         }
-        savedAcc = append(ACC, ACC_FILE, savedAcc); savedGps = append(GPS, GPS_FILE, savedGps);
+        saveAll();
         endReason = reason; writeEnd(this, reason);
         NotificationManager nm = alertChannel(); nm.cancel(2);
         if (!"stop".equals(reason)) buzz(new long[]{0, 600});
@@ -230,6 +235,8 @@ public class GaitService extends Service implements SensorEventListener, Locatio
         synchronized (GPS) { GPS.add(new double[]{l.getElapsedRealtimeNanos() / 1e6, l.getLatitude(), l.getLongitude(), l.getAccuracy()}); }
     }
 
+    private void saveAll() { savedAcc = append(ACC, ACC_FILE, savedAcc); savedGps = append(GPS, GPS_FILE, savedGps); savedPrs = append(PRS, PRS_FILE, savedPrs); }
+
     // list[from..]을 파일 끝에 double로 덧붙이고, 다음에 이어 쓸 위치를 돌려줌 (실패하면 다음에 다시)
     private int append(List<double[]> list, String name, int from) {
         List<double[]> rows;
@@ -253,6 +260,7 @@ public class GaitService extends Service implements SensorEventListener, Locatio
     static void clearFiles(Context c) {
         new File(c.getFilesDir(), ACC_FILE).delete();
         new File(c.getFilesDir(), GPS_FILE).delete();
+        new File(c.getFilesDir(), PRS_FILE).delete();
         new File(c.getFilesDir(), END_FILE).delete(); endReason = null;
     }
 

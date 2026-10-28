@@ -256,3 +256,23 @@ export function withDistance(result, distanceM) {
   const speed = distanceM / result.activeS;
   return { speed, stepLength: distanceM / result.steps, walkRatio: (distanceM / result.steps) / result.cadence };
 }
+
+// 계단 오르기 (민원팀·아버님 10/28): 기압계 값 [{t, hpa}] → 올라간 높이(m). 오르기만 셈
+// 높이 = 국제표준대기 기압 공식 44330·(1 − (p/p0)^0.1903). 2초 평균으로 잡음을 줄이고, 마지막 기준보다 STAIR_STEP_M 넘게 오를 때만 더함(내려가면 기준만 낮춤)
+// ponytail: 날씨로 기압이 변하면(보통 몇 시간에 1~2hPa ≈ 8~16m) 긴 측정에선 오차가 커짐 → 측정이 짧을 때만 믿을 만함
+export const STAIR_STEP_M = 0.5, FLOOR_M = 3;   // 한 층 높이는 아파트 보통 값으로 가정 (참고)
+export function stairClimb(press) {
+  const p = (press ?? []).filter(x => x.hpa > 300 && x.hpa < 1100);
+  if (p.length < 10) return null;
+  const h = p.map(x => 44330 * (1 - (x.hpa / p[0].hpa) ** 0.1903));
+  let ref = null, gain = 0, j = 0, sum = 0;
+  for (let i = 0; i < p.length; i++) {                                     // 지난 2초 평균
+    sum += h[i];
+    while (p[i].t - p[j].t > 2000) sum -= h[j++];
+    const v = sum / (i - j + 1);
+    if (ref == null) ref = v;
+    else if (v - ref >= STAIR_STEP_M) { gain += v - ref; ref = v; }
+    else if (v < ref - STAIR_STEP_M) ref = v;
+  }
+  return { climbM: gain, floors: Math.floor(gain / FLOOR_M + 0.3) };       // 2.1m부터 1층으로 셈 (층 높이가 2.8~3m라서)
+}

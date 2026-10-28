@@ -13,7 +13,7 @@ import com.getcapacitor.annotation.Permission;
 import org.json.JSONArray;
 import java.util.List;
 
-// JS에서 Capacitor.Plugins.GaitRecorder.start({gps, intervalSec, endSec}) / stop() → {samples:[{t,x,y,z}], gps:[{t,lat,lon,acc}], fromFile} / peek({sec}) → {samples, gps, alive, ended?}
+// JS에서 Capacitor.Plugins.GaitRecorder.start({gps, intervalSec, endSec, baro}) / stop() → {samples:[{t,x,y,z}], gps:[{t,lat,lon,acc}], press:[{t,hpa}], fromFile} / peek({sec}) → {samples, gps, alive, ended?}
 // 권한은 기본 제공 requestPermissions({permissions:['location','notifications']})로 요청
 @CapacitorPlugin(name = "GaitRecorder", permissions = {
         @Permission(alias = "location", strings = {Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION}),
@@ -25,7 +25,8 @@ public class GaitRecorderPlugin extends Plugin {
         Intent i = new Intent(getContext(), GaitService.class)
                 .putExtra("gps", call.getBoolean("gps", false))
                 .putExtra("intervalSec", call.getInt("intervalSec", 0))
-                .putExtra("endSec", call.getInt("endSec", 0));
+                .putExtra("endSec", call.getInt("endSec", 0))
+                .putExtra("baro", call.getBoolean("baro", false));
         ContextCompat.startForegroundService(getContext(), i);
         call.resolve();
     }
@@ -37,9 +38,11 @@ public class GaitRecorderPlugin extends Plugin {
         synchronized (GaitService.ACC) { fromFile = GaitService.ACC.isEmpty(); }   // 비었으면 휴대폰이 앱을 정리했던 것 → 파일에 남은 값
         List<double[]> acc = fromFile ? GaitService.read(getContext(), GaitService.ACC_FILE, 4) : GaitService.ACC;
         List<double[]> gps = fromFile ? GaitService.read(getContext(), GaitService.GPS_FILE, 4) : GaitService.GPS;
+        List<double[]> prs = fromFile ? GaitService.read(getContext(), GaitService.PRS_FILE, 2) : GaitService.PRS;
         JSObject ret = new JSObject();
         ret.put("samples", toArray(acc, new String[]{"t", "x", "y", "z"}));
         ret.put("gps", toArray(gps, new String[]{"t", "lat", "lon", "acc"}));
+        ret.put("press", toArray(prs, new String[]{"t", "hpa"}));
         ret.put("fromFile", fromFile);
         GaitService.clearFiles(getContext());
         call.resolve(ret);
