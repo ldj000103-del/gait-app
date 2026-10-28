@@ -29,7 +29,7 @@ const REF = {
   pedisic2019: 'Pedisic Z 외. Is running associated with a lower risk of all-cause, cardiovascular and cancer mortality? Br J Sports Med 2020. doi:10.1136/bjsports-2018-100493',
   perry9: 'Perry J. Gait Analysis. 1992, 9장(다리 전체 기능: 단계별 관절 각도)',
   perry1: 'Perry J. Gait Analysis. 1992, 1장 5~6쪽(표 1.1: 디딤기 60%·흔듦기 40%, 보통 빠르기 80m/분에서 62%·38%)',
-  perry20range: 'Perry J. Gait Analysis. 1992, 20장 432~433쪽(걷는 속도: 연구별 평균 남 80~91·여 73~81m/분, 한 보행 주기 길이 남 1.46·여 1.28m)',
+  perry20range: 'Perry J. Gait Analysis. 1992, 20장 432~433쪽(걷는 속도: 연구별 평균 남 80~91·여 73~81m/분, 한 보행 주기 길이 남 1.46·여 1.28m, 케이던스 남 111·여 117걸음/분 — 범위 막대는 이 평균값들 사이)',
   perry3: 'Perry J. Gait Analysis. 1992, 3장(기본 기능: 몸이 앞으로 굴러가는 원리)',
   perry4: 'Perry J. Gait Analysis. 1992, 4장(발목·발: 3개의 흔들의자)',
   perry5: 'Perry J. Gait Analysis. 1992, 5장(무릎: 체중 받기 때 대퇴사두근의 제동)',
@@ -803,7 +803,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v154';
+const APP_VERSION = 'v155';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -947,7 +947,7 @@ function render(r, prev) {
   const dGrade = short || (gps && r.medAcc > 10) ? 'o' : 'y';
   const ideal = sex === 'f' ? 0.0064 : sex === 'm' ? 0.0072 : null;
   html += topCards(r, { label: '케이던스', value: c.toFixed(0), unit: '걸음/분', grade: cadGrade,
-    bar: rangeBar(c, lo, hi, 60, 160),                                      // Perry 범위 = 페리 평균 ±10%
+    bar: rangeBar(c, 111, 117, 60, 160),                                    // Perry 범위 = 20장 남녀 평균 111~117 (책에 케이던스 표준편차는 없음, 본부 10/29: ±10%는 앱이 정한 폭이라 라벨에 안 씀)
     sub: `페리의 보행 분석 기준 ${norm} · 차이 ${signed(+c.toFixed(0) - norm)}${prev ? ` · 지난번보다 ${signed(c - prev.cadence)}` : ''}`,
     stats: [...timeStats(r), { icon: 'dist', value: r.distance && (r.distance / 1000).toFixed(2), label: '거리 km' },
       { icon: 'steps', value: r.steps, label: '걸음' }] }, [   // 걸음 길이·속도는 기준값이 있는 작은 카드에만 (같은 값이 두 번 안 보이게)
