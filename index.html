@@ -236,6 +236,14 @@
   #pickList .delActs [data-del] { color:var(--o); border:1px solid var(--o); } #pickList .delActs [data-keep] { color:var(--accent); }
   #toast { position:fixed; left:50%; bottom:calc(96px + env(safe-area-inset-bottom)); transform:translateX(-50%); z-index:45; background:var(--ink); color:var(--card); padding:10px 16px; border-radius:var(--r-pill); font-size:.875rem; }
   #toast[hidden] { display:none; }
+  /* 좌우 나란히·디딤기 막대·범위 막대 (본부 10/29, 메디스텝 아이디어만 — 판정 말 없이 숫자·차이·Perry 범위) */
+  .rlab { display:flex; justify-content:space-between; font-size:.75rem; color:var(--sub); margin-top:2px; }
+  .stbar { display:flex; position:relative; height:22px; border-radius:var(--r-sm); overflow:visible; margin:6px 0 2px; font-size:.75rem; font-weight:600; }
+  .stbar b { background:color-mix(in srgb, var(--c-walk) 30%, transparent); border-radius:var(--r-sm) 0 0 var(--r-sm); display:flex; align-items:center; padding-left:8px; white-space:nowrap; }
+  .stbar span { flex:1; background:var(--line); border-radius:0 var(--r-sm) var(--r-sm) 0; display:flex; align-items:center; justify-content:flex-end; padding-right:8px; white-space:nowrap; color:var(--sub); }
+  .stbar i { position:absolute; top:-3px; bottom:-3px; width:2px; margin-left:-1px; background:var(--ink); opacity:.55; }
+  .stside { font-size:.8125rem; font-weight:600; margin-top:8px; }
+  .lrtab { width:100%; border-collapse:collapse; font-size:.875rem; font-variant-numeric:tabular-nums; } .lrtab th, .lrtab td { padding:6px 2px; border-top:1px solid var(--line); text-align:center; } .lrtab tr > :first-child { text-align:left; } .lrtab th { color:var(--sub); font-size:.75rem; font-weight:600; }
   .chip[aria-pressed="true"] { background:var(--accent); color:#fff; border-color:var(--accent); }
   .calhead { display:flex; align-items:center; justify-content:space-between; font-weight:700; }
   .calhead button { width:auto; margin:0; padding:6px 14px; background:none; color:var(--accent); font-size:1rem; }

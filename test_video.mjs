@@ -38,6 +38,8 @@ for (const dir of [1, -1]) {
   assert.ok(Math.abs(m.kneeSwingMax - 60) < 3, '무릎 최대');
   assert.ok(Math.abs(m.thighFlex - 20) < 2 && Math.abs(m.thighExt - 20) < 2, '넓적다리');
   assert.ok(Math.abs(m.ankleDF - 10) < 3 && Math.abs(m.anklePF - 20) < 3, '발목');
+  console.log(`  디딤기 ${m.stancePct.toFixed(1)}% (가짜 신호에서 발이 가장 뒤에 오는 때 ≈ 주기 50~60%)`);
+  assert.ok(m.stancePct > 45 && m.stancePct < 70, '디딤기 비율');
 }
 
 // 앞·뒤: 오른발 디딜 때 왼쪽 골반 5° 내려감, 왼발 디딜 때 왼무릎 8° 안쪽

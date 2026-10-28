@@ -28,6 +28,8 @@ const REF = {
   lee2014: 'Lee DC 외. Leisure-time running reduces all-cause and cardiovascular mortality risk. J Am Coll Cardiol 2014. doi:10.1016/j.jacc.2014.04.058',
   pedisic2019: 'Pedisic Z 외. Is running associated with a lower risk of all-cause, cardiovascular and cancer mortality? Br J Sports Med 2020. doi:10.1136/bjsports-2018-100493',
   perry9: 'Perry J. Gait Analysis. 1992, 9장(다리 전체 기능: 단계별 관절 각도)',
+  perry1: 'Perry J. Gait Analysis. 1992, 1장 5~6쪽(표 1.1: 디딤기 60%·흔듦기 40%, 보통 빠르기 80m/분에서 62%·38%)',
+  perry20range: 'Perry J. Gait Analysis. 1992, 20장 432~433쪽(걷는 속도: 연구별 평균 남 80~91·여 73~81m/분, 한 보행 주기 길이 남 1.46·여 1.28m)',
   perry3: 'Perry J. Gait Analysis. 1992, 3장(기본 기능: 몸이 앞으로 굴러가는 원리)',
   perry4: 'Perry J. Gait Analysis. 1992, 4장(발목·발: 3개의 흔들의자)',
   perry5: 'Perry J. Gait Analysis. 1992, 5장(무릎: 체중 받기 때 대퇴사두근의 제동)',
@@ -801,7 +803,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v153';
+const APP_VERSION = 'v154';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -857,6 +859,12 @@ const clock = s => { const t = Math.round(s); return `${Math.floor(t / 60)}:${St
 const timeStats = r => { const all = r.diag?.durS ?? r.activeS; return all - r.activeS >= 30 ? [{ icon: 'time', value: clock(all), label: '전체 시간' }, { icon: 'time', value: clock(r.activeS), label: '걸은 시간' }] : [{ icon: 'time', value: clock(all), label: '시간' }]; };
 const statRow = stats => { const ok = stats.filter(s => s.value != null && s.value !== ''); return ok.length ? `<div class="rstats" style="grid-template-columns:repeat(${ok.length},1fr)">${ok.map(s =>
   `<div><svg viewBox="0 0 24 24" aria-hidden="true">${STAT_ICON[s.icon]}</svg><b>${s.value}</b><small>${s.label}</small></div>`).join('')}</div>` : ''; };
+// 범위 막대 (본부 10/29): 회색 띠 = Perry 범위, 점 = 내 값. 구간 이름은 'Perry 범위'만 (보통 이하·이상 같은 판정 말 없음)
+function rangeBar(v, lo, hi, min, max, dp = 0) {
+  if (v == null || Number.isNaN(v)) return '';
+  const p = x => (Math.min(Math.max((x - min) / (max - min), 0), 1) * 100).toFixed(1);
+  return `<div class="rbar" aria-hidden="true"><b style="left:${p(lo)}%;width:${(p(hi) - p(lo)).toFixed(1)}%"></b><i style="left:${p(v)}%"></i></div><div class="rlab"><span>Perry 범위 ${lo.toFixed(dp)}~${hi.toFixed(dp)}</span><span>나 ${v.toFixed(dp)}</span></div>`;
+}
 function topCards(r, hero, cells) {
   const dur = r.diag?.durS ?? r.durS;
   const top = [whenTxt(r.date), ACT[r.activity ?? 'walk'], dur && `측정 ${mmss(dur)}`].filter(Boolean).join(' · ');
@@ -865,7 +873,7 @@ function topCards(r, hero, cells) {
     <div class="mcard static rhero"><div class="mtop"><span class="mlab"><i style="background:${color}"></i>${hero.label}</span>${badge(hero.grade)}</div>
     <div class="mnum">${hero.value}<small>${hero.unit}</small></div>${hero.bar ?? ''}<div class="msub">${hero.sub}</div>${statRow(hero.stats ?? [])}</div>
     <div class="rgrid">${cells.map(c => `<div class="mcard static"><div class="mtop"><span class="mlab">${c.label}</span>${c.value === '-' ? '' : badge(c.grade)}</div>
-      <div class="rnum">${c.value}<small>${c.value === '-' ? '' : c.unit}</small></div><div class="msub">${c.sub}</div></div>`).join('')}</div>`;
+      <div class="rnum">${c.value}<small>${c.value === '-' ? '' : c.unit}</small></div>${c.bar ?? ''}<div class="msub">${c.sub}</div></div>`).join('')}</div>`;
 }
 const more = inner => `<details class="more"><summary>자세히 보기 <span class="sub">(근거·읽는 법)</span></summary>${inner}</details>`;
 function cmpCells({ unit, dp = 0, rows }) {
@@ -939,12 +947,13 @@ function render(r, prev) {
   const dGrade = short || (gps && r.medAcc > 10) ? 'o' : 'y';
   const ideal = sex === 'f' ? 0.0064 : sex === 'm' ? 0.0072 : null;
   html += topCards(r, { label: '케이던스', value: c.toFixed(0), unit: '걸음/분', grade: cadGrade,
-    bar: `<div class="rbar" aria-hidden="true"><b style="left:${lo - 60}%;width:${hi - lo}%"></b><i style="left:${pos}%"></i></div>`,
+    bar: rangeBar(c, lo, hi, 60, 160),                                      // Perry 범위 = 페리 평균 ±10%
     sub: `페리의 보행 분석 기준 ${norm} · 차이 ${signed(+c.toFixed(0) - norm)}${prev ? ` · 지난번보다 ${signed(c - prev.cadence)}` : ''}`,
     stats: [...timeStats(r), { icon: 'dist', value: r.distance && (r.distance / 1000).toFixed(2), label: '거리 km' },
       { icon: 'steps', value: r.steps, label: '걸음' }] }, [   // 걸음 길이·속도는 기준값이 있는 작은 카드에만 (같은 값이 두 번 안 보이게)
-    { label: '걷기 속도', value: r.speed ? r.speed.toFixed(2) : '-', unit: 'm/s', grade: dGrade, sub: r.speed ? `페리 1.37 · 차이 ${signed(+r.speed.toFixed(2) - 1.37, 2)}` : 'GPS·거리 입력 필요' },
-    { label: '걸음 길이', value: r.stepLength ? (r.stepLength * 100).toFixed(0) : '-', unit: 'cm', grade: dGrade, sub: !r.stepLength ? 'GPS·거리 입력 필요' : ideal ? `효율 기준 약 ${(ideal * c * 100).toFixed(0)}cm` : '성별을 넣으면 기준이 보여요' },
+    { label: '걷기 속도', value: r.speed ? r.speed.toFixed(2) : '-', unit: 'm/s', grade: dGrade, sub: r.speed ? `페리 1.37 · 차이 ${signed(+r.speed.toFixed(2) - 1.37, 2)}` : 'GPS·거리 입력 필요',
+      bar: r.speed ? rangeBar(r.speed, 1.22, 1.52, 0.6, 2.0, 2) : '' },   // Perry 20장: 연구별 평균 73~91m/분
+    { label: '걸음 길이', value: r.stepLength ? (r.stepLength * 100).toFixed(0) : '-', unit: 'cm', grade: dGrade, bar: r.stepLength ? rangeBar(r.stepLength * 100, 64, 73, 30, 100) : '', sub: !r.stepLength ? 'GPS·거리 입력 필요' : ideal ? `효율 기준 약 ${(ideal * c * 100).toFixed(0)}cm` : '성별을 넣으면 기준이 보여요' },   // 걸음 길이 Perry 범위: 20장 한 주기 남 1.46·여 1.28m의 절반
   ]);   // 걸음 수·거리는 위 아이콘 줄에 있어서 작은 카드에서 뺌 (등급·근거는 자세히 보기에)
   const head = html; html = '';
 
@@ -2248,6 +2257,24 @@ function videoMarks(r) {
     [25, '왼 무릎', 'knee', leftOnScreenLeft], [26, '오른 무릎', 'knee', !leftOnScreenLeft]].map(([i, text, part, left]) => ({ i, text, part, color: PART[part][2], left }));
 }
 
+// 좌우 나란히 (본부 10/29): '왼 N / 오 N / 차이 N' — 판정 말 없이 숫자와 차이만
+const lrTxt = (l, r, a = '왼', b = '오') => l == null && r == null ? '-' : `${a} ${f0(l)} / ${b} ${f0(r)}${l != null && r != null ? ` / 차이 ${Math.abs(Math.round(l) - Math.round(r))}°` : ''}`;
+// 옆 영상: 카메라 쪽 다리 하나만 보여서, 반대쪽은 가장 최근의 반대쪽 옆 영상 값과 나란히. 디딤기·흔듦기 막대는 다리마다 (Perry 1장 표 1.1 약 60:40 선)
+function sideLR(r) {
+  const other = latestVid(v => v === 'side', x => x.side && x.side !== r.side && x.m ? x : null);
+  const L = r.side === 'l' ? r : other, R = r.side === 'r' ? r : other, nm = s => s === 'l' ? '왼' : '오른';
+  const bar = (x, s) => x?.m?.stancePct == null ? '' : `<div class="stside">${nm(s)}쪽 다리${x === r ? ' (이번 영상)' : ''}</div><div class="stbar" role="img" aria-label="디딤기 ${Math.round(x.m.stancePct)}%, 흔듦기 ${100 - Math.round(x.m.stancePct)}%"><b style="width:${x.m.stancePct.toFixed(1)}%">디딤기 ${Math.round(x.m.stancePct)}%</b><span>흔듦기 ${100 - Math.round(x.m.stancePct)}%</span><i style="left:60%"></i></div>`;
+  const row = (label, k, unit) => { const l = L?.m?.[k], rr = R?.m?.[k], c = v => v == null || Number.isNaN(v) ? '-' : `${Math.round(v)}${unit}`;
+    return `<tr><td>${label}</td><td>${c(l)}</td><td>${c(rr)}</td><td>${l != null && rr != null ? `${Math.abs(Math.round(l) - Math.round(rr))}${unit}` : '-'}</td></tr>`; };
+  return metric({ title: '왼·오 나란히', value: r.m.stancePct != null ? `디딤기 ${Math.round(r.m.stancePct)}%` : '-', unit: `흔듦기 ${r.m.stancePct != null ? 100 - Math.round(r.m.stancePct) : '-'}% · ${nm(r.side)}쪽 다리`, grade: 'n',
+    body: bar(L, 'l') + bar(R, 'r') + `<div class="sub" style="font-size:.75rem;margin:4px 0 8px">세로선 = Perry 약 60:40 (보통 빠르기에서 62:38)</div>`
+      + `<table class="lrtab"><tr><th></th><th>왼</th><th>오</th><th>차이</th></tr>${row('유각기 무릎 최대 굽힘', 'kneeSwingMax', '°')}${row('체중 받기 무릎 굽힘', 'kneeLoad', '°')}${row('디딤기 비율', 'stancePct', '%')}</table>`
+      + `<div class="sub" style="font-size:.75rem;margin-top:6px">${other ? `${nm(other.side)}쪽 값은 가장 최근의 ${nm(other.side)}쪽 옆 영상이에요. 두 영상은 따로 찍어 걸음이 다를 수 있어요.` : `반대쪽(${nm(r.side === 'l' ? 'r' : 'l')}쪽)에서 옆모습을 찍으면 나란히 보여요.`}</div>`,
+    why: ['옆 영상은 카메라 쪽 다리 하나만 잘 보여서, 왼·오는 각각 그쪽에서 찍은 영상으로 재요',
+      '디딤기 = 첫 닿기(발이 엉덩이보다 가장 앞)부터 발가락 떼기(발끝이 엉덩이보다 가장 뒤)까지. 발가락 떼기를 이렇게 근사해서 실제보다 몇 % 길게 나올 수 있어요',
+      'Perry 1장: 한 보행 주기에서 발이 닿아 있는 시간이 약 60%, 떠 있는 시간이 약 40%. 걷는 속도가 빠를수록 둘 다 짧아져요'],
+    refs: ['perry1', 'perry9'], limit: '휴대폰 2D 영상의 디딤기 비율은 검증 연구를 찾지 못했어요. 같은 조건에서 찍은 영상끼리 비교해 보세요.' });
+}
 function renderVideo(r, dur) {
   let html = '';
   if (r.view === 'side') {
@@ -2255,6 +2282,7 @@ function renderVideo(r, dur) {
     html += `<h2>영상 분석 결과 · 옆모습</h2><div class="sub">${r.side === 'l' ? '왼' : '오른'}쪽 다리(카메라 쪽) · 보행 주기 ${r.nCycles}개 평균 · 다리가 잡힌 장면 ${Math.round(r.validFrac * 100)}%</div>`;
     html += `<div class="metric"><div class="mhead"><div><b>페리의 보행 분석 기준 걸음과 나란히</b></div><span class="badge b-y">참고</span></div>${compareFigures(r.curves)}<div class="sub">무릎은 영상 오차 약 3~5°(참고), 넓적다리·발목은 정확도가 더 낮아요. 각도 값: ${REF.perry9}</div></div>`;
     html += glanceSide(r, dur != null);
+    html += sideLR(r);
     html += metric({ title: '무릎 각도', value: f0(m.kneeSwingMax), unit: `유각기 최대 굽힘 (보행 주기 ${m.kneeSwingAt}%)`, grade: 'y',
       body: `${kneeChart(r.curves.knee)}<div class="calc">이번 값 / 페리의 보행 분석 기준<br>첫 닿기 ${f0(m.kneeIC)} / 0~5°<br>체중 받기 최대 ${f0(m.kneeLoad)} / 15~18°<br>입각기 최소 ${f0(m.kneeStanceMin)} / 약 5° ${extTxt(m.kneeStanceMin)}<br>유각기 최대 ${f0(m.kneeSwingMax)} / 약 60°(초기 유각)</div>`,
       why: ['무릎 각도 = 180° − (엉덩이·무릎·발목 세 점이 이루는 각). Perry 17장: 영상에서 가장 잘 잡히는 관절',
@@ -2283,14 +2311,14 @@ function renderVideo(r, dur) {
     html += `<h2>영상 분석 결과 · ${side}</h2><div class="sub">몸이 잡힌 장면 ${Math.round(r.validFrac * 100)}% · 앞·뒤 각도는 휴대폰 영상으로 검증된 연구를 찾지 못했어요. 골반 값은 다른 도구 연구에서 기준 장비와 차이가 커서 "부정확할 수 있음", 나머지는 "검증 안 됨"이에요. 같은 조건으로 찍어 좌우 비교·변화 추적에 쓰세요.</div>`;
     html += `<div class="metric"><div class="mhead"><div><b>페리의 보행 분석 기준 걸음과 나란히</b></div><span class="badge b-y">참고</span></div>${compareFigures(null, m, r.view, r.fc)}<div class="sub">앞·뒤 각도는 휴대폰 영상으로 검증된 연구를 찾지 못했어요. 페리의 보행 분석 기준 값: 골반 내려감 약 4°(체중 받기), 몸통·무릎은 기준값 없음. ${REF.perry9}</div></div>`;
     html += glanceFront(r, dur != null);
-    html += metric({ title: '골반 내려감 정도 (반대쪽)', value: `왼발 ${f0(m.dropL)} · 오른발 ${f0(m.dropR)}`, unit: '', grade: 'o',
+    html += metric({ title: '골반 내려감 정도 (반대쪽)', value: lrTxt(m.dropL, m.dropR), unit: '왼발 디딜 때 / 오른발 디딜 때', grade: 'o',
       body: `<div class="calc">한 발로 디딜 때 반대쪽 골반이 내려간 각도 (상위 10% 값)<br>${diff(m.dropL, m.dropR)}<br>페리의 보행 분석 기준: 체중 받기 때 반대쪽 골반 약 4°, 엉덩이 벌림근이 5° 이하로 제한</div>`,
       why: ['양쪽 엉덩이 점을 잇는 선이 수평에서 기운 각도', '입각기 다리는 "발목이 화면에서 더 아래에 있는 다리"로 근사', '뒤에서 찍은 영상의 골반 각도는 연구에서 기준 장비(VICON)와 차이가 컸어요(다른 자세 인식 도구 OpenPose로 한 연구)'], refs: ['perry9', 'ota2021'], limit: '휴대폰 2D 영상이라 카메라 각도·거리에 따라 몇 도 달라질 수 있어요.',
       cmp: { unit: '°', fig: 'pelvis', rows: [{ label: '왼발 디딜 때', ref: 4, mine: m.dropL }, { label: '오른발 디딜 때', ref: 4, mine: m.dropR }] } });
-    html += metric({ title: '무릎 안쪽 모임', value: `왼 ${f0(m.valgusL)} · 오른 ${f0(m.valgusR)}`, unit: '', grade: 'n',
+    html += metric({ title: '무릎 안쪽 모임', value: lrTxt(m.valgusL, m.valgusR), unit: '', grade: 'n',
       body: `<div class="calc">디딜 때 무릎이 엉덩이-발목 선보다 안쪽(+)·바깥쪽(−)으로 간 각도 (상위 10% 값)<br>${diff(m.valgusL, m.valgusR)}</div>`,
       why: ['페리의 책에는 이 각도의 영상 기준값이 없어요 → 기준값 없이 좌우만 비교', 'Perry 17장: 다리가 돌아가 있으면 카메라 1대의 각도는 실제와 달라질 수 있어요'], refs: ['perry17'] });
-    html += metric({ title: '몸통 옆 기울기', value: `왼쪽 ${f0(m.leanL)} · 오른쪽 ${f0(m.leanR)}`, unit: '', grade: 'n',
+    html += metric({ title: '몸통 옆 기울기', value: lrTxt(m.leanL, m.leanR, '왼쪽으로', '오른쪽으로'), unit: '', grade: 'n',
       body: `<div class="calc">어깨 가운데와 엉덩이 가운데를 잇는 선이 수직에서 기운 각도 (상위 10% 값)</div>`, why: ['휴대폰 2D 영상의 정확도 연구는 찾지 못함'], refs: [] });
     html += metric({ title: '걸음 폭', value: m.width != null ? `골반 너비의 ${m.width.toFixed(2)}배` : '-', unit: '', grade: 'n',
       body: `<div class="sub">두 발목 사이 가로 거리 ÷ 양쪽 엉덩이 점 사이 거리 (중앙값). 참고: Neumann 15장 성인 걸음 폭 8~10cm</div>`,

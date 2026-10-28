@@ -44,6 +44,7 @@ export function analyzeSide(frames, W, H) {
         thigh: deg(Math.atan2(dir * (knee.x - hip.x), knee.y - hip.y)),              // 넓적다리: 수직 기준, 앞으로 = +
         ankle: footOk ? 90 - between([knee.x - ankle.x, knee.y - ankle.y], [toe.x - heel.x, toe.y - heel.y]) : NaN,   // 발등굽힘 = +, 발이 안 잡히면 빈칸
         fwd: dir * (ankle.x - hip.x) / Math.hypot(knee.x - hip.x, knee.y - hip.y),  // 발이 엉덩이보다 얼마나 앞에 (넓적다리 길이 단위)
+        toeFwd: footOk ? dir * (toe.x - hip.x) / Math.hypot(knee.x - hip.x, knee.y - hip.y) : NaN,   // 발끝 (발가락 떼기 근사용)
       });
     }
     return out;
@@ -75,7 +76,11 @@ export function analyzeSide(frames, W, H) {
         return r0[key] + (r1[key] - r0[key]) * w;
       });
     }
-    cycles.push({ dur, curve });
+    // 디딤기(입각기) 비율: 발가락 떼기 ≈ 발끝이 엉덩이보다 가장 뒤에 있는 순간 (첫 닿기와 같은 방식의 근사, 본부 10/29). Perry 1장 표 1.1 기준 약 60%
+    // 발목으로 재면 발을 든 뒤에도 무릎이 굽으며 더 뒤로 가서 늦게 잡힘 → 발끝이 잡힌 장면만, 발끝이 거의 안 잡히면 발목으로
+    const tf = rows.slice(a, b + 1).map(r => r.toeFwd), useToe = tf.filter(v => !Number.isNaN(v)).length > tf.length * 0.6;
+    let to = a; for (let i = a; i <= b; i++) { const v = useToe ? rows[i].toeFwd : fwd[i], w = useToe ? rows[to].toeFwd : fwd[to]; if (!Number.isNaN(v) && (Number.isNaN(w) || v < w)) to = i; }
+    cycles.push({ dur, curve, stance: (rows[to].t - rows[a].t) / dur });
   }
   diag.contacts = ics.length; diag.cycles = cycles.length;
   if (!cycles.length) return { error: 'noCycle', validFrac: rows.length / frames.length, diag };
@@ -93,6 +98,7 @@ export function analyzeSide(frames, W, H) {
       kneeLoad: Math.max(...range(knee, 0, 20)),
       kneeStanceMin: Math.min(...range(knee, 20, 50)),
       kneeSwingMax: knee[swingIdx], kneeSwingAt: swingIdx,
+      stancePct: 100 * mean(cycles.map(c => c.stance)),                   // 디딤기 %, 흔듦기 = 100 − 이 값
       thighFlex: Math.max(...range(thigh, 80, 100), ...range(thigh, 0, 10)),
       thighExt: -Math.min(...range(thigh, 30, 65)),
       ankleDF: Math.max(...range(ankle, 10, 55)),
