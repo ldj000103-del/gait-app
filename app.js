@@ -717,7 +717,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v138';
+const APP_VERSION = 'v139';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -1891,7 +1891,7 @@ const cmpSt = { q: 0, view: 'side', playing: false, drawn: null, tab: null, last
 const CMP_T = 8000;                                                        // 재생할 때 한 주기 8초
 // 단계 구간 = Perry 2장 (화면 % 글자·용어 풀이와 같음). PHASES[i][1]은 Perry 각도를 뽑은 지점이라 각도 보간(perryAt)에만 씀
 const PH_START = [0, 2, 12, 31, 50, 62, 75, 87];
-const phaseMid = i => Math.round((PH_START[i] + (PH_START[i + 1] ?? 100)) / 2);   // 1, 7, 22, 41, 56, 69, 81, 94
+const phaseMid = i => PHASES[i][1];                                      // 단계 버튼 = Perry 9장 표의 그 단계 시점 1·6·20·40·55·67·79·93% (사용자 10/28: 거기선 표 값과 곡선 값이 정확히 같음)
 const angAt = (who, q) => who === 'perry' ? [perryAt(q, 2), perryAt(q, 3), perryAt(q, 4)] : ['thigh', 'knee', 'ankle'].map(k => num(cmpCurves?.[k]?.[Math.round(q) % 101]));
 // 그림 속 관절 a → b 벡터 (화면 단위, flip = 왼쪽 다리)
 const bvec = (view, part, a, b, flip) => { const J = BONE[view][part][2]; return [(J[b][0] - J[a][0]) * BK * (flip ? -1 : 1), (J[b][1] - J[a][1]) * BK]; };
@@ -1977,7 +1977,7 @@ function cmpScene(q, view) {
   return floorLines + frontFig(102, 'perry', q, view, m) + frontFig(198, 'me', q, view, m) + label;
 }
 function cmpTable(q) {                                                     // q = 보행 주기 위치(%): 단계 버튼은 그 단계 가운데, 재생·막대는 그 순간
-  const p = PHASES[phaseIdx(q)].slice(2), m = angAt('me', q);              // 페리 = Perry 9장 표의 그 단계 값 그대로 (보간값 −9 대신 −10 등, 사용자 10/28) · 나 = 그 순간 내 곡선 · 그림·말풍선은 보간 그대로
+  const p = [2, 3, 4].map(k => perryAt(q, k)), m = angAt('me', q);        // 페리·나 모두 같은 순간 q (단계 버튼은 Perry 표 시점이라 표 값 그대로 −10·60 등이 나옴, 검수팀·사용자 10/28)
   const cell = v => v == null ? '-' : `${Math.round(v)}°`, diff = (a, b) => a == null ? '-' : `${signed(Math.round(a) - Math.round(b))}°`;
   return `<tr><th>${OLD_PH[phaseIdx(q)]} <small class="sub">${q}%</small></th><th>고관절</th><th>무릎</th><th>발목</th></tr><tr><th>페리</th>${p.map(v => `<td>${cell(v)}</td>`).join('')}</tr>
     <tr><th>나</th>${m.map(v => `<td>${cell(v)}</td>`).join('')}</tr><tr><th>차이</th>${m.map((v, j) => `<td>${diff(v, p[j])}</td>`).join('')}</tr>`;
@@ -2013,7 +2013,7 @@ function cmpRender(box) {
   markTerms(box.querySelector('.phName'));                                 // 다시 쓴 단계 이름에 용어 풀이 밑줄 (누르면 뜻)
   if (side) {
     box.querySelector('.phN').textContent = `페리: ${PHASES[i][0]} · ${i + 1} / 8 단계`;
-    box.querySelector('.cmpTabNote').textContent = (cmpSideLatest ? '옆: 가장 최근 옆 영상 값 · ' : '') + '페리 값은 Perry 9장 표의 이 단계 값, 내 값은 표 맨 위 %의 순간이에요 (단계를 누르면 그 단계 가운데, 재생하면 따라 바뀜)';
+    box.querySelector('.cmpTabNote').textContent = (cmpSideLatest ? '옆: 가장 최근 옆 영상 값 · ' : '') + '페리·나 모두 표 맨 위 % 순간의 값이에요. 단계를 누르면 Perry 9장 표의 그 단계 시점으로 가요(재생하면 따라 바뀜)';
     return;
   }
   box.querySelector('.phN').textContent = `오른발 기준 · ${st.view === 'front' ? '앞에서 본 모습(거울처럼 반대)' : '뒤에서 본 모습'}`;
