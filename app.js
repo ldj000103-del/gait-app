@@ -717,7 +717,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v136';
+const APP_VERSION = 'v137';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -1456,7 +1456,7 @@ renderHistory();
 var homeReady = false;   // var: 위쪽 renderHistory가 먼저 불려도 오류 없이 false로 보임
 function setTab(name) {
   syncPicks();                                                            // 측정 이어 하기 등 코드로 바꾼 select 값을 줄에 반영
-  if (subOpen && name !== 'home') closeSub();
+  if (subOpen) closeSub();                                                // 탭바 '홈'을 눌러도 홈 첫 화면으로
   document.body.dataset.tab = name;
   for (const b of document.querySelectorAll('#tabbar button')) b.setAttribute('aria-selected', b.dataset.go === name);
   if (name === 'home') renderHome();
@@ -1477,6 +1477,7 @@ let sparkDrawn = false;                                                    // �
 function spark(vals, color, base) {
   if (vals.length < 2) return '';
   const c = base ?? vals.reduce((s, v) => s + v, 0) / vals.length, lo = c * 0.85, hi = c * 1.15;
+  if (!(c > 0)) return '';                                                  // 기준·평균이 0 이하면 ±15% 폭이 없음
   const X = i => 4 + i * 64 / (vals.length - 1), Y = v => 28 - 24 * (Math.min(hi, Math.max(lo, v)) - lo) / (hi - lo);
   const pts = vals.map((v, i) => [X(i), Y(v)]), n = pts.length;
   // monotone 곡선(Fritsch–Carlson): 점과 점 사이에서 값을 넘어 출렁이지 않음
@@ -2461,7 +2462,8 @@ function closeSub(back = true) {
   if (back && history.state?.sub) history.back();                          // 열 때 넣은 기록 한 칸을 되돌림
 }
 document.addEventListener('click', e => { const s = e.target.closest('[data-sub]'), b = e.target.closest('.spBack'); if (s) openSub(s.dataset.sub); else if (b) closeSub(); });
-addEventListener('popstate', () => { if (subOpen && !history.state?.sub) closeSub(false); });
+addEventListener('popstate', () => { if (subOpen && history.state?.sub !== subOpen) closeSub(false); });   // 새로고침 전에 남은 다른 {sub} 칸으로 돌아가도 닫히게 (검수팀)
+if (history.state?.sub || history.state?.pickSheet) history.replaceState(null, '');   // 새로고침하면 판·하위 화면은 닫힌 채라 남은 기록 칸을 비움 (뒤로 가기가 한 번 헛돌지 않게)
 $('lessonCard').addEventListener('click', e => { const l = e.target.closest('[data-lesson]'); if (l) openDict(+l.dataset.lesson); });
 $('homeTop').addEventListener('click', e => {
   const s = e.target.closest('[data-shoot]'), o = e.target.closest('[data-open]'), p = e.target.closest('[data-pair]'), l = e.target.closest('[data-lesson]');
