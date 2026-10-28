@@ -717,7 +717,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v139';
+const APP_VERSION = 'v140';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -1979,8 +1979,8 @@ function cmpScene(q, view) {
 function cmpTable(q) {                                                     // q = 보행 주기 위치(%): 단계 버튼은 그 단계 가운데, 재생·막대는 그 순간
   const p = [2, 3, 4].map(k => perryAt(q, k)), m = angAt('me', q);        // 페리·나 모두 같은 순간 q (단계 버튼은 Perry 표 시점이라 표 값 그대로 −10·60 등이 나옴, 검수팀·사용자 10/28)
   const cell = v => v == null ? '-' : `${Math.round(v)}°`, diff = (a, b) => a == null ? '-' : `${signed(Math.round(a) - Math.round(b))}°`;
-  return `<tr><th>${OLD_PH[phaseIdx(q)]} <small class="sub">${q}%</small></th><th>고관절</th><th>무릎</th><th>발목</th></tr><tr><th>페리</th>${p.map(v => `<td>${cell(v)}</td>`).join('')}</tr>
-    <tr><th>나</th>${m.map(v => `<td>${cell(v)}</td>`).join('')}</tr><tr><th>차이</th>${m.map((v, j) => `<td>${diff(v, p[j])}</td>`).join('')}</tr>`;
+  return `<tr><th>${OLD_PH[phaseIdx(q)]} <small class="sub">${q}%</small></th><th>페리</th><th>나</th><th>차이</th></tr>`   // 관절 하나 = 한 줄 (사용자 10/28, 앞·뒤 표와 같은 모양)
+    + ['고관절', '무릎', '발목'].map((name, j) => `<tr><th>${name}</th><td>${cell(p[j])}</td><td>${cell(m[j])}</td><td>${diff(m[j], p[j])}</td></tr>`).join('');
 }
 function frontTable(q, m) {                                                   // 앞·뒤 표 = 오른발 주기 q% 순간 잰 값 (사용자 10/27: 상위 10% 값 대신)
   const c = v => v == null ? '-' : `${Math.round(v)}°`, fc = cmpFC, i = phaseIdx(q);

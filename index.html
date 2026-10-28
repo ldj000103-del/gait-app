@@ -171,7 +171,7 @@
   @media (max-width:400px) {   /* 좁은 폰: 8칸 한 줄엔 '발뒤꿈치 닿기'가 안 들어가 입각기 줄(5칸)·유각기 줄(3칸) 두 줄로 */
     .gc { grid-template-columns:repeat(15,1fr); } .gc > span, .gc > span + span { grid-column:1 / -1; } .gc > span + span { order:1; margin-top:4px; }
     .gc .chip { grid-column:span 3; font-size:.75rem; } .gc .chip:nth-of-type(n+6) { grid-column:span 5; order:2; } }
-  .cmpTab { width:100%; border-collapse:collapse; font-size:.875rem; text-align:center; } .cmpTab th, .cmpTab td { padding:5px 2px; border-top:1px solid var(--line); } .cmpTab th { font-weight:600; color:var(--sub); font-size:.75rem; }
+  .cmpTab { width:100%; border-collapse:collapse; font-size:.875rem; text-align:center; } .cmpTab th, .cmpTab td { padding:5px 2px; border-top:1px solid var(--line); } .cmpTab th { font-weight:600; color:var(--sub); font-size:.75rem; } .cmpTab tr > th:first-child { text-align:left; } .cmpTab td { font-variant-numeric:tabular-nums; }
   .rbar { position:relative; height:8px; border-radius:4px; background:var(--line); margin:12px 0 4px; }
   .rbar b { position:absolute; top:0; bottom:0; border-radius:4px; background:color-mix(in srgb, var(--c-walk) 35%, transparent); }
   .rbar i { position:absolute; top:-4px; width:4px; height:16px; margin-left:-2px; border-radius:2px; background:var(--ink); }
