@@ -850,7 +850,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v165';
+const APP_VERSION = 'v166';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -2825,7 +2825,7 @@ $('homeTop').addEventListener('click', e => {
     if (rows.length < 2) showRecord(+p.dataset.pair.split(',')[0]);        // 기록 탭은 최근 20개만 그려서 옛 영상이 없으면 그 기록을 바로 엶
   } else if (l) openDict(+l.dataset.lesson);
 });
-// 홈 '보행 지표 분석법 배워 보기' 카드의 걷는 근육 그림: 걸음 수업과 같은 50장, 정강이·발 부분만 잘라 그 장면의 다리 가운데를 따라감 (그림은 고관절 고정이라 다리가 앞뒤로 움직임)
+// 홈 '배워 보기' 카드의 걷는 근육 그림: 걸음 수업과 같은 50장, 정강이·발 부분만 잘라 그 장면의 다리 가운데를 따라감 (그림은 고관절 고정이라 다리가 앞뒤로 움직임)
 const LEARN_CX = [374, 369, 358, 342, 327, 311, 296, 280, 264, 248, 231, 215, 198, 182, 166, 150, 134, 118, 103, 92, 81, 86, 91, 96, 98, 105, 112, 126, 140, 154, 168, 183, 197, 210, 222, 236, 248, 262, 288, 319, 340, 348, 354, 360, 366, 370, 374, 375, 374, 374];   // 장면마다 아래 70% 다리의 가운데 x (480px 그림 기준)
 let learnImgs = null, learnK = 10, learnT = 0;
 function learnFigDraw() {

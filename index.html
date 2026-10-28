@@ -210,7 +210,8 @@
   /* 걷는 근육 카드 (디자인 팀 10/28: 시선이 가게) */
   .learncard { word-break:keep-all; display:flex; gap:14px; align-items:center; width:100%; text-align:left; color:var(--ink); font-weight:400; padding:14px; }
   #learnFig { width:96px; height:116px; flex:none; background:var(--bg); border-radius:var(--r-md); }
-  .lcText { display:flex; flex-direction:column; gap:5px; min-width:0; } .lcText b { font-size:1rem; font-weight:600; }
+  .lcText { display:flex; flex-direction:column; gap:5px; min-width:0; } .lcText b { font-size:1rem; font-weight:600; display:flex; align-items:center; gap:6px; }
+  .lcIc { width:18px; height:18px; flex:none; fill:none; stroke:var(--accent); stroke-width:1.75; stroke-linecap:round; stroke-linejoin:round; }   /* 펼친 책 (디자인 팀 10/29 B안, 직접 그림) */
   .lcText em { font-style:normal; font-size:.75rem; color:var(--accent); border:1px solid var(--accent); border-radius:var(--r-pill); padding:1px 8px; align-self:flex-start; } .lcText small { font-size:.75rem; }
   /* 거울 카드 질문 = 왼쪽 정렬 줄 (사용자: 정렬 맞추기) */
   .mrows { margin-top:8px; text-align:left; } .mrows button { display:flex; justify-content:space-between; align-items:center; width:100%; margin:0; padding:12px 0; background:none; color:var(--ink); font-size:.9375rem; font-weight:500; border-radius:0; }
@@ -407,7 +408,7 @@
     <div class="msub" style="margin:6px 2px 0">항목별 <b>가장 최근 측정</b>이에요 · 누르면 그 기록을 다시 봐요</div>
     <div id="tiles"></div>
     <button class="card wkcard" data-sub="spStats"><div class="mtop"><span class="mlab">이번 주</span><span class="mdate">달력과 통계 ›</span></div><div id="wkDots"></div><div class="msub" id="wkLine"></div></button>
-    <button class="card learncard" data-sub="spLearn"><canvas id="learnFig" width="192" height="232" aria-hidden="true"></canvas><span class="lcText"><b>보행 지표 분석법 배워&nbsp;보기</b><em>걸음 수업 · 30초</em><span class="sub">발이 굴러가는 흔들의자&nbsp;3개</span><small class="sub">걸음 수업 · 지표 사전 · 알아보기&nbsp;›</small></span></button>
+    <button class="card learncard" data-sub="spLearn"><canvas id="learnFig" width="192" height="232" aria-hidden="true"></canvas><span class="lcText"><b><svg class="lcIc" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5.5c3-1 6-.8 9 1.2 3-2 6-2.2 9-1.2V19c-3-1-6-.8-9 1.2-3-2-6-2.2-9-1.2z"/><path d="M12 6.7v13.5"/></svg>배워 보기</b><em>걸음 수업 · 30초</em><span class="sub">발이 굴러가는 흔들의자&nbsp;3개</span><small class="sub">걸음 수업 · 지표 사전 · 운동&nbsp;›</small></span></button>
     <div class="card rows"><button class="dayrec" data-sub="spProg"><span>프로그램과 알림</span><span class="sub">›</span></button></div>
     <div class="subpage" id="spStats" hidden role="dialog" aria-label="달력과 통계"><div class="sphead"><button class="spBack" aria-label="홈으로">‹</button><h2>달력과 통계</h2></div>
     <div class="card">
@@ -429,7 +430,7 @@
       <div id="tchart"></div>
     </div>
     </div>
-    <div class="subpage" id="spLearn" hidden role="dialog" aria-label="보행 지표 분석법 배워 보기"><div class="sphead"><button class="spBack" aria-label="홈으로">‹</button><h2>보행 지표 분석법 배워 보기</h2></div>
+    <div class="subpage" id="spLearn" hidden role="dialog" aria-label="배워 보기"><div class="sphead"><button class="spBack" aria-label="홈으로">‹</button><h2>배워 보기</h2></div>
     <div id="lessonCard"></div>
     <div class="card" id="exCard"><h2>달리기 전후 운동</h2><div class="sub">3D 그림으로 보는 몸 풀기·정리 운동이에요.</div>
       <div class="mrows"><button data-exopen="warm">뛰기 전 몸 풀기<span>›</span></button><button data-exopen="cool">뛴 뒤 정리 운동<span>›</span></button></div></div>
