@@ -183,6 +183,7 @@ window.gaitBack = () => {
   const btn = document.querySelector('#permOv [data-p=later], #fbOv [data-f=close], #dictOv [data-dx=skip]');   // 권한 안내 = '나중에', 건의하기 = '닫기'(Esc와 같음), 지표 사전 = '건너뛰기'(닫기)
   if (btn) { btn.click(); return true; }
   if (!$('tip').classList.contains('hidden')) { $('tip').classList.add('hidden'); return true; }   // 용어 풀이 팝업
+  if (subOpen) { closeSub(); return true; }                                 // 홈 하위 화면 → 홈
   return false;
 };
 // 홈 '공유 카드 만들기' → 같은 판에서 이 주·이 달·최고 기록 고르기. 받는 사람이 숫자를 본다는 안내는 공유 직전 이 판에 (개인정보 보호법 제23조 3항 취지)
@@ -716,7 +717,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v135';
+const APP_VERSION = 'v136';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -1455,6 +1456,7 @@ renderHistory();
 var homeReady = false;   // var: 위쪽 renderHistory가 먼저 불려도 오류 없이 false로 보임
 function setTab(name) {
   syncPicks();                                                            // 측정 이어 하기 등 코드로 바꾼 select 값을 줄에 반영
+  if (subOpen && name !== 'home') closeSub();
   document.body.dataset.tab = name;
   for (const b of document.querySelectorAll('#tabbar button')) b.setAttribute('aria-selected', b.dataset.go === name);
   if (name === 'home') renderHome();
@@ -1469,20 +1471,31 @@ document.querySelector('#tabbar').addEventListener('click', e => {
 // ── 홈: 요약 카드 · 이번 주 슬로우 조깅 링 · 변화 그래프 ──
 const shortDate = d => new Date(d).toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric' });
 // 요약 카드: 색 점 + 이름 / 날짜 → 큰 숫자 + 최근 추세선 → 기준·출처 한 줄
-function spark(vals, color) {                                              // 최근 값 추세선 (축 없이 모양만, 마지막 점 강조)
+// 최근 값 추세선 (축 없이 모양만, 마지막 점 강조). 세로 폭은 기준값 ±15%로 고정 — 105→103→108 같은 작은 차이가 큰 V자로 보이지 않게 (사용자·디자인 팀 10/28)
+// base: 페리의 보행 분석 기준값, 없으면 최근 값 평균. 범위 밖 값은 위아래 끝에 붙임. 기준 자리에 옅은 점선
+let sparkDrawn = false;                                                    // 선 그리기 움직임은 화면에 처음 보일 때 한 번만
+function spark(vals, color, base) {
   if (vals.length < 2) return '';
-  const lo = Math.min(...vals), hi = Math.max(...vals), X = i => 4 + i * 64 / (vals.length - 1), Y = v => hi === lo ? 16 : 28 - 24 * (v - lo) / (hi - lo);
-  return `<svg width="72" height="32" viewBox="0 0 72 32" aria-hidden="true"><polyline points="${vals.map((v, i) => `${X(i).toFixed(1)},${Y(v).toFixed(1)}`).join(' ')}" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round" opacity=".55"/><circle cx="${X(vals.length - 1)}" cy="${Y(vals[vals.length - 1])}" r="3.5" fill="${color}" stroke="var(--card)" stroke-width="1.5"/></svg>`;
+  const c = base ?? vals.reduce((s, v) => s + v, 0) / vals.length, lo = c * 0.85, hi = c * 1.15;
+  const X = i => 4 + i * 64 / (vals.length - 1), Y = v => 28 - 24 * (Math.min(hi, Math.max(lo, v)) - lo) / (hi - lo);
+  const pts = vals.map((v, i) => [X(i), Y(v)]), n = pts.length;
+  // monotone 곡선(Fritsch–Carlson): 점과 점 사이에서 값을 넘어 출렁이지 않음
+  const d = pts.slice(1).map((p, i) => (p[1] - pts[i][1]) / (p[0] - pts[i][0]));
+  const m = pts.map((_, i) => i === 0 ? d[0] : i === n - 1 ? d[n - 2] : d[i - 1] * d[i] <= 0 ? 0 : (d[i - 1] + d[i]) / 2);
+  for (let i = 0; i < n - 1; i++) { if (d[i] === 0) { m[i] = m[i + 1] = 0; continue; } const a = m[i] / d[i], b = m[i + 1] / d[i], t = a * a + b * b; if (t > 9) { const k = 3 / Math.sqrt(t); m[i] = k * a * d[i]; m[i + 1] = k * b * d[i]; } }
+  const path = pts.map((p, i) => i === 0 ? `M${f1(p[0])},${f1(p[1])}` : (([x0, y0], [x1, y1], h) => `C${f1(x0 + h)},${f1(y0 + m[i - 1] * h)} ${f1(x1 - h)},${f1(y1 - m[i] * h)} ${f1(x1)},${f1(y1)}`)(pts[i - 1], p, (p[0] - pts[i - 1][0]) / 3)).join('');
+  const last = pts[n - 1], draw = !sparkDrawn && !matchMedia('(prefers-reduced-motion: reduce)').matches;
+  return `<svg class="spark${draw ? ' draw' : ''}" width="72" height="32" viewBox="0 0 72 32" aria-hidden="true">${base != null ? `<line x1="2" x2="70" y1="${f1(Y(base))}" y2="${f1(Y(base))}" stroke="var(--line)" stroke-width="1" stroke-dasharray="2 2"/>` : ''}<path d="${path}" pathLength="1" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" opacity=".55"/><circle cx="${f1(last[0])}" cy="${f1(last[1])}" r="3.5" fill="${color}" stroke="var(--card)" stroke-width="1.5"/></svg>`;
 }
 // 걸음 수 카드: 최근 7일 막대 (지난 날은 옅게, 오늘만 진하게)
 function weekBars(vals, color) {
   const hi = Math.max(...vals, 1);
   return `<svg width="72" height="32" viewBox="0 0 72 32" aria-hidden="true">${vals.map((v, i) => { const h = Math.max(2, 28 * v / hi); return `<rect x="${3 + i * 10}" y="${30 - h}" width="5" height="${h}" rx="2" fill="${color}" opacity="${i === vals.length - 1 ? 1 : .25}"/>`; }).join('')}</svg>`;
 }
-function mcard({ label, color, date = '', value, unit, sub, i, vals = [], k }) {
+function mcard({ label, color, date = '', value, unit, sub, i, vals = [], k, base }) {
   const top = `<div class="mtop"><span class="mlab">${label}</span><span class="mdate">${date}${i != null && value != null ? (k ? ' ⌄' : ' ›') : ''}</span></div>`;
   if (value == null) return `<div class="mcard empty">${top}<div class="mrow"><div class="mnum">기록 없음</div></div><div class="msub">${sub}</div></div>`;
-  return `<button class="mcard" ${i != null ? `data-i="${i}"` : ''}${k ? ` data-k="${k}" aria-expanded="false"` : ''}>${top}<div class="mrow"><div class="mnum">${value}<small>${unit}</small></div>${spark(vals, color)}</div><div class="msub">${sub}</div></button>`;
+  return `<button class="mcard" ${i != null ? `data-i="${i}"` : ''}${k ? ` data-k="${k}" aria-expanded="false"` : ''}>${top}<div class="mrow"><div class="mnum">${value}<small>${unit}</small></div>${spark(vals, color, base)}</div><div class="msub">${sub}</div></button>`;
 }
 const trendVals = key => store.get('history', []).filter(h => !h.practice).map(TREND[key].pick).filter(v => v != null && !Number.isNaN(v)).slice(0, 7).reverse();
 
@@ -1648,11 +1661,11 @@ function renderTiles() {
   // 타일 부제는 좁은 폰(320px)에서 잘리지 않게 짧게 · 케이던스 기준은 결과 화면처럼 성별 반영 (Perry 20장)
   const norm = (({ sex }) => sex === 'm' ? 111 : sex === 'f' ? 117 : 113)(store.get('profile', {}));
   const tiles = [
-    { k: 'walkCad', label: '걷기 케이던스', color: 'var(--c-walk)', h: w, i: iw, value: w?.cadence.toFixed(0), unit: '걸음/분', vals: trendVals('walkCad'),
+    { k: 'walkCad', label: '걷기 케이던스', color: 'var(--c-walk)', base: norm, h: w, i: iw, value: w?.cadence.toFixed(0), unit: '걸음/분', vals: trendVals('walkCad'),
       sub: w ? `페리 ${norm}${delta(w.cadence, wPrev?.cadence)}` : '측정 탭에서 걸어요',
       ref: `페리의 보행 분석 성인 평균 ${norm}걸음/분 (남 111 · 여 117) · 출처: Perry 20장`,
       about: '1분 동안 걸은 걸음 수예요. 휴대폰 센서로 발이 땅에 닿는 횟수를 세요.' },
-    { k: 'walkSpeed', label: '걷기 속도', color: 'var(--c-walk)', h: sp, i: is, value: sp?.speed.toFixed(2), unit: 'm/s', vals: trendVals('walkSpeed'), dp: 2,
+    { k: 'walkSpeed', label: '걷기 속도', color: 'var(--c-walk)', base: 1.37, h: sp, i: is, value: sp?.speed.toFixed(2), unit: 'm/s', vals: trendVals('walkSpeed'), dp: 2,
       sub: sp ? '페리 1.37' : 'GPS·거리 입력 필요',
       ref: '페리의 보행 분석 성인 평균 1.37 m/s · 출처: Perry 20장',
       about: '1초 동안 걸어간 거리예요. GPS로 잰 거리나 직접 넣은 거리를 걸은 시간으로 나눠요.' },
@@ -1660,7 +1673,7 @@ function renderTiles() {
       sub: rn ? '기준선 없음 · 변화만' : '측정 탭 → 러닝',
       ref: '기준선 없음 · 내 기록의 변화만 봐요',
       about: '달릴 때 1분 동안의 걸음 수예요. 이 앱은 러닝 케이던스에 기준선을 두지 않고 내 기록끼리 비교해요.' },
-    { k: 'knee', label: '유각기 무릎', color: 'var(--c-video)', h: vd, i: iv, value: vd ? vd.r.m.kneeSwingMax.toFixed(0) : null, unit: '°', vals: trendVals('knee'),
+    { k: 'knee', label: '유각기 무릎', color: 'var(--c-video)', base: 60, h: vd, i: iv, value: vd ? vd.r.m.kneeSwingMax.toFixed(0) : null, unit: '°', vals: trendVals('knee'),
       sub: vd ? '페리 약 60°' : '걸음걸이 탭 → 옆모습',
       ref: '페리의 보행 분석 기준 약 60° · 출처: Perry 9장',
       about: '발이 땅에서 떨어져 앞으로 나갈 때(유각기) 무릎이 가장 많이 굽혀진 각도예요. 옆모습 영상으로 재고, 정확도는 참고 수준이에요.' },
@@ -1668,6 +1681,7 @@ function renderTiles() {
   if (!tiles.some(t => t.k === openTile && t.value != null)) openTile = null;
   $('tiles').innerHTML = tiles.map(t => ({ ...t, date: md2(t.h?.date) + (t.h?.practice ? ' 연습' : '') }))
     .map((t, i) => (i === 0 ? '<div class="grp">걷기</div>' : i === 2 ? '<div class="grp">러닝 · 영상</div>' : '') + (t.k === openTile ? openCard(t) : mcard(t))).join('');
+  if (tiles.some(t => t.vals.length > 1)) sparkDrawn = true;
 }
 $('tiles').addEventListener('click', e => {
   if (e.target.closest('.term')) return;                                     // 용어 밑줄은 풀이만 열고 카드는 그대로
@@ -2261,7 +2275,7 @@ function renderSteps() {
       <div class="bar"><i style="width:${Math.min(100, n / 70)}%"></i></div>
       <div class="msub" style="margin-top:0">7,000걸음 대비 ${Math.round(n / 70)}% · Ding 2025 · 헬스 커넥트</div>
       <details class="msub"><summary>근거 보기</summary>Ding 2025 메타분석: 하루 2,000걸음 대비 7,000걸음에서 전체 사망 위험 47% 낮음. 관찰 연구라 인과관계는 아니고, 목표 처방도 아니에요. 계속 0이면 삼성헬스 → 설정 → 헬스 커넥트에서 걸음 수 공유를 켜 주세요.</details></div>`)
-    + (s.sleep ? mcard({ label: '수면', color: 'var(--c-video)', date: '지난밤', value: sl ? `${Math.floor(sl / 60)}<small>시간</small> ${sl % 60}` : null, unit: '분', sub: sl ? '워치·삼성헬스 기록 · 판정하지 않아요' : '워치를 차고 자면 기록돼요' }).replace('<button class="mcard"', '<div class="mcard static"').replace(/<\/button>$/, '</div>') : '')
+    + (s.sleep && sl ? mcard({ label: '수면', color: 'var(--c-video)', date: '지난밤', value: sl ? `${Math.floor(sl / 60)}<small>시간</small> ${sl % 60}` : null, unit: '분', sub: sl ? '워치·삼성헬스 기록 · 판정하지 않아요' : '워치를 차고 자면 기록돼요' }).replace('<button class="mcard"', '<div class="mcard static"').replace(/<\/button>$/, '</div>') : '')
     + (missing.length ? `<div class="msub" style="margin-top:8px">${missing.join('·')} 권한이 꺼져 있어요.</div>${ask}` : '');
 }
 $('steps').addEventListener('click', async e => { if (e.target.id === 'stepsOk' && await permIntro('introHC', ...INTRO_HC)) { try { await HS.request(); } catch {} loadSteps(); } });
@@ -2413,9 +2427,6 @@ function renderHomeTop() {
   const prev = last && (v.find(x => !sameM(x.d, last.d)) ?? v[1]);
   const pair = prev ? (sameM(prev.d, last.d) ? '최근 두 영상' : `${prev.d.getMonth() + 1}월과 ${last.d.getMonth() + 1}월`) : '';
   const lesson = Math.floor(+today / 864e5) % DICT.length, dl = DICT[lesson];      // 날마다 지표 사전 한 항목
-  const w = store.get('history', []).find(h => (h.activity ?? 'walk') === 'walk' && !h.practice && h.cadence);
-  const stepsN = HS && stepsState?.granted ? stepsByDay[dayKey(today)] ?? 0 : null;   // 오늘 걸음은 설치형 앱(헬스 커넥트)만, 웹은 걷기 케이던스
-  const norm = (({ sex }) => sex === 'm' ? 111 : sex === 'f' ? 117 : 113)(store.get('profile', {}));
   $('homeTop').innerHTML = `<div class="card mirror">
       <div id="mirrorFig">${mirrorSvg(mirrorQ || phaseMid(1))}</div>
       <div class="mlabs"><span>페리의 보행 분석 기준</span><span>나</span></div>
@@ -2426,11 +2437,32 @@ function renderHomeTop() {
       <div class="chkLeft">${!last ? '첫 점검을 해 보세요' : left > 0 ? `${left}일 남음` : '점검할 때예요'}</div></div>
       <div class="sub" style="margin-top:6px">한 달에 한 번, 옆모습 영상으로 내 걸음을 비춰 봐요${last ? ` · 마지막 ${last.d.getMonth() + 1}월 ${last.d.getDate()}일` : ''}</div>
       ${pair ? `<a href="#" class="textlike" style="text-align:left;padding:8px 0 0;text-decoration:none" data-pair="${prev.i},${last.i}">${pair} 나란히 보기 ›</a>` : ''}</div>
-    <div class="hgrid"><button class="mcard" data-lesson="${lesson}"><div class="mtop"><span class="mlab">걸음 수업 · 30초</span></div><div style="font-weight:700;margin-top:6px">${dl.name}</div><div class="msub">${dl.short} ›</div></button>
-      ${stepsN != null ? `<div class="mcard static"><div class="mtop"><span class="mlab">오늘 걸음</span></div><div class="mnum" style="margin-top:6px">${stepsN.toLocaleString()}<small>걸음</small></div><div class="msub">헬스 커넥트</div></div>`
-        : `<div class="mcard static"><div class="mtop"><span class="mlab">걷기 케이던스</span></div><div class="mnum" style="margin-top:6px">${w ? Math.round(w.cadence) : '-'}<small>걸음/분</small></div><div class="msub">${w ? `페리 ${norm} · ${md(w.date)}` : '측정 탭에서 걸어요'}</div></div>`}</div>`;
+`;
+  $('lessonCard').innerHTML = `<button class="mcard" data-lesson="${lesson}"><div class="mtop"><span class="mlab">걸음 수업 · 30초</span><span class="mdate">›</span></div><div style="font-weight:700;margin-top:6px">${dl.name}</div><div class="msub">${dl.short}</div></button>`;
+  // 이번 주 카드: 월~일 그날 활동 색 점 + 측정 횟수 · 걷기 케이던스 평균 (달력과 같은 점 색)
+  const mon0 = monOf(today), hist = store.get('history', []), tk = dayKey(today), cur = weekSummary(hist).cur;
+  $('wkDots').innerHTML = ['월', '화', '수', '목', '금', '토', '일'].map((wd, k) => { const dk = dayKey(plusDays(mon0, k)), acts = [...new Set(hist.filter(h => dayKey(h.date) === dk).map(h => { const a = h.activity ?? 'walk'; return a === 'cooper' || a === 'easyrun' ? 'run' : a; }))];
+    return `<div class="${dk === tk ? 'today' : ''}">${wd}<i>${acts.map(a => `<b style="background:${ACT_C[a] ?? ACT_C.run}"></b>`).join('')}</i></div>`; }).join('');
+  $('wkLine').textContent = `측정 ${cur.n}회${cur.walkCad != null ? ` · 걷기 케이던스 평균 ${Math.round(cur.walkCad)}` : ''}`;
   if (!mirrorRaf && !matchMedia('(prefers-reduced-motion: reduce)').matches) { mirrorLast = 0; mirrorRaf = requestAnimationFrame(mirrorLoop); }
 }
+// 하위 화면(달력과 통계·배우기·프로그램과 알림): 오른쪽에서 밀려 들어옴, ‹·브라우저/휴대폰 뒤로 가기로 홈
+var subOpen = null;   // var: setTab·gaitBack이 먼저 불려도 오류 없이
+function openSub(id) {
+  const el = $(id); subOpen = id; el.hidden = false; el.scrollTop = 0;
+  void el.offsetWidth; el.classList.add('in');                            // 보이게 한 뒤 한 번 배치를 계산해야 밀려 들어오는 움직임이 보임
+  history.pushState({ sub: id }, ''); markTerms(el); el.querySelector('.spBack').focus({ preventScroll: true });
+}
+function closeSub(back = true) {
+  if (!subOpen) return;
+  const el = $(subOpen), id = subOpen; subOpen = null; el.classList.remove('in');
+  setTimeout(() => { if (subOpen !== id) el.hidden = true; }, matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 220);
+  document.querySelector(`[data-sub="${id}"]`)?.focus({ preventScroll: true });
+  if (back && history.state?.sub) history.back();                          // 열 때 넣은 기록 한 칸을 되돌림
+}
+document.addEventListener('click', e => { const s = e.target.closest('[data-sub]'), b = e.target.closest('.spBack'); if (s) openSub(s.dataset.sub); else if (b) closeSub(); });
+addEventListener('popstate', () => { if (subOpen && !history.state?.sub) closeSub(false); });
+$('lessonCard').addEventListener('click', e => { const l = e.target.closest('[data-lesson]'); if (l) openDict(+l.dataset.lesson); });
 $('homeTop').addEventListener('click', e => {
   const s = e.target.closest('[data-shoot]'), o = e.target.closest('[data-open]'), p = e.target.closest('[data-pair]'), l = e.target.closest('[data-lesson]');
   if (s) goShoot(s.dataset.shoot);
