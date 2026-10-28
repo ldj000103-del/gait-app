@@ -716,7 +716,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v134';
+const APP_VERSION = 'v135';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -2388,8 +2388,9 @@ function goShoot(note, open) {                                             // �
   (d || $('vsetup')).scrollIntoView({ block: 'start' });
 }
 const vids = () => store.get('history', []).map((h, i) => ({ h, i, d: new Date(h.date) })).filter(x => x.h.activity === 'video' && !Number.isNaN(+x.d));
+let mirrorCurves = null;                                                   // 홈 그림의 내 옆 곡선 (renderHomeTop에서 한 번만 읽음 — 매 프레임 기록 전체를 읽지 않게, 검수팀)
 function mirrorSvg(q) {                                                    // 걸음걸이 탭 옆 보기 그림을 작게 (말풍선 없이), 내 옆 영상이 없으면 점선 사람
-  const side = latestVid(v => v === 'side', r => r.curves), keep = cmpCurves;
+  const side = mirrorCurves, keep = cmpCurves;
   cmpCurves = side;                                                        // angAt이 읽는 곡선을 잠깐 바꿨다 되돌림 (걸음걸이 탭 카드 값은 그대로)
   const me = side ? sideFig(198, 'me', q, false) : `<g fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="4 4" opacity=".35"><circle cx="198" cy="52" r="10"/><path d="M198 64v40M198 104l-10 60M198 104l10 60M198 74l-14 22M198 74l14 22"/></g>`;
   const svg = `<svg viewBox="52 30 196 156" role="img" aria-label="페리의 보행 분석 기준 뼈대와 내 뼈대가 나란히 걷는 그림">${BONE_DEFS}${floorLines}${sideFig(102, 'perry', q, false)}${me}</svg>`;
@@ -2399,10 +2400,13 @@ let mirrorQ = 0, mirrorLast = 0, mirrorRaf = 0;
 function mirrorLoop(now) {
   const box = $('mirrorFig');
   if (!box?.offsetParent) { mirrorRaf = 0; return; }                       // 홈이 안 보이면 멈춤
+  mirrorRaf = requestAnimationFrame(mirrorLoop);
+  if (mirrorLast && now - mirrorLast < 40) return;                         // 초당 약 25번만 다시 그림 (저사양 폰 배터리·발열)
   mirrorQ = (mirrorQ + (now - (mirrorLast || now)) / CMP_T * 100) % 100; mirrorLast = now;
-  box.innerHTML = mirrorSvg(mirrorQ); mirrorRaf = requestAnimationFrame(mirrorLoop);
+  box.innerHTML = mirrorSvg(mirrorQ);
 }
 function renderHomeTop() {
+  mirrorCurves = latestVid(v => v === 'side', r => r.curves);
   const v = vids(), today = new Date(), mon = [3, 2, 1, 0].map(k => new Date(today.getFullYear(), today.getMonth() - k, 1));
   const sameM = (a, b) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth();
   const last = v[0], left = last ? Math.ceil((+last.d + 30 * 864e5 - +today) / 864e5) : null;
@@ -2436,6 +2440,7 @@ $('homeTop').addEventListener('click', e => {
     const rows = p.dataset.pair.split(',').map(i => $('histBody').querySelector(`[data-i="${i}"]`)).filter(Boolean);
     rows.forEach(r => { r.style.outline = '2px solid var(--accent)'; setTimeout(() => { r.style.outline = ''; }, 4000); });
     rows[0]?.scrollIntoView({ block: 'center' });
+    if (rows.length < 2) showRecord(+p.dataset.pair.split(',')[0]);        // 기록 탭은 최근 20개만 그려서 옛 영상이 없으면 그 기록을 바로 엶
   } else if (l) openDict(+l.dataset.lesson);
 });
 homeReady = true;
