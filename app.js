@@ -43,6 +43,9 @@ const REF = {
   ikenaga2017: 'Ikenaga M 외. Short-interval, intermittent, low-intensity, slow-jogging program in older adults: RCT. Eur J Appl Physiol 2017. doi:10.1007/s00421-016-3493-9',
 };
 const ACT = { walk: '걷기', run: '러닝', slowrun: '슬로우 러닝', easyrun: '천천히 달리기', cooper: '12분 달리기', stairs: '계단 오르기', video: '영상', auto: '자동' };
+// 달리기 활동: 시작 위 '뛰기 전 몸 풀기', 결과 아래 '뛴 뒤 정리 운동' (판은 아래 openEx)
+const RUN_ACTS = ['run', 'slowrun', 'easyrun', 'cooper'];
+const COOL_BTN = '<button class="textlike" data-ex="cool" style="margin-top:12px">뛴 뒤 정리 운동 ›</button>';
 const isRun = h => h.activity === 'run' || h.activity === 'easyrun';   // 천천히 달리기도 러닝 통계에 넣음
 const POS = { pocket: '바지 앞주머니', waist: '허리', hand: '손' };
 const VIEW = { side: '옆', front: '앞', back: '뒤' };
@@ -189,7 +192,7 @@ addEventListener('popstate', () => closePick(false));
 window.gaitBack = () => {
   if (!$('pickSheet').hidden) { closePick(); return true; }
   if (!$('stopSheet').hidden) { closeStopSheet(); $('stop').focus(); return true; }   // 측정 종료 확인 창 = '계속 측정'
-  const btn = document.querySelector('#permOv [data-p=later], #fbOv [data-f=close], #dictOv [data-dx=skip], #lessonOv [data-lx=close]');   // 권한 안내 = '나중에', 건의하기 = '닫기'(Esc와 같음), 지표 사전 = '건너뛰기'(닫기)
+  const btn = document.querySelector('#permOv [data-p=later], #fbOv [data-f=close], #dictOv [data-dx=skip], #lessonOv [data-lx=close], #exOv [data-ex=close]');   // 권한 안내 = '나중에', 건의하기 = '닫기'(Esc와 같음), 지표 사전 = '건너뛰기'(닫기)
   if (btn) { btn.click(); return true; }
   if (!$('tip').classList.contains('hidden')) { $('tip').classList.add('hidden'); return true; }   // 용어 풀이 팝업
   if (subOpen) { closeSub(); return true; }                                 // 홈 하위 화면 → 홈
@@ -259,7 +262,7 @@ $('pickSheet').addEventListener('keydown', e => { if (e.key === 'Escape') closeP
 $('pickSheet').addEventListener('pointerdown', e => { pickDragY = e.clientY; });          // 아래로 끌면 닫기
 $('pickSheet').addEventListener('pointerup', e => { if (pickDragY != null && e.clientY - pickDragY > 60) closePick(); pickDragY = null; });
 function showAct() { showLoc(); const a = $('act').value;
-  syncPicks(); $('autoNote').classList.toggle('hidden', a !== 'auto'); $('easyNote').classList.toggle('hidden', a !== 'easyrun'); $('slowNote').classList.toggle('hidden', a !== 'slowrun'); $('cooperNote').classList.toggle('hidden', a !== 'cooper'); $('stairsNote').classList.toggle('hidden', a !== 'stairs'); $('dmodeBox').classList.toggle('hidden', a === 'slowrun' || a === 'cooper' || a === 'stairs'); }
+  syncPicks(); $('autoNote').classList.toggle('hidden', a !== 'auto'); $('easyNote').classList.toggle('hidden', a !== 'easyrun'); $('slowNote').classList.toggle('hidden', a !== 'slowrun'); $('cooperNote').classList.toggle('hidden', a !== 'cooper'); $('warmBtn').classList.toggle('hidden', !RUN_ACTS.includes(a)); $('stairsNote').classList.toggle('hidden', a !== 'stairs'); $('dmodeBox').classList.toggle('hidden', a === 'slowrun' || a === 'cooper' || a === 'stairs'); }
 $('act').addEventListener('change', () => { store.set('act', $('act').value); showAct(); showSetSum(); });
 showAct();
 if (!store.get('history', []).length) $('firstGuide').open = true;   // 처음 쓰는 사람에겐 사용법을 펼쳐 둠
@@ -689,6 +692,7 @@ function renderCooper(r) {
   html = head + more(html + READ_GUIDE);
   if (r.receipt) html += `<div class="sub" style="margin-top:12px">익명 결과를 보냈어요. 접수번호 <b>${r.receipt}</b></div>`;
   html += `<div class="sub" style="margin-top:12px">이 결과는 의료 진단이 아니에요. 힘껏 달리는 테스트라 심장·폐·관절 질환이 있거나 평소 운동을 안 했다면 먼저 전문가와 상의하세요. 가슴 통증·어지럼이 있으면 바로 멈추세요.</div>`;
+  html += COOL_BTN;                                                         // 뛴 뒤 정리 운동 (디자인 팀 10/29)
   showHtml(html);
 }
 
@@ -697,7 +701,7 @@ function renderCooper(r) {
 function finishStairs(data, demo, position, press) {
   shownDate = null; route = null;
   const durS = (data[data.length - 1].t - data[0].t) / 1000;
-  const res = analyzeWalk(data, { position, activity: 'walk' }), climb = stairClimb(press);
+  const res = analyzeWalk(data, { position, activity: 'walk' }), climb = stairClimb(press, data);
   if (res.error && !climb?.climbM) return showHtml(`<h2>다시 측정해 주세요</h2><div class="warn">걸음 신호를 찾지 못했어요. 휴대폰을 주머니에 넣고 계단을 6초 이상 올라 주세요. 그래서 이번 측정은 기록에 저장하지 않았어요.</div>`);
   const rec = { date: new Date().toISOString(), start: Date.now() - durS * 1000, activity: 'stairs', position, practice: false, durS,
     cadence: res.error ? null : res.cadence, steps: res.error ? null : res.steps, activeS: res.error ? durS : res.activeS, regularity: res.error ? null : res.regularity, sd: res.sd,
@@ -711,16 +715,16 @@ function finishStairs(data, demo, position, press) {
 function renderStairs(r) {
   const baro = r.climbM != null, perFloor = baro && r.floors >= 1 ? r.durS / r.floors : null;
   let html = `<h2>계단 오르기 결과</h2>` + topCards(r, baro
-    ? { label: '올라간 높이', value: r.climbM.toFixed(0), unit: 'm', grade: 'y', sub: `약 ${r.floors}층 · 한 층을 ${FLOOR_M}m로 셈`,
+    ? { label: '올라간 높이', value: r.climbM.toFixed(0), unit: 'm', grade: 'y', sub: `${r.floors ? `약 ${r.floors}층` : '1층 미만'} · 한 층을 ${FLOOR_M}m로 셈`,
         stats: [{ icon: 'time', value: clock(r.durS), label: '시간' }, { icon: 'steps', value: r.steps, label: '걸음' }, ...(perFloor ? [{ icon: 'pace', value: clock(perFloor), label: '1층당' }] : [])] }
     : { label: '걸음', value: r.steps ?? '-', unit: '걸음', grade: 'n', sub: r.diag?.src === 'app' ? '이 휴대폰엔 기압계가 없어 높이는 못 재요' : '웹은 높이를 못 재요 · 설치형 앱은 기압계로 재요',
         stats: [{ icon: 'time', value: clock(r.durS), label: '시간' }] },
     [{ label: '케이던스', value: r.cadence ? r.cadence.toFixed(0) : '-', unit: '걸음/분', grade: 'n', sub: '계단 기준값 없음' },
      ...(baro ? [{ label: '걸음 수', value: r.steps ?? '-', unit: '걸음', grade: 'n', sub: '계단에서 검증 안 됨' }] : [])]);   // 높이가 없으면 걸음이 큰 카드라 겹치지 않게
   let body = '';
-  if (baro) body += metric({ title: '올라간 높이', value: r.climbM.toFixed(1), unit: `m · 약 ${r.floors}층`, grade: 'y',
+  if (baro) body += metric({ title: '올라간 높이', value: r.climbM.toFixed(1), unit: `m · ${r.floors ? `약 ${r.floors}층` : '1층 미만'}`, grade: 'y',
     body: `<div class="sub">${clock(r.durS)} 동안${perFloor ? ` · 1층에 평균 ${clock(perFloor)}` : ''}</div>`,
-    why: [`휴대폰 기압계로 잰 기압 변화를 높이로 바꿨어요(국제표준대기 공식). 2초 평균으로 흔들림을 줄이고, ${STAIR_STEP_M}m 넘게 오를 때만 더해요. 내려간 높이는 세지 않아요`,
+    why: [`휴대폰 기압계로 잰 기압 변화를 높이로 바꿨어요(국제표준대기 공식). 2초 평균으로 흔들림을 줄이고, 걷는 중에 ${STAIR_STEP_M}m 넘게 오를 때만 더해요. 내려간 높이와 가만히 있을 때 바뀐 높이(엘리베이터·날씨)는 세지 않아요`,
       `층수는 올라간 높이를 한 층 ${FLOOR_M}m로 나눈 대략값이에요. 건물마다 층 높이가 달라요`,
       '기압은 날씨로도 조금씩 바뀌어서, 오래 잴수록 오차가 커질 수 있어요'],
     refs: [], limit: '같은 계단에서 잰 기록끼리 비교해 보세요.' });
@@ -845,7 +849,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v158';
+const APP_VERSION = 'v159';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -1160,6 +1164,7 @@ function renderRun(r, prev) {
   html += r.diagHtml || '';
   if (r.receipt) html += `<div class="sub" style="margin-top:12px">익명 결과를 보냈어요. 접수번호 <b>${r.receipt}</b></div>`;
   html += `<div class="sub" style="margin-top:12px">이 결과는 의료 진단이 아니에요. 통증이 있으면 전문가와 상담하세요.</div>`;
+  html += COOL_BTN;                                                         // 뛴 뒤 정리 운동 (디자인 팀 10/29)
   showHtml(html);
 }
 
@@ -1184,6 +1189,7 @@ function renderSlow(r, hist) {
     healthRunCard()]);
   if (r.receipt) html += `<div class="sub" style="margin-top:12px">익명 결과를 보냈어요. 접수번호 <b>${r.receipt}</b></div>`;
   html += `<div class="sub" style="margin-top:12px">이 결과는 의료 진단이 아니에요. 가슴 통증·어지럼이 있으면 멈추고 전문가와 상담하세요.</div>`;
+  html += COOL_BTN;                                                         // 뛴 뒤 정리 운동 (디자인 팀 10/29)
   showHtml(html);
 }
 
@@ -1246,7 +1252,7 @@ function cardRows(h) {
     push('12분 달린 거리', Math.round(h.distance).toLocaleString(), 'm', `평균 페이스 ${paceText(h.speed)}/km · GPS로 잰 참고값`);
     if (h.cadence) push('러닝 케이던스', f(h.cadence), '걸음/분', '주머니 스마트폰으로 잰 참고값');
   } else if (act === 'stairs') {
-    if (h.climbM != null) push('올라간 높이', f(h.climbM), 'm', `약 ${h.floors}층 · 기압계로 잰 참고값`);
+    if (h.climbM != null) push('올라간 높이', f(h.climbM), 'm', `${h.floors ? `약 ${h.floors}층` : '1층 미만'} · 기압계로 잰 참고값`);
     push('시간', clock(h.durS), '', h.steps != null ? `${h.steps}걸음 · 계단 걸음 수는 검증 안 됨` : '');
   } else if (h.view === 'side') {
     const m = h.r.m;
@@ -2666,6 +2672,51 @@ function openLesson() {
   o.querySelector('[data-lx=close]').focus();
 }
 $('lessonCard').addEventListener('click', e => { if (e.target.closest('[data-lesson]')) openLesson(); });
+
+// ── 뛰기 전 몸 풀기 · 뛴 뒤 정리 운동 판 (디자인 팀 10/29, 법률 검토 22번 통과) ──
+// 시간·방법: Kisner 『운동치료총론』 개정8판 4장 113쪽(정적 신장 30초)·7장 298~299쪽(준비·정리 5~10분), NASM-CPT 7장 146~147쪽·8장 166~168쪽
+// 그림: assets/exercise/<이름>.webp = 투명 움직이는 WebP(5초 고리), <이름>-still.webp = 멈춘 그림(움직임 줄이기 설정). Human Base Meshes(CC0)로 직접 자세를 만들어 렌더 (scratchpad bl_scripts/render_ex2.py)
+// 이용자 측정값과 연결하지 않고 효과를 말하지 않음 (법률 22번)
+const EX = {
+  warm: { title: '뛰기 전 몸 풀기', sub: '천천히 시작해서 조금씩 빠르게 해요', time: '약 7분', items: [
+    ['brisk', '빠르게 걷기', '2분', '팔을 흔들며 평소보다 조금 빠르게 걸어요'],
+    ['march', '무릎 들어 걷기', '10번', '무릎을 번갈아 앞으로 들며 걸어요'],
+    ['swing', '다리 앞뒤 흔들기', '좌우 10번', '벽을 짚고 한쪽 다리를 앞뒤로 가볍게 흔들어요'],
+    ['ankle', '발목 돌리기', '좌우 10번', '발끝을 바닥에 대고 천천히 원을 그려요'],
+    ['heel', '뒤꿈치 들기', '10번', '발끝으로 섰다가 천천히 내려와요'],
+    ['jog', '천천히 달리기', '2분', '걷는 속도로 가볍게 뛰다가 조금씩 속도를 올려요']] },
+  cool: { title: '뛴 뒤 정리 운동', sub: '당기는 느낌이 들 때까지, 아프지 않은 범위에서 늘여요', line: '튕기지 말고 멈춘 채로 늘여요', time: '약 7분', items: [
+    ['slowwalk', '천천히 걷기', '3분', '숨이 고를 때까지 천천히 걸어요'],
+    ['calf', '종아리 늘이기', '좌우 30초', '벽을 짚고 한 다리를 뒤로 뻗어요. 뒤 무릎은 펴고 발끝은 앞으로, 뒤꿈치는 바닥에 붙여요', 1],
+    ['quad', '허벅지 앞 늘이기', '좌우 30초', '벽을 짚고 한 발을 뒤로 잡아 엉덩이 쪽으로 당겨요', 1],
+    ['ham', '허벅지 뒤 늘이기', '좌우 30초', '한 발을 앞에 두고 발끝을 들어 상체를 살짝 숙여요', 1],
+    ['glute', '엉덩이 늘이기', '좌우 30초', '의자에 앉아 한 발목을 반대 무릎에 올리고 상체를 살짝 숙여요', 1]] },
+};
+function openEx(kind) {
+  const d = EX[kind], o = document.createElement('div');
+  o.id = 'exOv'; o.setAttribute('role', 'dialog'); o.setAttribute('aria-modal', 'true'); o.setAttribute('aria-label', d.title);
+  o.innerHTML = `<div class="dsheet lesson"><div class="lhead"><div><div class="sub" style="font-size:.75rem">${d.time}</div><h3>${d.title}</h3></div><button class="lx" data-ex="close" aria-label="닫기">✕</button></div>
+    <p class="sub" style="margin:4px 0 0">${d.sub}</p>${d.line ? `<p style="margin:4px 0 0;font-weight:600">${d.line}</p>` : ''}
+    ${d.items.some(x => x[4]) ? '<p class="exleg"><i aria-hidden="true"></i>늘어나는 곳 <span class="sub">· 해부학 그림에서 흔히 쓰는 근육 색이에요</span></p>' : ''}
+    <ol class="exlist">${d.items.map(([k, name, dose, how]) => `<li><picture><source srcset="assets/exercise/${k}-still.webp" media="(prefers-reduced-motion: reduce)"><img src="assets/exercise/${k}.webp" alt="${name} 동작 그림" width="104" height="121" loading="lazy"></picture>
+      <div><b>${name}</b> <span class="exdose">${dose}</span><p>${how}</p></div></li>`).join('')}</ol>
+    ${kind === 'warm' ? '<button data-ex="start">측정 시작</button>' : ''}
+    <p class="lfine">일반적인 운동 안내이며 치료·재활을 대신하지 않아요. 통증이 있거나 어지러우면 멈추고 전문가와 상담하세요.<br>참고한 자료: 운동치료총론 개정8판 4·7장, NASM-CPT 7·8장 · <a href="#" data-ex="src">출처 보기 ›</a></p></div>`;
+  const back = document.activeElement;
+  document.body.append(o);
+  for (const el of [document.querySelector('main'), $('tabbar')]) el.inert = true;
+  const close = () => { for (const el of [document.querySelector('main'), $('tabbar')]) el.inert = false; o.remove(); };
+  o.addEventListener('click', e => {
+    const b = e.target.closest('[data-ex]');
+    if (e.target === o || b?.dataset.ex === 'close') { close(); back?.focus?.(); }
+    else if (b?.dataset.ex === 'start') { close(); $('start').click(); }   // 몸 풀기 뒤 바로 측정 (평소 시작 버튼과 같은 흐름)
+    else if (b?.dataset.ex === 'src') { e.preventDefault(); close(); setTab('home'); const s = $('exSrc'); s.open = true; s.scrollIntoView({ block: 'center' }); }
+  });
+  o.addEventListener('keydown', e => { if (e.key === 'Escape') { close(); back?.focus?.(); } });
+  o.querySelector('[data-ex=close]').focus();
+}
+$('warmBtn').addEventListener('click', () => openEx('warm'));
+$('result').addEventListener('click', e => { if (e.target.closest('[data-ex=cool]')) openEx('cool'); });
 $('homeTop').addEventListener('click', e => {
   const s = e.target.closest('[data-shoot]'), o = e.target.closest('[data-open]'), p = e.target.closest('[data-pair]'), l = e.target.closest('[data-lesson]');
   if (s) goShoot(s.dataset.shoot);

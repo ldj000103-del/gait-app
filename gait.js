@@ -259,11 +259,20 @@ export function withDistance(result, distanceM) {
 
 // 계단 오르기 (민원팀·아버님 10/28): 기압계 값 [{t, hpa}] → 올라간 높이(m). 오르기만 셈
 // 높이 = 국제표준대기 기압 공식 44330·(1 − (p/p0)^0.1903). 2초 평균으로 잡음을 줄이고, 마지막 기준보다 STAIR_STEP_M 넘게 오를 때만 더함(내려가면 기준만 낮춤)
-// ponytail: 날씨로 기압이 변하면(보통 몇 시간에 1~2hPa ≈ 8~16m) 긴 측정에선 오차가 커짐 → 측정이 짧을 때만 믿을 만함
-export const STAIR_STEP_M = 0.5, FLOOR_M = 3;   // 한 층 높이는 아파트 보통 값으로 가정 (참고)
-export function stairClimb(press) {
+// 걷는 중(같은 2초 가속도 흔들림 ≥ STAIR_MOVE_SD, app.js STILL_SD와 같은 값)일 때만 더하고, 가만히 있을 땐 기준만 따라감 → 날씨로 바뀐 기압·엘리베이터는 빠짐 (검수팀 10/29)
+// ponytail: 걸으면서 바뀐 날씨 기압은 여전히 섞임(1hPa/시간 ≈ 10분에 1.4m) → 계단은 짧게 재는 걸 전제
+export const STAIR_STEP_M = 0.5, FLOOR_M = 3, STAIR_MOVE_SD = 0.6;   // 한 층 높이는 아파트 보통 값으로 가정 (참고)
+export function stairClimb(press, samples) {
   const p = (press ?? []).filter(x => x.hpa > 300 && x.hpa < 1100);
   if (p.length < 10) return null;
+  const B = new Map();                                                     // 1초 칸마다 가속도 크기 합·제곱합·개수
+  for (const s of samples ?? []) { const k = Math.floor(s.t / 1000), m = Math.hypot(s.x, s.y, s.z), b = B.get(k) ?? [0, 0, 0]; b[0] += m; b[1] += m * m; b[2]++; B.set(k, b); }
+  const moving = t => {                                                  // t 앞 2초의 흔들림 (가속도가 없으면 걷는 중으로 봄)
+    if (!samples) return true;
+    let a = 0, q = 0, n = 0;
+    for (let k = Math.floor(t / 1000) - 2; k <= Math.floor(t / 1000); k++) { const b = B.get(k); if (b) { a += b[0]; q += b[1]; n += b[2]; } }
+    return n > 10 && Math.sqrt(Math.max(0, q / n - (a / n) ** 2)) >= STAIR_MOVE_SD;
+  };
   const h = p.map(x => 44330 * (1 - (x.hpa / p[0].hpa) ** 0.1903));
   let ref = null, gain = 0, j = 0, sum = 0;
   for (let i = 0; i < p.length; i++) {                                     // 지난 2초 평균
@@ -271,7 +280,7 @@ export function stairClimb(press) {
     while (p[i].t - p[j].t > 2000) sum -= h[j++];
     const v = sum / (i - j + 1);
     if (ref == null) ref = v;
-    else if (v - ref >= STAIR_STEP_M) { gain += v - ref; ref = v; }
+    else if (v - ref >= STAIR_STEP_M) { if (moving(p[i].t)) gain += v - ref; ref = v; }
     else if (v < ref - STAIR_STEP_M) ref = v;
   }
   return { climbM: gain, floors: Math.floor(gain / FLOOR_M + 0.3) };       // 2.1m부터 1층으로 셈 (층 높이가 2.8~3m라서)

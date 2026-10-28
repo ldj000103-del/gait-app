@@ -148,5 +148,13 @@ console.log('모든 점검 통과');
   const flat = stairClimb(mk(ramp(0, 0, 120)));
   assert.ok(flat.climbM < 0.6, `평지 잡음: ${flat.climbM}`);
   assert.equal(stairClimb([]), null);
+  // 가속도와 같이: 걷는 동안(흔들림 큼)만 셈 — 가만히 30분 + 날씨 −1hPa/시간, 엘리베이터 10층 30초는 0
+  const acc = (s, walk) => Array.from({ length: s * 50 }, (_, i) => ({ t: i * 20, x: 0, y: 9.81 + (walk ? 2 * Math.sin(i / 3) : rand() * 0.05), z: 0 }));
+  const weather = Array.from({ length: 1800 * 5 }, (_, i) => ({ t: i * 200, hpa: 1013 - i * 0.2 / 3600 + rand() * 0.06 }));
+  assert.ok(stairClimb(weather, acc(1800, false)).climbM < 0.6, '가만히 + 날씨는 0');
+  const lift = mk([...ramp(0, 0, 10), ...ramp(0, 30, 30), ...ramp(30, 30, 10)]);
+  assert.equal(stairClimb(lift, acc(50, false)).climbM, 0, '엘리베이터는 0');
+  const upW = stairClimb(mk([...ramp(0, 0, 10), ...ramp(0, 30, 300), ...ramp(30, 30, 10)]), acc(320, true));
+  assert.ok(Math.abs(upW.climbM - 30) < 1.5, `걸으며 30m: ${upW.climbM}`);
   console.log('계단 높이 점검 통과');
 }
