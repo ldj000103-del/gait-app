@@ -192,6 +192,7 @@ addEventListener('popstate', () => closePick(false));
 window.gaitBack = () => {
   if (!$('pickSheet').hidden) { closePick(); return true; }
   if (!$('stopSheet').hidden) { closeStopSheet(); $('stop').focus(); return true; }   // 측정 종료 확인 창 = '계속 측정'
+  if ($('exDet')) { $('exDet').querySelector('[data-exd=back]').click(); return true; }   // 운동 상세 → 목록
   const btn = document.querySelector('#permOv [data-p=later], #fbOv [data-f=close], #dictOv [data-dx=skip], #lessonOv [data-lx=close], #exOv [data-ex=close]');   // 권한 안내 = '나중에', 건의하기 = '닫기'(Esc와 같음), 지표 사전 = '건너뛰기'(닫기)
   if (btn) { btn.click(); return true; }
   if (!$('tip').classList.contains('hidden')) { $('tip').classList.add('hidden'); return true; }   // 용어 풀이 팝업
@@ -849,7 +850,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v162';
+const APP_VERSION = 'v163';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -2687,32 +2688,125 @@ const EX = {
     ['jog', '천천히 달리기', '2분', '걷는 속도로 가볍게 뛰다가 조금씩 속도를 올려요']] },
   cool: { title: '뛴 뒤 정리 운동', sub: '당기는 느낌이 들 때까지, 아프지 않은 범위에서 늘여요', line: '튕기지 말고 멈춘 채로 늘여요', time: '약 7분', items: [
     ['slowwalk', '천천히 걷기', '3분', '숨이 고를 때까지 천천히 걸어요'],
-    ['calf', '종아리 늘이기', '좌우 30초', '벽을 짚고 한 다리를 뒤로 뻗어요. 뒤 무릎은 펴고 발끝은 앞으로, 뒤꿈치는 바닥에 붙여요', 1],
-    ['quad', '허벅지 앞 늘이기', '좌우 30초', '벽을 짚고 한 발을 뒤로 잡아 엉덩이 쪽으로 당겨요', 1],
-    ['ham', '허벅지 뒤 늘이기', '좌우 30초', '한 발을 앞에 두고 발끝을 들어 상체를 살짝 숙여요', 1],
-    ['glute', '엉덩이 늘이기', '좌우 30초', '의자에 앉아 한 발목을 반대 무릎에 올리고 상체를 살짝 숙여요', 1]] },
+    ['calf', '종아리 늘이기', '좌우 30초 × 2', '벽을 짚고 한 발을 뒤로 빼요. 뒤꿈치를 붙인 채 무릎 펴서 30초, 살짝 굽혀서 30초', 1],
+    ['quad', '허벅지 앞 늘이기', '좌우 30초', '벽을 짚고 한 발목을 잡아, 골반을 뒤로 말며 허벅지 앞을 늘여요', 1],
+    ['ham', '허벅지 뒤 늘이기', '좌우 30초', '낮은 계단에 발뒤꿈치를 올리고, 등을 편 채 엉덩이에서 숙여요', 1],
+    ['glute', '엉덩이 늘이기', '좌우 30초', '의자에 앉아 한 발목을 반대 무릎에 올리고 허리를 편 채 숙여요', 1]] },
 };
+// 동작 상세 (디자인 팀 시안 A 10/29, 법률 23번): 3D 보기 + 카드 4개. 정리 운동 근육·자세는 Kisner 20·22장, 준비 운동은 7장 298쪽 원칙 (사용자 규칙: Kisner가 기준)
+// [시간·횟수, 자세, 순서, 늘어나는 곳(정리)·주로 움직이는 곳(준비), 추가 주의, 처음 보는 각도(theta°: 0 = 앞, −90 = 몸 오른쪽)]
+const EXD = {
+  brisk: ['2분', '선 자세', ['바르게 서서 팔을 앞뒤로 흔들며 걸어요.', '평소보다 조금 빠르게, 말은 할 수 있을 정도로 걸어요.', '2분 동안 이어서 걸어요.'], '다리 전체와 팔', [], -60],
+  march: ['10번', '선 자세', ['바르게 서요.', '한쪽 무릎을 앞으로 들며 반대 팔을 앞으로 흔들어요.', '내려놓고 반대쪽도 해요. 양쪽을 합쳐 10번 해요.'], '허벅지 앞(대퇴사두근)과 엉덩이 앞(장요근)', [], -60],
+  swing: ['좌우 10번', '벽 짚기', ['벽 옆에 서서 한 손으로 벽을 짚어요.', '벽에서 먼 쪽 다리를 앞뒤로 가볍게 흔들어요.', '10번 한 뒤 돌아서서 반대쪽도 해요.'], '엉덩이 관절 주변', ['몸통은 세운 채, 다리를 세게 차올리지 않아요'], -60],
+  ankle: ['좌우 10번', '선 자세', ['한 발의 발끝을 바닥에 대요.', '발목으로 천천히 원을 그려요.', '10번 한 뒤 반대쪽도 해요.'], '발목', [], -60],
+  heel: ['10번', '선 자세(필요하면 벽 짚기)', ['발을 어깨너비로 벌리고 서요.', '발끝으로 천천히 올라섰다가', '천천히 내려와요. 10번 해요.'], '종아리(비복근·가자미근)', [], -60],
+  jog: ['2분', '선 자세', ['걷는 속도로 가볍게 뛰기 시작해요.', '조금씩 속도를 올려요.', '2분 뒤 측정을 시작해요.'], '다리 전체와 팔', [], -60],
+  slowwalk: ['3분', '선 자세', ['달리기를 멈추고 천천히 걸어요.', '숨이 고를 때까지 3분 동안 걸어요.'], '다리 전체 (늘어나는 곳 없음)', [], -60],
+  calf: ['좌우 각 30초씩 두 자세(무릎 펴서 / 살짝 굽혀서)', '벽 짚기', ['벽을 마주 보고 서서 두 손을 벽에 대요.', '한 발을 앞으로 내딛고, 뒤 발의 뒤꿈치를 바닥에 평평하게 붙여요. 뒤 발끝은 살짝 안쪽을 향하게 해요.', '뒤 무릎을 편 채, 종아리가 당길 때까지 몸을 벽 쪽으로 천천히 기울여 30초 있어요.', '이번엔 뒤 무릎을 살짝 굽혀 30초 더 있어요. 반대쪽도 같게 해요.'], '뒤 다리의 종아리 — 무릎 펴면 비복근, 살짝 굽히면 가자미근', [], -120],
+  quad: ['좌우 각 30초', '벽이나 의자 짚기', ['벽 옆에 서서 한 손으로 벽을 짚어요.', '벽에서 먼 쪽 무릎을 굽혀 같은 쪽 손으로 발목을 잡아요.', '엉덩이를 살짝 앞으로 밀어 골반을 뒤로 말고, 허벅지를 몸 뒤쪽으로 살짝 보내 허벅지 앞이 당길 때까지 있어요.', '멈춘 채로 30초 있다가 천천히 내려놓아요. 반대쪽도 같게 해요.'], '잡은 다리의 허벅지 앞(대퇴사두근)', ['허리를 뒤로 젖히지 않아요'], -60],
+  ham: ['좌우 각 30초', '낮은 계단이나 의자 사용', ['낮은 계단이나 의자 앞에 서서 한쪽 발뒤꿈치를 올려요.', '올린 다리의 무릎은 편 채, 등을 곧게 펴요.', '허리를 말지 말고 엉덩이에서 몸통을 앞으로 숙여 허벅지 뒤가 당길 때까지 있어요.', '멈춘 채로 30초 있다가 천천히 일어나요. 반대쪽도 같게 해요.'], '올린 다리의 허벅지 뒤(햄스트링)', ['발끝에 손을 대려고 등을 둥글게 말지 않아요'], -120],
+  glute: ['좌우 각 30초', '의자에 앉기', ['의자에 앉아 두 발을 바닥에 대요.', '한 발목을 반대쪽 무릎 위에 올려 다리로 4자를 만들어요.', '허리를 편 채 상체를 앞으로 숙여 엉덩이 뒤쪽이 당길 때까지 있어요.', '멈춘 채로 30초 있다가 천천히 일어나 앉아요. 반대쪽도 같게 해요.'], '올린 다리의 엉덩이 뒤쪽(대둔근·중둔근)', [], -130],
+};
+const EX_CAU = { warm: ['천천히 시작해서 조금씩 빠르게 해요', '숨이 너무 차면 속도를 줄여요', '통증이 있거나 어지러우면 멈춰요'],
+  cool: ['튕기지 말고 멈춘 채로 늘여요', '당기는 느낌까지만, 아프지 않은 범위에서 해요', '숨을 참지 말고 편하게 쉬어요', '통증이 있거나 어지러우면 멈춰요'] };
+const EX_FINE = '일반적인 운동 안내이며 치료·재활을 대신하지 않아요. 통증이 있거나 어지러우면 멈추고 전문가와 상담하세요.<br>참고한 자료: 운동치료총론 개정8판 4·7·20·22장, NASM-CPT 7·8장';
+// 보기 도구 model-viewer 4.4.0(Apache-2.0, vendor/)은 처음 상세를 열 때만 불러옴. 본 3D 파일·보기 도구는 'ex3d' 저장소에 넣어 오프라인에서도 열리게 (sw.js가 지우지 않음)
+let mvReady = null;
+const exCache = urls => caches?.open('ex3d').then(c => Promise.all(urls.map(u => c.match(u).then(h => h || c.add(u))))).catch(() => {});
+const MUS_LIN = [0.392, 0.032, 0.048], MUS_PALE = [0.80, 0.42, 0.42];   // 근육 빨강 #a8323e(선형) · 옅게
+function openExDetail(kind, i) {
+  const list = EX[kind].items, [k, name] = list[i], [dose, pose, steps, area, extra, theta] = EXD[k], cool = kind === 'cool' && k !== 'slowwalk';
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches, mus = ['calf', 'quad', 'ham', 'glute'].includes(k);
+  mvReady ??= import('./vendor/model-viewer-4.4.0.min.js').catch(e => { mvReady = null; throw e; });
+  exCache(['vendor/model-viewer-4.4.0.min.js', `assets/exercise3d/${k}.glb`]);
+  $('exDet')?.remove();
+  const o = document.createElement('div');
+  o.id = 'exDet'; o.setAttribute('role', 'dialog'); o.setAttribute('aria-modal', 'true'); o.setAttribute('aria-label', name);
+  const VIEW3 = { side: -90, back: 180, front: 0 };
+  o.innerHTML = `<div class="sphead"><button class="spBack" data-exd="back" aria-label="목록으로">‹</button><h2>${name}</h2></div>
+    <div class="d3">${k === 'calf' ? '<div class="d3stage" hidden></div>' : ''}<model-viewer src="assets/exercise3d/${k}.glb" alt="${name} 3D 모형, 손가락으로 밀어 돌려 볼 수 있어요" camera-controls touch-action="pan-y" disable-pan interaction-prompt="none"
+      camera-orbit="${theta}deg 80deg auto" shadow-intensity="0.6" environment-image="neutral" exposure="1.05" ${reduce ? '' : 'autoplay'}></model-viewer>
+      <div class="d3bar"><span>${['side', 'back', 'front'].map(v => `<button class="chip" data-view="${v}">${{ side: '옆', back: '뒤', front: '앞' }[v]}</button>`).join('')}</span><button class="chip" data-exd="play">${reduce ? '▶ 동작 보기' : '❚❚ 동작 멈춤'}</button></div></div>
+    <p class="lfine" style="margin-top:4px">3D 모형: Human Base Meshes(CC0)${mus ? ' · BodyParts3D · Z-Anatomy 근육(CC BY-SA)' : ''}으로 만듦 · <a href="#" data-exd="src">출처 보기 ›</a></p>
+    <div class="card"><h3>시간·횟수·자세</h3><p>${dose} · ${pose}</p></div>
+    <div class="card"><h3>이렇게 해요</h3><ol class="exsteps">${steps.map(s => `<li>${s}</li>`).join('')}</ol></div>
+    <div class="card"><h3>${cool ? '<span class="exleg" style="margin:0"><i aria-hidden="true"></i></span>늘어나는 곳' : '주로 움직이는 곳'}</h3><p>${area}</p></div>
+    <div class="card"><h3>주의할 점</h3><ul class="exsteps">${[...(cool ? EX_CAU.cool : kind === 'warm' ? EX_CAU.warm : ['통증이 있거나 어지러우면 멈춰요']), ...extra].map(s => `<li>${s}</li>`).join('')}</ul></div>
+    <p class="lfine">${EX_FINE}</p>
+    <div class="exnav">${i > 0 ? `<button class="ghost" data-exd="prev">‹ ${list[i - 1][1]}</button>` : '<span></span>'}${i < list.length - 1 ? `<button class="ghost" data-exd="next">${list[i + 1][1]} ›</button>` : ''}</div>`;
+  document.body.append(o);
+  $('exOv').inert = true;
+  requestAnimationFrame(() => o.classList.add('in')); setTimeout(() => o.classList.add('in'), 30);   // 오른쪽에서 들어옴 (숨은 창에서 rAF가 안 돌 때도)
+  const mv = o.querySelector('model-viewer'), playBtn = o.querySelector('[data-exd=play]');
+  // 처음부터 오프라인이라 보기 도구나 3D 파일을 못 받으면: 목록 그림 + 안내 한 줄 (디자인 팀 10/29: 빈 칸·오류 없이)
+  const fallback = () => { const d3 = o.querySelector('.d3'); if (!d3 || d3.dataset.fb) return; d3.dataset.fb = 1;
+    d3.innerHTML = `<picture><source srcset="assets/exercise/${k}-still.webp" media="(prefers-reduced-motion: reduce)"><img src="assets/exercise/${k}.webp" alt="${name} 동작 그림" style="display:block;margin:0 auto;width:208px;height:242px"></picture><p class="sub" style="text-align:center;margin:4px 0 0">인터넷에 연결되면 3D로 볼 수 있어요</p>`; };
+  mvReady.catch(fallback); mv.addEventListener('error', fallback);
+  let userCam = false;                                                   // 손으로 돌렸거나 옆·뒤·앞을 누르면 자동 각도 바꾸기를 멈춤
+  mv.addEventListener('camera-change', e => { if (e.detail?.source === 'user-interaction') userCam = true; });
+  const setView = v => { userCam = true; mv.cameraOrbit = `${VIEW3[v]}deg 80deg auto`; o.querySelectorAll('[data-view]').forEach(c => c.setAttribute('aria-pressed', c.dataset.view === v)); };
+  // 반투명 피부는 바깥 한 겹만 (디자인 팀 10/29: 관절 구 이음이 겹쳐 비치지 않게): 피부 깊이만 먼저 쓰는 복제(색 없음)를 붙이고, 근육은 그보다 먼저 그림
+  // ponytail: model-viewer 안쪽 three.js 장면(Symbol 'scene')을 직접 만짐 → model-viewer 버전을 올리면 다시 확인
+  mv.addEventListener('load', () => {
+    const sc = mv[Object.getOwnPropertySymbols(mv).find(s => s.description === 'scene')], skins = [];
+    sc?.traverse(m => { if (!m.isMesh) return; if (m.material.name?.startsWith('mus_')) m.renderOrder = -2; else if (m.material.transparent) skins.push(m); });
+    for (const m of skins) {
+      const d = new m.constructor(m.geometry, m.material.clone());
+      Object.assign(d.material, { colorWrite: false, transparent: false, depthWrite: true }); d.renderOrder = -1; m.add(d); m.material.depthWrite = true;
+    }
+  }, { once: true });
+  let tick = 0;
+  if (k === 'calf') {                                                    // 종아리: 첫 멈춤(무릎 폄)에 비복근, 두 번째 멈춤(살짝 굽힘)에 가자미근을 진하게 (render_ex2.py와 같은 구간, 10fps)
+    const ramp = (f, a, c) => f < a || f >= c + 3 ? 0 : f < a + 3 ? (f - a) / 3 : f < c ? 1 : (c + 3 - f) / 3;
+    const paint = () => { const f = (mv.currentTime || 0) * 10, mats = mv.model?.materials ?? [];
+      for (const [nm, s] of [['mus_gas', ramp(f, 8, 22)], ['mus_sol', ramp(f, 27, 38)]]) { const m = mats.find(x => x.name === nm), t = 0.45 + 0.55 * s;
+        m?.pbrMetallicRoughness.setBaseColorFactor([...MUS_PALE.map((p, j) => p + (MUS_LIN[j] - p) * t), 1]); }
+      // 단계 표시 (디자인 팀 10/29): 멈춤마다 3D 위에 한 줄, 2단계는 무릎 굽힘이 보이게 옆에서
+      const st = f >= 8 && f < 25 ? 1 : f >= 27 && f < 41 ? 2 : 0, lab = o.querySelector('.d3stage');
+      if (lab && String(st) !== lab.dataset.st) { lab.dataset.st = st; lab.hidden = !st; lab.textContent = st === 1 ? '1 무릎 펴고 · 비복근' : st === 2 ? '2 무릎 살짝 굽혀 · 가자미근' : '';
+        if (!userCam) mv.cameraOrbit = `${st === 2 ? -90 : theta}deg 80deg auto`; } };
+    tick = setInterval(paint, 100);
+  }
+  const close = () => { clearInterval(tick); o.remove(); if ($('exOv')) { $('exOv').inert = false; $('exOv').querySelectorAll('.exlist li')[i]?.querySelector('button, [tabindex]')?.focus(); } };
+  o.addEventListener('click', e => {
+    const b = e.target.closest('[data-exd], [data-view]');
+    if (!b) return;
+    if (b.dataset.view) return setView(b.dataset.view);
+    const a = b.dataset.exd;
+    if (a === 'back') close();
+    else if (a === 'play') { if (mv.paused) { mv.play(); playBtn.textContent = '❚❚ 동작 멈춤'; } else { mv.pause(); playBtn.textContent = '▶ 동작 보기'; } }
+    else if (a === 'prev' || a === 'next') openExDetail(kind, i + (a === 'next' ? 1 : -1));
+    else if (a === 'src') { e.preventDefault(); close(); $('exOv')?.querySelector('[data-ex=close]')?.click(); setTab('home'); const s = $('boneSrc'); s.open = true; s.scrollIntoView({ block: 'center' }); }
+  });
+  o.addEventListener('keydown', e => { if (e.key === 'Escape') { e.stopPropagation(); close(); } });
+  o.querySelector('[data-exd=back]').focus();
+}
+
 function openEx(kind, fromHome = false) {
   const d = EX[kind], o = document.createElement('div');
   o.id = 'exOv'; o.setAttribute('role', 'dialog'); o.setAttribute('aria-modal', 'true'); o.setAttribute('aria-label', d.title);
   o.innerHTML = `<div class="dsheet lesson"><div class="lhead"><div><div class="sub" style="font-size:.75rem">${d.time}</div><h3>${d.title}</h3></div><button class="lx" data-ex="close" aria-label="닫기">✕</button></div>
     <p class="sub" style="margin:4px 0 0">${d.sub}</p>${d.line ? `<p style="margin:4px 0 0;font-weight:600">${d.line}</p>` : ''}
     ${d.items.some(x => x[4]) ? '<p class="exleg"><i aria-hidden="true"></i>늘어나는 곳 <span class="sub">· 해부학 그림에서 흔히 쓰는 근육 색이에요</span></p>' : ''}
-    <ol class="exlist">${d.items.map(([k, name, dose, how]) => `<li><picture><source srcset="assets/exercise/${k}-still.webp" media="(prefers-reduced-motion: reduce)"><img src="assets/exercise/${k}.webp" alt="${name} 동작 그림" width="128" height="149" loading="lazy"></picture>
-      <div><b>${name}</b> <span class="exdose">${dose}</span><p>${how}</p></div></li>`).join('')}</ol>
+    <ol class="exlist">${d.items.map(([k, name, dose, how], i) => `<li><button class="exrow" data-exi="${i}" aria-label="${name} 자세히 보기"></button><picture><source srcset="assets/exercise/${k}-still.webp" media="(prefers-reduced-motion: reduce)"><img src="assets/exercise/${k}.webp" alt="${name} 동작 그림" width="128" height="149" loading="lazy"></picture>
+      <div><b>${name}</b> <span class="exdose">${dose}</span><p>${how}</p></div><span class="exgo" aria-hidden="true">›</span></li>`).join('')}</ol>
     ${kind === 'warm' && !fromHome ? '<button data-ex="start">측정 시작</button>' : ''}
-    <p class="lfine">일반적인 운동 안내이며 치료·재활을 대신하지 않아요. 통증이 있거나 어지러우면 멈추고 전문가와 상담하세요.<br>참고한 자료: 운동치료총론 개정8판 4·7장, NASM-CPT 7·8장 · <a href="#" data-ex="src">출처 보기 ›</a></p></div>`;
+    <p class="lfine">${EX_FINE} · <a href="#" data-ex="src">출처 보기 ›</a></p></div>`;
+  exCache(d.items.flatMap(([k]) => [`assets/exercise/${k}.webp`, `assets/exercise/${k}-still.webp`]));   // 목록 그림도 오프라인에서
   const back = document.activeElement;
   document.body.append(o);
   for (const el of [document.querySelector('main'), $('tabbar')]) el.inert = true;
   const close = () => { for (const el of [document.querySelector('main'), $('tabbar')]) el.inert = false; o.remove(); };
   o.addEventListener('click', e => {
+    const r = e.target.closest('[data-exi]');
+    if (r) return openExDetail(kind, +r.dataset.exi);
     const b = e.target.closest('[data-ex]');
     if (e.target === o || b?.dataset.ex === 'close') { close(); back?.focus?.(); }
     else if (b?.dataset.ex === 'start') { close(); $('start').click(); }   // 몸 풀기 뒤 바로 측정 (평소 시작 버튼과 같은 흐름)
     else if (b?.dataset.ex === 'src') { e.preventDefault(); close(); setTab('home'); const s = $('exSrc'); s.open = true; s.scrollIntoView({ block: 'center' }); }
   });
-  o.addEventListener('keydown', e => { if (e.key === 'Escape') { close(); back?.focus?.(); } });
+  o.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('exDet')) { close(); back?.focus?.(); } });
   o.querySelector('[data-ex=close]').focus();
 }
 $('warmBtn').addEventListener('click', () => openEx('warm'));
