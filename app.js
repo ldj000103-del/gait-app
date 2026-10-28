@@ -717,7 +717,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v137';
+const APP_VERSION = 'v138';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -1977,9 +1977,9 @@ function cmpScene(q, view) {
   return floorLines + frontFig(102, 'perry', q, view, m) + frontFig(198, 'me', q, view, m) + label;
 }
 function cmpTable(q) {                                                     // q = 보행 주기 위치(%): 단계 버튼은 그 단계 가운데, 재생·막대는 그 순간
-  const p = [2, 3, 4].map(k => perryAt(q, k)), m = angAt('me', q);
+  const p = PHASES[phaseIdx(q)].slice(2), m = angAt('me', q);              // 페리 = Perry 9장 표의 그 단계 값 그대로 (보간값 −9 대신 −10 등, 사용자 10/28) · 나 = 그 순간 내 곡선 · 그림·말풍선은 보간 그대로
   const cell = v => v == null ? '-' : `${Math.round(v)}°`, diff = (a, b) => a == null ? '-' : `${signed(Math.round(a) - Math.round(b))}°`;
-  return `<tr><th>${q}% 순간</th><th>고관절</th><th>무릎</th><th>발목</th></tr><tr><th>페리</th>${p.map(v => `<td>${cell(v)}</td>`).join('')}</tr>
+  return `<tr><th>${OLD_PH[phaseIdx(q)]} <small class="sub">${q}%</small></th><th>고관절</th><th>무릎</th><th>발목</th></tr><tr><th>페리</th>${p.map(v => `<td>${cell(v)}</td>`).join('')}</tr>
     <tr><th>나</th>${m.map(v => `<td>${cell(v)}</td>`).join('')}</tr><tr><th>차이</th>${m.map((v, j) => `<td>${diff(v, p[j])}</td>`).join('')}</tr>`;
 }
 function frontTable(q, m) {                                                   // 앞·뒤 표 = 오른발 주기 q% 순간 잰 값 (사용자 10/27: 상위 10% 값 대신)
@@ -2013,7 +2013,7 @@ function cmpRender(box) {
   markTerms(box.querySelector('.phName'));                                 // 다시 쓴 단계 이름에 용어 풀이 밑줄 (누르면 뜻)
   if (side) {
     box.querySelector('.phN').textContent = `페리: ${PHASES[i][0]} · ${i + 1} / 8 단계`;
-    box.querySelector('.cmpTabNote').textContent = (cmpSideLatest ? '옆: 가장 최근 옆 영상 값 · ' : '') + '표는 그림과 같은 순간의 값이에요 (단계를 누르면 그 단계 가운데, 재생하면 따라 바뀜)';
+    box.querySelector('.cmpTabNote').textContent = (cmpSideLatest ? '옆: 가장 최근 옆 영상 값 · ' : '') + '페리 값은 Perry 9장 표의 이 단계 값, 내 값은 표 맨 위 %의 순간이에요 (단계를 누르면 그 단계 가운데, 재생하면 따라 바뀜)';
     return;
   }
   box.querySelector('.phN').textContent = `오른발 기준 · ${st.view === 'front' ? '앞에서 본 모습(거울처럼 반대)' : '뒤에서 본 모습'}`;
