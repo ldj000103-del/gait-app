@@ -226,8 +226,9 @@
   .lsub { min-height:2.9em; margin:8px 0 6px; font-size:.9375rem; line-height:1.45; }
   .lesson .gc .chip { cursor:default; }
   /* 몸 풀기·정리 운동 판 (디자인 팀 10/29): 그림 왼쪽, 이름·횟수·방법 오른쪽. 늘어나는 곳 색 = 근육 빨강 #a8323e (경고색 --o와 다른 색) */
-  .exlist { list-style:none; padding:0; margin:12px 0; } .exlist li { display:grid; grid-template-columns:104px 1fr; gap:12px; align-items:center; padding:8px 0; border-top:1px solid var(--line); }
-  .exlist img { display:block; width:104px; height:121px; object-fit:contain; } .exlist p { margin:2px 0 0; font-size:.875rem; color:var(--sub); word-break:keep-all; }
+  .exlist { list-style:none; padding:0; margin:12px 0; } .exlist li { display:grid; grid-template-columns:128px 1fr; gap:12px; align-items:center; padding:8px 0; border-top:1px solid var(--line); }
+  .exlist img { display:block; width:128px; height:149px; object-fit:contain; } .exlist p { margin:2px 0 0; font-size:.875rem; color:var(--sub); word-break:keep-all; }
+  @media (max-width:360px) { #exOv .dsheet.lesson { padding-left:16px; padding-right:16px; } .exlist li { gap:10px; } .exlist p { font-size:.8125rem; line-height:1.45; } }   /* 320px에서 설명이 세 줄 안에 (디자인 팀 10/29) */
   .exdose { font-size:.75rem; font-weight:600; color:var(--accent); white-space:nowrap; }
   .exleg { font-size:.8125rem; margin:8px 0 0; } .exleg i { display:inline-block; width:10px; height:10px; border-radius:2px; background:#a8323e; margin-right:6px; vertical-align:-1px; }
   #exSrc p { overflow-wrap:anywhere; }

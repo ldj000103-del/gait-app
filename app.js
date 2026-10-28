@@ -849,7 +849,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v160';
+const APP_VERSION = 'v161';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -2698,7 +2698,7 @@ function openEx(kind) {
   o.innerHTML = `<div class="dsheet lesson"><div class="lhead"><div><div class="sub" style="font-size:.75rem">${d.time}</div><h3>${d.title}</h3></div><button class="lx" data-ex="close" aria-label="닫기">✕</button></div>
     <p class="sub" style="margin:4px 0 0">${d.sub}</p>${d.line ? `<p style="margin:4px 0 0;font-weight:600">${d.line}</p>` : ''}
     ${d.items.some(x => x[4]) ? '<p class="exleg"><i aria-hidden="true"></i>늘어나는 곳 <span class="sub">· 해부학 그림에서 흔히 쓰는 근육 색이에요</span></p>' : ''}
-    <ol class="exlist">${d.items.map(([k, name, dose, how]) => `<li><picture><source srcset="assets/exercise/${k}-still.webp" media="(prefers-reduced-motion: reduce)"><img src="assets/exercise/${k}.webp" alt="${name} 동작 그림" width="104" height="121" loading="lazy"></picture>
+    <ol class="exlist">${d.items.map(([k, name, dose, how]) => `<li><picture><source srcset="assets/exercise/${k}-still.webp" media="(prefers-reduced-motion: reduce)"><img src="assets/exercise/${k}.webp" alt="${name} 동작 그림" width="128" height="149" loading="lazy"></picture>
       <div><b>${name}</b> <span class="exdose">${dose}</span><p>${how}</p></div></li>`).join('')}</ol>
     ${kind === 'warm' ? '<button data-ex="start">측정 시작</button>' : ''}
     <p class="lfine">일반적인 운동 안내이며 치료·재활을 대신하지 않아요. 통증이 있거나 어지러우면 멈추고 전문가와 상담하세요.<br>참고한 자료: 운동치료총론 개정8판 4·7장, NASM-CPT 7·8장 · <a href="#" data-ex="src">출처 보기 ›</a></p></div>`;
