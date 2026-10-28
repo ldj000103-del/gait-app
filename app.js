@@ -803,7 +803,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v156';
+const APP_VERSION = 'v157';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -859,11 +859,11 @@ const clock = s => { const t = Math.round(s); return `${Math.floor(t / 60)}:${St
 const timeStats = r => { const all = r.diag?.durS ?? r.activeS; return all - r.activeS >= 30 ? [{ icon: 'time', value: clock(all), label: '전체 시간' }, { icon: 'time', value: clock(r.activeS), label: '걸은 시간' }] : [{ icon: 'time', value: clock(all), label: '시간' }]; };
 const statRow = stats => { const ok = stats.filter(s => s.value != null && s.value !== ''); return ok.length ? `<div class="rstats" style="grid-template-columns:repeat(${ok.length},1fr)">${ok.map(s =>
   `<div><svg viewBox="0 0 24 24" aria-hidden="true">${STAT_ICON[s.icon]}</svg><b>${s.value}</b><small>${s.label}</small></div>`).join('')}</div>` : ''; };
-// 범위 막대 (본부 10/29): 회색 띠 = Perry 범위, 점 = 내 값. 구간 이름은 'Perry 범위'만 (보통 이하·이상 같은 판정 말 없음)
-function rangeBar(v, lo, hi, min, max, dp = 0) {
+// 범위 막대 (본부 10/29): 회색 띠 = Perry 책의 평균값들 사이(정상 범위 아님 → 라벨 lab에 무엇인지 적음), 점 = 내 값. 판정 말 없음 (검수팀 10/29)
+function rangeBar(v, lo, hi, min, max, dp, lab) {
   if (v == null || Number.isNaN(v)) return '';
   const p = x => (Math.min(Math.max((x - min) / (max - min), 0), 1) * 100).toFixed(1);
-  return `<div class="rbar" aria-hidden="true"><b style="left:${p(lo)}%;width:${(p(hi) - p(lo)).toFixed(1)}%"></b><i style="left:${p(v)}%"></i></div><div class="rlab"><span>Perry 범위 ${lo.toFixed(dp)}~${hi.toFixed(dp)}</span><span>나 ${v.toFixed(dp)}</span></div>`;
+  return `<div class="rbar" aria-hidden="true"><b style="left:${p(lo)}%;width:${(p(hi) - p(lo)).toFixed(1)}%"></b><i style="left:${p(v)}%"></i></div><div class="rlab"><span>${lab} ${lo.toFixed(dp)}~${hi.toFixed(dp)}</span><span>나 ${v.toFixed(dp)}</span></div>`;
 }
 function topCards(r, hero, cells) {
   const dur = r.diag?.durS ?? r.durS;
@@ -929,9 +929,8 @@ function metric({ title, value, unit, grade, body = '', why = [], refs = [], cmp
 function render(r, prev) {
   const { sex, age } = store.get('profile', {});
   const norm = sex === 'm' ? 111 : sex === 'f' ? 117 : 113;
-  const lo = norm * 0.9, hi = norm * 1.1;
   const c = r.cadence;
-  const where = `이번 값 ${c.toFixed(0)} · ${c < lo ? '기준 범위보다 낮은 값' : c > hi ? '기준 범위보다 높은 값' : '기준 범위 안의 값'}`;
+  const where = `이번 값 ${c.toFixed(0)} · 페리 평균과 차이 ${signed(+c.toFixed(0) - norm)}`;   // 막대와 같은 기준: Perry 평균값과 숫자 차이만 (예전 ±10% 안·밖 문장은 판정처럼 읽혀 뺌, 검수팀 10/29)
   const pos = Math.min(Math.max((c - 60) / 100, 0), 1) * 100;
   const cadGrade = r.warnings.includes('hand') || r.warnings.includes('irregular') ? 'o' : 'g';
   const older = +age >= 61;
@@ -947,23 +946,23 @@ function render(r, prev) {
   const dGrade = short || (gps && r.medAcc > 10) ? 'o' : 'y';
   const ideal = sex === 'f' ? 0.0064 : sex === 'm' ? 0.0072 : null;
   html += topCards(r, { label: '케이던스', value: c.toFixed(0), unit: '걸음/분', grade: cadGrade,
-    bar: rangeBar(c, 111, 117, 60, 160),                                    // Perry 범위 = 20장 남녀 평균 111~117 (책에 케이던스 표준편차는 없음, 본부 10/29: ±10%는 앱이 정한 폭이라 라벨에 안 씀)
+    bar: rangeBar(c, 111, 117, 60, 160, 0, 'Perry 평균 남~여'),            // 20장 남 111·여 117 (책에 케이던스 표준편차는 없음, 본부 10/29)
     sub: `페리의 보행 분석 기준 ${norm} · 차이 ${signed(+c.toFixed(0) - norm)}${prev ? ` · 지난번보다 ${signed(c - prev.cadence)}` : ''}`,
     stats: [...timeStats(r), { icon: 'dist', value: r.distance && (r.distance / 1000).toFixed(2), label: '거리 km' },
       { icon: 'steps', value: r.steps, label: '걸음' }] }, [   // 걸음 길이·속도는 기준값이 있는 작은 카드에만 (같은 값이 두 번 안 보이게)
     { label: '걷기 속도', value: r.speed ? r.speed.toFixed(2) : '-', unit: 'm/s', grade: dGrade, sub: r.speed ? `페리 1.37 · 차이 ${signed(+r.speed.toFixed(2) - 1.37, 2)}` : 'GPS·거리 입력 필요',
-      bar: r.speed ? rangeBar(r.speed, 1.22, 1.52, 0.6, 2.0, 2) : '' },   // Perry 20장: 연구별 평균 73~91m/분
-    { label: '걸음 길이', value: r.stepLength ? (r.stepLength * 100).toFixed(0) : '-', unit: 'cm', grade: dGrade, bar: r.stepLength ? rangeBar(r.stepLength * 100, 64, 73, 30, 100) : '', sub: !r.stepLength ? 'GPS·거리 입력 필요' : ideal ? `효율 기준 약 ${(ideal * c * 100).toFixed(0)}cm` : '성별을 넣으면 기준이 보여요' },   // 걸음 길이 Perry 범위: 20장 한 주기 남 1.46·여 1.28m의 절반
+      bar: r.speed ? rangeBar(r.speed, 1.22, 1.52, 0.6, 2.0, 2, 'Perry 연구별 평균') : '' },   // Perry 20장: 연구별 평균 73~91m/분
+    { label: '걸음 길이', value: r.stepLength ? (r.stepLength * 100).toFixed(0) : '-', unit: 'cm', grade: dGrade, bar: r.stepLength ? rangeBar(r.stepLength * 100, 64, 73, 30, 100, 0, 'Perry 평균 여~남') : '', sub: !r.stepLength ? 'GPS·거리 입력 필요' : ideal ? `효율 기준 약 ${(ideal * c * 100).toFixed(0)}cm` : '성별을 넣으면 기준이 보여요' },   // 걸음 길이 Perry 범위: 20장 한 주기 남 1.46·여 1.28m의 절반
   ]);   // 걸음 수·거리는 위 아이콘 줄에 있어서 작은 카드에서 뺌 (등급·근거는 자세히 보기에)
   const head = html; html = '';
 
   html += metric({
     title: '케이던스 (분당 걸음 수)', value: c.toFixed(0), unit: '걸음/분', grade: cadGrade,
     body: `<div class="bar"><i style="left:calc(${pos}% - 2px)"></i></div>
-      <div class="sub">${where} · 페리의 보행 분석 성인 평균 ${norm}걸음/분(±10%: ${lo.toFixed(0)}–${hi.toFixed(0)}) · 야외 평소 걸음 평균 116.7(Murtagh 2021)
+      <div class="sub">${where} · 페리의 보행 분석 성인 평균 ${norm}걸음/분(남 111·여 117) · 야외 평소 걸음 평균 116.7(Murtagh 2021)
       ${prev ? `<br>지난번 ${prev.cadence.toFixed(0)} → ${c >= prev.cadence ? '+' : ''}${(c - prev.cadence).toFixed(0)}` : ''}</div>`,
     why: [
-      'Perry 20장 기준값: 성인 평균 113, 남성 111·여성 117걸음/분, 건강한 성인의 편차는 평균의 약 ±10%',
+      'Perry 20장 기준값: 성인 평균 113, 남성 111·여성 117걸음/분 (케이던스의 표준편차·범위는 책에 없음)',
       '야외에서 평소 속도로 걸을 때 평균 116.7걸음/분 (14,015명 메타분석)',
       '스마트폰 케이던스는 기준 장비와 거의 같음: 상관 0.997, 오차 범위 1.4% (허벅지에 고정한 연구)',
       cadGrade === 'o' ? '이번 측정은 손에 들었거나 신호가 불규칙해 등급을 낮췄어요.' : '권장 위치(허벅지 밀착)에서 측정한 값이에요.',
@@ -1179,14 +1178,14 @@ const ctxText = c => c ? Object.keys(CTX).map(k => c[k]).filter(Boolean).join(' 
 const APP_URL = 'ldj000103-del.github.io/gait-app';
 function cardRows(h) {
   const { sex, age } = store.get('profile', {});
-  const norm = sex === 'm' ? 111 : sex === 'f' ? 117 : 113, lo = norm * 0.9, hi = norm * 1.1;
+  const norm = sex === 'm' ? 111 : sex === 'f' ? 117 : 113;
   const f = (x, d = 0) => x == null || Number.isNaN(x) ? null : x.toFixed(d);
   const vs = (a, ref, w) => a == null || Number.isNaN(a) ? '' : hint(a - ref, w);
   const act = h.activity ?? 'walk', rows = [];
   const push = (k, v, u, n) => { if (v != null) rows.push(u === '°' ? { k, v: v + '°', u: '', n } : { k, v, u, n }); };   // 도(°)는 숫자에 붙임
   if (act === 'walk') {
     const c = h.cadence, older = +age >= 61;
-    push('케이던스', f(c), '걸음/분', `페리의 보행 분석 성인 평균 ${norm}(±10% ${lo.toFixed(0)}–${hi.toFixed(0)}) · ${c < lo ? '기준 범위보다 낮은 값' : c > hi ? '기준 범위보다 높은 값' : '기준 범위 안'}`);
+    push('케이던스', f(c), '걸음/분', `페리의 보행 분석 성인 평균 ${norm}(남 111·여 117) · 차이 ${signed(+f(c) - norm)}`);
     const level = older ? (c >= 120 ? '약 5 MET' : c >= 110 ? '약 4 MET' : c >= 100 ? '중강도(3 MET)' : '저강도') : (c >= 130 ? '고강도(6 MET)' : c >= 100 ? '중강도(3 MET)' : '저강도');
     push('걷기 강도', level, '', older ? 'CADENCE-Adults 61세 이상 기준: 100 = 중강도' : 'CADENCE-Adults 기준: 100걸음/분 = 중강도, 130 = 고강도');
     if (h.speed) push('걷는 속도', f(h.speed, 2), 'm/s', `페리 기준 성인 평균 1.37 · 차이 ${h.speed - 1.37 >= 0 ? '+' : ''}${(h.speed - 1.37).toFixed(2)}`);
@@ -1814,7 +1813,7 @@ function renderHome() {
 // 변화 그래프: 선 하나 + 기준선/기준 범위(출처), 점을 누르면 값과 날짜
 const TREND = {
   walkCad: { label: '걷기 케이던스', unit: '걸음/분', pick: h => (h.activity ?? 'walk') === 'walk' ? h.cadence : null,
-    ref: () => { const { sex } = store.get('profile', {}); const n = sex === 'm' ? 111 : sex === 'f' ? 117 : 113; return { band: [n * 0.9, n * 1.1], text: `회색 띠 = 페리의 보행 분석 성인 평균 ${n}걸음/분 ±10%` }; } },
+    ref: () => ({ band: [111, 117], text: '회색 띠 = 페리의 보행 분석 평균 남 111~여 117걸음/분 (20장, 정상 범위가 아니라 두 평균값 사이)' }) },
   walkSpeed: { label: '걷는 속도', unit: 'm/s', dec: 2, pick: h => (h.activity ?? 'walk') === 'walk' ? h.speed ?? null : null, ref: () => ({ line: 1.37, text: '점선 = 페리의 보행 분석 성인 평균 1.37 m/s' }) },
   runCad: { label: '러닝 케이던스', unit: '걸음/분', pick: h => isRun(h) ? h.cadence : null, ref: () => ({ text: '러닝 케이던스는 사람·속도마다 달라 기준선 없이 변화만 봐요' }) },
   knee: { label: '영상: 유각기 무릎 굽힘', unit: '°', pick: h => h.activity === 'video' && h.view === 'side' ? h.r?.m?.kneeSwingMax ?? null : null, ref: () => ({ line: 60, text: '점선 = 페리의 보행 분석 기준 초기 유각 약 60° · 영상 각도는 같은 조건으로 찍어야 비교돼요' }) },
@@ -2266,7 +2265,7 @@ function sideLR(r) {
   const bar = (x, s) => x?.m?.stancePct == null ? '' : `<div class="stside">${nm(s)}쪽 다리${x === r ? ' (이번 영상)' : ''}</div><div class="stbar" role="img" aria-label="디딤기 ${Math.round(x.m.stancePct)}%, 흔듦기 ${100 - Math.round(x.m.stancePct)}%"><b style="width:${x.m.stancePct.toFixed(1)}%">디딤기 ${Math.round(x.m.stancePct)}%</b><span>흔듦기 ${100 - Math.round(x.m.stancePct)}%</span><i style="left:60%"></i></div>`;
   const row = (label, k, unit) => { const l = L?.m?.[k], rr = R?.m?.[k], c = v => v == null || Number.isNaN(v) ? '-' : `${Math.round(v)}${unit}`;
     return `<tr><td>${label}</td><td>${c(l)}</td><td>${c(rr)}</td><td>${l != null && rr != null ? `${Math.abs(Math.round(l) - Math.round(rr))}${unit}` : '-'}</td></tr>`; };
-  return metric({ title: '왼·오 나란히', value: r.m.stancePct != null ? `디딤기 ${Math.round(r.m.stancePct)}%` : '-', unit: `흔듦기 ${r.m.stancePct != null ? 100 - Math.round(r.m.stancePct) : '-'}% · ${nm(r.side)}쪽 다리`, grade: 'n',
+  return metric({ title: '왼·오 나란히', value: r.m.stancePct != null ? `디딤기 ${Math.round(r.m.stancePct)}%` : '디딤기 값 없음(예전 영상)', unit: `${r.m.stancePct != null ? `흔듦기 ${100 - Math.round(r.m.stancePct)}% · ` : ''}${nm(r.side)}쪽 다리`, grade: 'n',
     body: bar(L, 'l') + bar(R, 'r') + `<div class="sub" style="font-size:.75rem;margin:4px 0 8px">세로선 = Perry 약 60:40 (보통 빠르기에서 62:38)</div>`
       + `<table class="lrtab"><tr><th></th><th>왼</th><th>오</th><th>차이</th></tr>${row('유각기 무릎 최대 굽힘', 'kneeSwingMax', '°')}${row('체중 받기 무릎 굽힘', 'kneeLoad', '°')}${row('디딤기 비율', 'stancePct', '%')}</table>`
       + `<div class="sub" style="font-size:.75rem;margin-top:6px">${other ? `${nm(other.side)}쪽 값은 가장 최근의 ${nm(other.side)}쪽 옆 영상이에요. 두 영상은 따로 찍어 걸음이 다를 수 있어요.` : `반대쪽(${nm(r.side === 'l' ? 'r' : 'l')}쪽)에서 옆모습을 찍으면 나란히 보여요.`}</div>`,
