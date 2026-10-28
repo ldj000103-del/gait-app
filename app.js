@@ -195,7 +195,38 @@ function openShare() {
   $('pickSheet').hidden = false; history.pushState({ pickSheet: 1 }, '');
   $('pickList').querySelector('button')?.focus();
 }
+// 기록 지우기: 공용 판에 확인 → 휴대폰 기록(localStorage)과 그 측정의 센서 원본(IndexedDB)에서 그 기록 하나만 뺌. 익명으로 보낸 결과는 운영자에게 삭제 요청 (처리방침 6번)
+function openDelete(date) {
+  const h = store.get('history', []).find(x => x.date === date); if (!h) return;
+  const what = h.view ? `영상 ${{ side: '옆모습', front: '앞모습', back: '뒷모습' }[h.view]}` : ACT[h.activity ?? 'walk'];
+  pickFor = null; $('pickQ').textContent = '이 기록을 지울까요?';
+  $('pickList').innerHTML = `<p class="delDesc">${whenTxt(h.date)} ${what} · 지우면 되살릴 수 없어요. 달력·그래프·한 달 점검에서도 빠져요.</p>`
+    + (h.receipt ? `<p class="delDesc">익명으로 보낸 결과(접수번호 <b>${h.receipt}</b>)는 따로 지워지지 않아요 · <a href="privacy.html#rights" target="_blank">삭제 요청하기 ›</a></p>` : '')
+    + `<div class="delActs"><button data-del="${h.date}">지우기</button><button data-keep>그대로 두기</button></div>`;
+  $('pickSheet').hidden = false; history.pushState({ pickSheet: 1 }, '');
+  $('pickList').querySelector('[data-keep]').focus();
+}
+const rawDel = async key => { const db = await rawDb(); db.transaction('raw', 'readwrite').objectStore('raw').delete(key); };
+let toastT = 0;
+function toast(msg) { const t = $('toast'); t.textContent = msg; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => { t.hidden = true; }, 2000); }
+function deleteRec(date) {
+  const hist = store.get('history', []), i = hist.findIndex(x => x.date === date); if (i < 0) return closePick();
+  hist.splice(i, 1); store.set('history', hist); rawDel(date).catch(() => {});
+  closePick();
+  if (shownDate === date) { shownDate = null; route = null; $('result').classList.add('hidden'); $('vresult').classList.add('hidden'); }   // 지운 기록 화면은 닫음
+  if (!hist.length) $('histBody').innerHTML = '아직 기록이 없어요.';
+  renderHistory(); setTab('records'); scrollTo(0, 0); toast('지웠어요');   // 홈 요약·달력·통계·그래프·한 달 점검·영상 비교값은 기록에서 다시 계산됨
+}
+document.addEventListener('click', e => { const d = e.target.closest('[data-delrec]'); if (d) openDelete(d.dataset.delrec); });
+// 지난 기록 줄 길게 누르기(0.6초) = 지우기 판
+let lpT = 0, lpFired = false;
+$('histBody').addEventListener('pointerdown', e => { const r = e.target.closest('[data-i]'); if (!r) return; lpFired = false; clearTimeout(lpT);
+  lpT = setTimeout(() => { lpFired = true; const h = store.get('history', [])[+r.dataset.i]; if (h) openDelete(h.date); }, 600); });
+for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) $('histBody').addEventListener(ev, () => clearTimeout(lpT));
+$('histBody').addEventListener('contextmenu', e => { if (e.target.closest('[data-i]')) e.preventDefault(); });
 $('pickList').addEventListener('click', e => {
+  const dl = e.target.closest('[data-del]'); if (dl) { deleteRec(dl.dataset.del); return; }
+  if (e.target.closest('[data-keep]')) { closePick(); return; }
   const s = e.target.closest('[data-share]'); if (s) { closePick(); shareSummary(s.dataset.share); return; }
   const b = e.target.closest('[data-val]'); if (!b) return;
   if ($(pickFor).value !== b.dataset.val) { $(pickFor).value = b.dataset.val; $(pickFor).dispatchEvent(new Event('change')); syncPicks(); }
@@ -717,7 +748,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v140';
+const APP_VERSION = 'v141';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -1759,7 +1790,7 @@ function renderTrend() {
   svg.addEventListener('pointerleave', () => $('ttip').classList.add('hidden'));
 }
 
-$('histBody').addEventListener('click', e => { const tr = e.target.closest('[data-i]'); if (tr) showRecord(+tr.dataset.i); });
+$('histBody').addEventListener('click', e => { const tr = e.target.closest('[data-i]'); if (lpFired) { lpFired = false; return; } if (tr) showRecord(+tr.dataset.i); });   // 길게 누른 뒤 손을 떼며 생기는 클릭은 무시
 function showRecord(i) {
   const hist = store.get('history', []), h = hist[i];
   if (!h) return;
@@ -1768,11 +1799,12 @@ function showRecord(i) {
   const banner = `<div class="sub" style="margin-bottom:6px">지난 기록 다시 보기${act === 'video' ? ` · ${when}` : ''}</div>`;
   shownDate = h.date; route = h.route ?? null;
   // 지난 영상 기록엔 영상이 없어 사진도 숨김 (다른 영상 사진이 남지 않게)
-  if (act === 'video') { setTab('video'); $('vcanvas').classList.add('hidden'); renderVideo(h.r); $('vresult').insertAdjacentHTML('afterbegin', banner); return; }
+  const del = `<button class="textlike delRec" data-delrec="${h.date}">이 기록 지우기</button>`;   // 기록 탭에서 연 결과에만 (디자인 팀 10/28)
+  if (act === 'video') { setTab('video'); $('vcanvas').classList.add('hidden'); renderVideo(h.r); $('vresult').insertAdjacentHTML('afterbegin', banner); $('vresult').insertAdjacentHTML('beforeend', del); return; }
   setTab('measure');
   const prev = hist.slice(i + 1).find(x => !x.practice && (x.activity ?? 'walk') === act);
   if (act === 'slowrun') renderSlow(h, hist); else if (act === 'cooper') renderCooper(h); else if (act === 'walk') render(h, prev); else renderRun(h, prev);
-  $('result').insertAdjacentHTML('afterbegin', banner);
+  $('result').insertAdjacentHTML('afterbegin', banner); $('result').insertAdjacentHTML('beforeend', del);
 }
 
 // ── 영상 분석 (옆·앞·뒤) ──

@@ -208,6 +208,13 @@
     .spark.draw path { stroke-dasharray:1; stroke-dashoffset:1; animation:sparkDraw 400ms ease-out forwards; } @keyframes sparkDraw { to { stroke-dashoffset:0; } }   /* 처음 한 번만 선 그리기 */
   }
   @media (prefers-reduced-motion: reduce) { .subpage { transition:none; } }
+  /* 기록 지우기 (디자인 팀 10/28): 결과 맨 아래 주황 글자 버튼, 확인 판 버튼 2개, 알림 토스트 */
+  .delRec { color:var(--o); margin-top:16px; }
+  #pickList .delDesc { margin:0 20px 8px; font-size:.875rem; color:var(--sub); } #pickList .delDesc a { color:var(--accent); font-weight:600; text-decoration:none; }
+  #pickList .delActs { display:flex; gap:10px; padding:8px 20px 4px; } #pickList .delActs button { flex:1; justify-content:center; text-align:center; padding:12px; border-radius:var(--r-md); border:0; margin:0; }
+  #pickList .delActs [data-del] { color:var(--o); border:1px solid var(--o); } #pickList .delActs [data-keep] { color:var(--accent); }
+  #toast { position:fixed; left:50%; bottom:calc(96px + env(safe-area-inset-bottom)); transform:translateX(-50%); z-index:45; background:var(--ink); color:var(--card); padding:10px 16px; border-radius:var(--r-pill); font-size:.875rem; }
+  #toast[hidden] { display:none; }
   .chip[aria-pressed="true"] { background:var(--accent); color:#fff; border-color:var(--accent); }
   .calhead { display:flex; align-items:center; justify-content:space-between; font-weight:700; }
   .calhead button { width:auto; margin:0; padding:6px 14px; background:none; color:var(--accent); font-size:1rem; }
@@ -509,6 +516,7 @@
   </section>
 
   <section class="card hidden" id="result" data-tab="measure"></section>
+  <div id="toast" role="status" aria-live="polite" hidden></div>
   <div id="pickSheet" hidden role="dialog" aria-modal="true" aria-labelledby="pickQ"><div class="dsheet"><i class="grab" aria-hidden="true"></i><h3 id="pickQ"></h3><div id="pickList"></div></div></div>
 
   <section class="card" id="history" data-tab="records">
