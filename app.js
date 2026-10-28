@@ -760,7 +760,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v145';
+const APP_VERSION = 'v146';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -2334,7 +2334,7 @@ const LEARN = [
   ['느리게 달려도 될까요?', ['Lee 2014(55,137명, 평균 15년): 하루 5~10분, 시속 9.7km 미만으로 달려도 달리지 않는 사람보다 전체 사망 30%, 심혈관 사망 45% 낮음', 'Pedisic 2020 메타분석(232,149명): 달리기 참여 시 전체 사망 27% 낮음. 빈도·시간·속도·총량이 늘어도 추가 이득은 확인되지 않음'], '관찰 연구라 인과관계는 아님', ['lee2014', 'pedisic2019']],
   ['슬로우 러닝 (조깅 1분 + 걷기 1분)', ['Ikenaga 2017 무작위 연구(평균 70.8세, 81명): 걷기 속도의 조깅 1분 + 걷기 1분 반복, 주 90분 조깅 + 90분 걷기를 12주', '결과: 무산소역치(지구력) +15.7%(대조군 +4.9%), 앉았다 일어서기 +12.9%(대조군 +4.5%), 허벅지 근육 속 지방 감소'], '노인 대상 12주 소규모 연구', ['ikenaga2017']],
   ['영상으로 본 무릎 각도', ['Perry 4·5장: 초기 유각에 무릎이 약 60° 굽혀져야 발끝이 바닥에 걸리지 않음. 이 굽힘은 거의 근육 없이 관성으로 만들어짐', 'Perry 4장: 발이 닿고 0.02초 만에 체중 60%가 실림. 무릎 약 15° 굽힘으로 충격을 흡수', 'Perry 17장: 다리가 돌아가 있으면 카메라 1대의 각도는 실제와 달라질 수 있어요'], '휴대폰 카메라 1대의 각도는 참고값', ['perry9', 'perry17']],
-  ['발이 굴러가는 흔들의자 3개', ['Perry 4장: 한 발이 땅을 딛는 동안 몸이 굴러가는 축이 3번 바뀌어요. 흔들의자 다리처럼 둥근 곳을 축으로 몸이 앞으로 굴러가서 덜컹거리지 않고 부드럽게 나아가요', '① 뒤꿈치 흔들의자(체중 받기): 뒤꿈치를 축으로 발바닥이 내려와요. 정강이 앞 근육이 발이 "탁" 떨어지지 않게 천천히 내려놓아요', '② 발목 흔들의자(중간 입각): 발은 바닥에 붙은 채 정강이가 앞으로 기울어요. 가자미근이 너무 빨리 넘어가지 않게 속도를 조절해요', '③ 앞발 흔들의자(말기 입각): 발가락 뿌리를 축으로 뒤꿈치가 들려요. 걸을 때 가장 강한 추진력이 여기서 나와요'], '영상의 발목 각도는 정확도가 낮아서 흔들의자를 직접 재지는 않아요', ['perry4']],
+  ['발이 굴러가는 흔들의자 3개', ['Perry 4장: 한 발이 땅을 딛는 동안 몸이 굴러가는 축이 3번 바뀌어요. 흔들의자 다리처럼 둥근 곳을 축으로 몸이 앞으로 굴러가서 덜컹거리지 않고 부드럽게 나아가요', '① 뒤꿈치 흔들의자(체중 받기): 뒤꿈치를 축으로 발바닥이 내려와요. 정강이 앞 근육이 발이 "탁" 떨어지지 않게 천천히 내려놓아요', '② 발목 흔들의자(중간 입각): 발은 바닥에 붙은 채 정강이가 앞으로 기울어요. 가자미근이 너무 빨리 넘어가지 않게 속도를 조절해요', '③ 앞발 흔들의자(말기 입각): 발가락 뿌리를 축으로 뒤꿈치가 들려요. 몸이 받침 밖으로 앞으로 떨어지며 걸음에서 가장 강한 추진력이 생겨요. 장딴지근·가자미근은 정강이가 너무 빨리 넘어가지 않게 늦춰요'], '영상의 발목 각도는 정확도가 낮아서 흔들의자를 직접 재지는 않아요', ['perry4']],
   ['걸음이 달라지는 원인 (교육용)', ['Perry 10장: 병은 달라도 걸음에 주는 영향은 몇 가지로 나뉘어요 — 관절 변형(굳음), 근력 약화, 감각 소실, 통증, 운동 조절 장애', '근력 약화: 감각과 조절이 괜찮으면 다른 동작으로 아주 잘 보완해요. 느리게 걷는 것도 보완 방법이에요', '감각 소실: 관절 위치를 잘 몰라서 무릎을 잠그거나 바닥을 세게 디디며 느리고 조심스럽게 걸어요', '통증: 관절이 부으면 압력이 가장 낮은 자세(무릎 굽힘 30~45° 등)로 굳어요'], '이 앱은 원인을 판단하지 않아요. 내 걸음이 어떤 경우인지는 전문가가 직접 봐야 알 수 있어요', ['perry10']],
 ];
 $('learn').innerHTML = LEARN.map(([t, facts, limit, refs]) => `<details style="margin-top:10px"><summary>${t}</summary><ul class="sub" style="padding-left:18px;margin:6px 0">${facts.map(f => `<li>${f}</li>`).join('')}</ul>${limit ? `<div class="sub">한계: ${limit}</div>` : ''}<div class="sub" style="font-size:.75rem;margin-top:4px">출처: ${refs.map(k => REF[k]).join(' / ')}</div></details>`).join('');
@@ -2471,7 +2471,6 @@ function renderHomeTop() {
   const last = v[0], left = last ? Math.ceil((+last.d + 30 * 864e5 - +today) / 864e5) : null;
   const prev = last && (v.find(x => !sameM(x.d, last.d)) ?? v[1]);
   const pair = prev ? (sameM(prev.d, last.d) ? '최근 두 영상' : `${prev.d.getMonth() + 1}월과 ${last.d.getMonth() + 1}월`) : '';
-  const lesson = Math.floor(+today / 864e5) % DICT.length, dl = DICT[lesson];      // 날마다 지표 사전 한 항목
   $('homeTop').innerHTML = `<div class="card mirror">
       <div id="mirrorFig">${mirrorSvg(mirrorQ || phaseMid(1))}</div>
       <div class="mlabs"><span>페리의 보행 분석 기준</span><span>나</span></div>
@@ -2483,7 +2482,7 @@ function renderHomeTop() {
       <div class="sub" style="margin-top:6px">한 달에 한 번, 옆모습 영상으로 내 걸음을 비춰 봐요${last ? ` · 마지막 ${last.d.getMonth() + 1}월 ${last.d.getDate()}일` : ''}</div>
       ${pair ? `<a href="#" class="textlike" style="text-align:left;padding:8px 0 0;text-decoration:none" data-pair="${prev.i},${last.i}">${pair} 나란히 보기 ›</a>` : ''}</div>
 `;
-  $('lessonCard').innerHTML = `<button class="mcard" data-lesson="${lesson}"><div class="mtop"><span class="mlab">걸음 수업 · 30초</span><span class="mdate">›</span></div><div style="font-weight:700;margin-top:6px">${dl.name}</div><div class="msub">${dl.short}</div></button>`;
+  $('lessonCard').innerHTML = `<button class="mcard" data-lesson><div class="mtop"><span class="mlab">걸음 수업 · 30초</span><span class="mdate">›</span></div><div style="font-weight:700;margin-top:6px">발이 굴러가는 흔들의자 3개</div><div class="msub">근육 그림으로 보는 한 걸음</div></button>`;   // 그림과 같은 주제로 고정 (디자인 팀 10/28, 날마다 바뀌던 사전 항목은 뺌)
   // 이번 주 카드: 월~일 그날 활동 색 점 + 측정 횟수 · 걷기 케이던스 평균 (달력과 같은 점 색)
   const mon0 = monOf(today), hist = store.get('history', []), tk = dayKey(today), cur = weekSummary(hist).cur;
   $('wkDots').innerHTML = ['월', '화', '수', '목', '금', '토', '일'].map((wd, k) => { const dk = dayKey(plusDays(mon0, k)), acts = [...new Set(hist.filter(h => dayKey(h.date) === dk).map(h => { const a = h.activity ?? 'walk'; return a === 'cooper' || a === 'easyrun' ? 'run' : a; }))];
@@ -2513,16 +2512,17 @@ if (history.state?.sub || history.state?.pickSheet) history.replaceState(null, '
 const LESSON_N = 50, LESSON_MS = 111;                                      // 한 걸음 약 5.6초 (근육 영상 시안과 같은 빠르기)
 const LESSON_SUB = [[0, '① 뒤꿈치 흔들의자 · 정강이 앞 근육이 발이 ‘탁’ 떨어지지 않게 천천히 내려놓아요'],
   [12, '② 발목 흔들의자 · 가자미근이 정강이가 너무 빨리 넘어가지 않게 붙잡아요'],
-  [31, '③ 앞발 흔들의자 · 발가락 뿌리를 축으로 뒤꿈치가 들려요. 걸을 때 가장 강한 추진력이 여기서 나와요'],
+  [31, '③ 앞발 흔들의자 · 뒤꿈치가 들리며 몸이 앞으로 떨어져요(걸음에서 가장 강한 추진력). 종아리 근육은 정강이가 너무 빨리 넘어가지 않게 늦춰요'],   // Perry 3장: 추진력은 몸무게가 받침 밖으로 떨어지며 생김, 근육은 늦춤
+  [50, '④ 유각 전 · 체중이 반대 발로 넘어가고, 발가락 관절을 축으로 발목이 펴지며 무릎이 굽어요'],
   [62, '흔들기 · 발이 바닥에서 떨어져 앞으로 가요']];
-function openLesson(di) {
+function openLesson() {
   const o = document.createElement('div');
   o.id = 'lessonOv'; o.setAttribute('role', 'dialog'); o.setAttribute('aria-modal', 'true'); o.setAttribute('aria-label', '걸음 수업');
-  o.innerHTML = `<div class="dsheet lesson"><div class="lhead"><h3>걸음 수업 · 30초</h3><button class="lx" data-lx="close" aria-label="닫기">✕</button></div>
+  o.innerHTML = `<div class="dsheet lesson"><div class="lhead"><div><div class="sub" style="font-size:.75rem">걸음 수업 · 30초</div><h3>발이 굴러가는 흔들의자 3개</h3></div><button class="lx" data-lx="close" aria-label="닫기">✕</button></div>
     <div class="lfig"><canvas width="480" height="403" role="img" aria-label="페리의 보행 분석 기준 걸음에서 정강이·발 근육의 길이가 바뀌는 그림"></canvas><button class="chip lplay" data-lx="play"></button></div>
     <p class="lsub"></p>
     <div class="gc" aria-label="보행 주기 단계"><span>입각기 <small>0~62%</small></span><span>유각기 <small>62~100%</small></span>${OLD_PH.map(n => `<b class="chip">${n}</b>`).join('')}</div>
-    <button class="textlike" data-lx="more" style="text-align:left;padding-left:0">더 알아보기 › ${DICT[di].name}</button>
+    <button class="textlike" data-lx="more" style="text-align:left;padding-left:0">더 알아보기 ›</button>
     <p class="lfine">근육 그림: BodyParts3D·Z-Anatomy 모델로 만듦 (CC BY-SA) · <a href="#" data-bonesrc>출처 보기 ›</a><br>페리의 보행 분석 기준: Perry 『Gait Analysis』 4장·9장 · 근육 모양은 각도에 맞춘 근사예요 · 일반적인 걸음 정보이며 진료를 대신하지 않아요</p></div>`;
   document.body.append(o);
   for (const el of [document.querySelector('main'), $('tabbar')]) el.inert = true;
@@ -2543,12 +2543,12 @@ function openLesson(di) {
     const b = e.target.closest('[data-lx]');
     if (e.target === o || b?.dataset.lx === 'close' || e.target.closest('[data-bonesrc]')) return close();   // 출처 보기는 판을 닫고 홈 '이 앱의 근거'로 (아래 공용 처리)
     if (b?.dataset.lx === 'play') { playing = !playing; setBtn(); }
-    else if (b?.dataset.lx === 'more') { close(); openDict(di); }
+    else if (b?.dataset.lx === 'more') { close(); const d = [...$('learn').querySelectorAll('details')].find(x => x.querySelector('summary').textContent === '발이 굴러가는 흔들의자 3개'); if (d) { d.open = true; d.scrollIntoView({ block: 'start', behavior: 'smooth' }); } }   // '알아보기'의 같은 글
   });
   o.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
   o.querySelector('[data-lx=close]').focus();
 }
-$('lessonCard').addEventListener('click', e => { const l = e.target.closest('[data-lesson]'); if (l) openLesson(+l.dataset.lesson); });
+$('lessonCard').addEventListener('click', e => { if (e.target.closest('[data-lesson]')) openLesson(); });
 $('homeTop').addEventListener('click', e => {
   const s = e.target.closest('[data-shoot]'), o = e.target.closest('[data-open]'), p = e.target.closest('[data-pair]'), l = e.target.closest('[data-lesson]');
   if (s) goShoot(s.dataset.shoot);
