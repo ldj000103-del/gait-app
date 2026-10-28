@@ -43,6 +43,14 @@ function doPost(e) {
     sh.appendRow([Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyy-MM-dd'), ...FB_KEYS.map(k => clean(d[k], k === 'text' ? 1000 : 60)), urls]);
     return ContentService.createTextOutput('ok');
   }
+  if (d.kind === 'delete') {                                         // 앱에서 기록을 지우며 '익명 결과도 지워 달라고 요청하기'를 고른 경우 (처리방침 6번)
+    const rc = String(d.receipt || '').replace(/[^0-9a-zA-Z]/g, '').slice(0, 16), sh = book.getSheetByName(RESULT_SHEET);
+    if (rc && sh && sh.getLastRow() > 1) {
+      const col = KEYS.indexOf('receipt') + 2, vals = sh.getRange(2, col, sh.getLastRow() - 1, 1).getValues();
+      for (let i = vals.length - 1; i >= 0; i--) if (String(vals[i][0]) === rc) sh.deleteRow(i + 2);   // 아래에서 위로 (줄 번호가 안 밀리게)
+    }
+    return ContentService.createTextOutput('ok');
+  }
   const sheet = book.getSheetByName(RESULT_SHEET) || book.insertSheet(RESULT_SHEET);
   if (sheet.getLastRow() === 0) sheet.appendRow(['받은 날', ...KEYS]);
   sheet.appendRow([Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyy-MM-dd'), ...KEYS.map(k => clean(d[k], 60))]);

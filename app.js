@@ -105,12 +105,11 @@ function changeNote(id, seenKey, date, text, href, view) {
 if (store.get('locConsent', null) && store.get('locTermsSeen', null) !== LOC_TERMS)
   changeNote('locNote', 'locTermsSeen', LOC_TERMS, '위치기반서비스 이용약관이 바뀌었어요 (2026년 10월 26일 시행). 위치를 받는 방법, 기록 보관, 다른 사람에게 주지 않는다는 설명을 보탰어요. 동의하신 내용은 그대로라 다시 동의할 필요는 없어요.', 'location-terms.html', '약관 보기');
 // 처리방침 10번 "바꾸면 앱에 미리 알립니다". 바꿀 때마다 새 값. 익명 결과 전송 동의자에게는 수집 항목이 바뀐 안내를, 나머지 동의자에게는 지난 안내(사진 첨부)를
-const PRIV_DATE = '2026-10-26-quality';
+const PRIV_DATE = '2026-10-28-delete';
 const privSeen = store.get('privSeen', null), cons = store.get('consent', null);
-if (cons?.share && privSeen !== PRIV_DATE)
-  changeNote('privNote', 'privSeen', PRIV_DATE, '익명 결과 수집 안내가 바뀌었어요: 측정 품질 정보와 결과가 안 나온 측정의 이유도 함께 보내요(걸음 숫자·위치는 없어요). 원하지 않으면 화면 아래 ‘동의 변경’에서 끌 수 있어요.', 'privacy.html', '처리방침 보기');
-else if (cons && privSeen !== PRIV_DATE && privSeen !== '2026-10-26-photo')
-  changeNote('privNote', 'privSeen', PRIV_DATE, '개인정보 처리방침에 건의함 사진 첨부 내용이 추가됐어요 (2026년 10월 26일 시행).', 'privacy.html', '보기');
+if (cons && privSeen !== PRIV_DATE)                                       // 이번 변경(기록 지우기) + 익명 전송 동의자가 지난 수집 안내를 아직 못 봤으면 함께
+  changeNote('privNote', 'privSeen', PRIV_DATE, (cons.share && privSeen !== '2026-10-26-quality' ? '익명 결과 수집 안내가 바뀌었어요: 측정 품질 정보와 결과가 안 나온 측정의 이유도 함께 보내요(걸음 숫자·위치는 없어요). 원하지 않으면 화면 아래 ‘동의 변경’에서 끌 수 있어요. ' : '')
+    + '개인정보 처리방침에 기록 지우기와 익명 결과 삭제 요청 방법이 추가됐어요 (2026년 10월 28일 시행).', 'privacy.html', '처리방침 보기');
 const usesGps = a => a === 'cooper' || (a !== 'slowrun' && $('dmode').value === 'gps');
 function showLoc() {
   const need = usesGps($('act').value);
@@ -201,7 +200,7 @@ function openDelete(date) {
   const what = h.view ? `영상 ${{ side: '옆모습', front: '앞모습', back: '뒷모습' }[h.view]}` : ACT[h.activity ?? 'walk'];
   pickFor = null; $('pickQ').textContent = '이 기록을 지울까요?';
   $('pickList').innerHTML = `<p class="delDesc">${whenTxt(h.date)} ${what} · 지우면 되살릴 수 없어요. 달력·그래프·한 달 점검에서도 빠져요.</p>`
-    + (h.receipt ? `<p class="delDesc">익명으로 보낸 결과(접수번호 <b>${h.receipt}</b>)는 따로 지워지지 않아요 · <a href="privacy.html#rights" target="_blank">삭제 요청하기 ›</a></p>` : '')
+    + (h.receipt ? `<p class="delDesc">이 기록은 익명 결과로도 보냈어요(접수번호 <b>${h.receipt}</b>).</p><label class="delAsk"><input type="checkbox" id="delAsk"> 운영자에게 보낸 익명 결과도 지워 달라고 요청하기</label>` : '')   // 법률 검토 21번: 지우면 접수번호도 사라지니 지우기 전에 요청 기회
     + `<div class="delActs"><button data-del="${h.date}">지우기</button><button data-keep>그대로 두기</button></div>`;
   $('pickSheet').hidden = false; history.pushState({ pickSheet: 1 }, '');
   $('pickList').querySelector('[data-keep]').focus();
@@ -209,13 +208,25 @@ function openDelete(date) {
 const rawDel = async key => { const db = await rawDb(); db.transaction('raw', 'readwrite').objectStore('raw').delete(key); };
 let toastT = 0;
 function toast(msg) { const t = $('toast'); t.textContent = msg; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => { t.hidden = true; }, 2000); }
-function deleteRec(date) {
+// 익명 결과 삭제 요청: 접수번호만 보냄(다른 정보 없음). no-cors라 응답은 못 읽고, 보내기 자체가 실패(오프라인 등)하면 false
+const askDelete = receipt => fetch(ENDPOINT, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ kind: 'delete', receipt }) }).then(() => true, () => false);
+async function deleteRec(date) {
   const hist = store.get('history', []), i = hist.findIndex(x => x.date === date); if (i < 0) return closePick();
+  const ask = $('delAsk')?.checked && hist[i].receipt;
+  if (ask) {
+    const b = $('pickList').querySelector('[data-del]'); b.disabled = true;
+    const ok = await askDelete(hist[i].receipt); b.disabled = false;
+    if (!ok) {                                                            // 접수번호가 먼저 사라지면 안 되니 휴대폰 기록은 그대로 (체크를 풀면 기록만 지울 수 있음)
+      $('pickList').querySelector('.delErr')?.remove();
+      $('pickList').querySelector('.delActs').insertAdjacentHTML('beforebegin', '<p class="delDesc delErr" role="alert">삭제 요청을 보내지 못했어요. 인터넷 연결 후 다시 시도해 주세요</p>');
+      return;
+    }
+  }
   hist.splice(i, 1); store.set('history', hist); rawDel(date).catch(() => {});
   closePick();
   if (shownDate === date) { shownDate = null; route = null; $('result').classList.add('hidden'); $('vresult').classList.add('hidden'); }   // 지운 기록 화면은 닫음
   if (!hist.length) $('histBody').innerHTML = '아직 기록이 없어요.';
-  renderHistory(); setTab('records'); scrollTo(0, 0); toast('지웠어요');   // 홈 요약·달력·통계·그래프·한 달 점검·영상 비교값은 기록에서 다시 계산됨
+  renderHistory(); setTab('records'); scrollTo(0, 0); toast(ask ? '지웠어요 · 익명 결과 삭제도 요청했어요' : '지웠어요');   // 홈 요약·달력·통계·그래프·한 달 점검·영상 비교값은 기록에서 다시 계산됨
 }
 document.addEventListener('click', e => { const d = e.target.closest('[data-delrec]'); if (d) openDelete(d.dataset.delrec); });
 // 지난 기록 줄 길게 누르기(0.6초) = 지우기 판
@@ -748,7 +759,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v141';
+const APP_VERSION = 'v142';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -2018,7 +2029,7 @@ function frontTable(q, m) {                                                   //
   const c = v => v == null ? '-' : `${Math.round(v)}°`, fc = cmpFC, i = phaseIdx(q);
   const side = (v, a, b, tail = '') => Math.abs(v) < 0.5 ? '거의 수평' : `${v > 0 ? a : b} ${Math.abs(Math.round(v))}°${tail}`;
   const perryPel = i === 1 ? '왼쪽 약 4° 낮음' : i === 4 ? '오른쪽 약 4° 낮음' : '-';   // 체중 받기(오른발 2~12%, 왼발은 오른발 주기 50~62%) 때 반대쪽 골반 약 4°
-  return fc ? `<tr><th>${q}% 순간</th><th>페리</th><th>나</th></tr><tr><th>골반 좌우</th><td>${perryPel}</td><td>${side(fc.tilt[q], '왼쪽', '오른쪽', ' 낮음')}</td></tr>
+  return fc ? `<tr><th>${OLD_PH[i]} <small class="sub">${q}%</small></th><th>페리</th><th>나</th></tr><tr><th>골반 좌우</th><td>${perryPel}</td><td>${side(fc.tilt[q], '왼쪽', '오른쪽', ' 낮음')}</td></tr>
     <tr><th>몸통 옆 기울기</th><td>기준값 없음</td><td>${side(fc.lean[q], '왼쪽으로', '오른쪽으로')}</td></tr><tr><th>무릎 안쪽 모임</th><td>기준값 없음</td><td>왼발 ${c(fc.valgusL[q])} · 오른발 ${c(fc.valgusR[q])}</td></tr>`
     : `<tr><td colspan="3" class="sub">${fc === null ? '걸음 주기(디딘 발이 바뀌는 순간)를 찾지 못해 단계별 값이 없어요. 4걸음 이상 보이게 다시 찍어 보세요' : '이 기록은 v120 전에 분석해서 단계별 값이 없어요. 같은 영상을 다시 고르거나 새로 찍어 분석하면 나와요'}</td></tr>`   // 새 기록은 fc: null, 옛 기록은 fc 키 없음
     + `<tr><th>대신 영상 전체 상위 10% 값</th><th>페리</th><th>나</th></tr><tr><th>골반 내려감</th><td>약 4°</td><td>왼발 ${c(m?.dropL)} · 오른발 ${c(m?.dropR)}</td></tr>

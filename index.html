@@ -211,6 +211,8 @@
   /* 기록 지우기 (디자인 팀 10/28): 결과 맨 아래 주황 글자 버튼, 확인 판 버튼 2개, 알림 토스트 */
   .delRec { color:var(--o); margin-top:16px; }
   #pickList .delDesc { margin:0 20px 8px; font-size:.875rem; color:var(--sub); } #pickList .delDesc a { color:var(--accent); font-weight:600; text-decoration:none; }
+  #pickList .delAsk { display:flex; gap:10px; align-items:flex-start; margin:0 20px 10px; font-size:.875rem; color:var(--ink); cursor:pointer; } #pickList .delAsk input { width:20px; height:20px; flex:none; margin:1px 0 0; accent-color:var(--accent); }
+  #pickList .delErr { color:var(--o); }
   #pickList .delActs { display:flex; gap:10px; padding:8px 20px 4px; } #pickList .delActs button { flex:1; justify-content:center; text-align:center; padding:12px; border-radius:var(--r-md); border:0; margin:0; }
   #pickList .delActs [data-del] { color:var(--o); border:1px solid var(--o); } #pickList .delActs [data-keep] { color:var(--accent); }
   #toast { position:fixed; left:50%; bottom:calc(96px + env(safe-area-inset-bottom)); transform:translateX(-50%); z-index:45; background:var(--ink); color:var(--card); padding:10px 16px; border-radius:var(--r-pill); font-size:.875rem; }
