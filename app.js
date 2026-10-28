@@ -58,7 +58,7 @@ const IDLE_ASK_S = 15 * 60, IDLE_END_S = 15 * 60, MAX_REC_S = 3 * 3600, STILL_SD
 let pendingEnd = null;                                                   // 이번 측정이 자동으로 끝난 이유 → 저장할 기록의 warnings에 붙임
 const WARN = {
   idleEnd: `오래 움직임이 없어 자동으로 끝냈어요. ${IDLE_ASK_S / 60}분 넘게 걷지 않아 물었고 ${IDLE_END_S / 60}분 동안 답이 없어, 그때까지 잰 기록으로 분석했어요.`,
-  maxEnd: `측정이 ${MAX_REC_S / 3600}시간이 되어 자동으로 끝냈어요. 그때까지 잰 기록으로 분석했어요.`,
+  maxEnd: `측정이 ${MAX_REC_S / 3600}시간이 되어 자동으로 끝냈어요. 앞 ${MAX_REC_S / 3600}시간까지 잰 기록으로 분석했어요.`,
   shortWalk: '걸은 시간이 짧아 시작·끝 구간을 빼지 못했어요. 20초 이상 걸으면 더 정확해요.',
   irregular: '걸음 신호가 불규칙해요. 휴대폰이 주머니에서 흔들렸거나 방향을 자주 바꿨을 수 있어요.',
   running: '달리기로 보여요(케이던스 170 이상). 이 분석은 걷기에서만 정확해요.',
@@ -529,7 +529,8 @@ async function stopRec(killed = false, reason = null) {
     let r;
     try { r = await Native.stop(); } catch { return alert('측정을 끝내지 못했어요. 앱을 껐다 켜고 다시 해 주세요.'); }
     const cut = (r.samples[0]?.t ?? 0) + lead * 1000;                       // 주머니에 넣던 처음 3초는 뺌 (센서·GPS 시각은 같은 시계)
-    const s = r.samples.filter(p => p.t >= cut), g = r.gps.filter(p => p.t >= cut);
+    const lim = reason === 'maxEnd' ? cut + MAX_REC_S * 1000 : Infinity;   // 3시간에 끝난 측정은 앞 3시간만 (그 뒤는 화면이 꺼져 CPU가 잠들며 값이 듬성듬성할 수 있음)
+    const s = r.samples.filter(p => p.t >= cut && p.t <= lim), g = r.gps.filter(p => p.t >= cut && p.t <= lim);
     const longRun = rec?.startWall && Date.now() - rec.startWall > 20000;   // 20초 넘게 지났는데 값이 없으면 '짧아서'가 아니라 측정이 멈춘 것
     if (s.length < 20) {
       const act = rec?.act ?? $('act').value;
@@ -800,7 +801,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v152';
+const APP_VERSION = 'v153';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -2631,6 +2632,7 @@ homeReady = true;
   if (Native && rec.native) {                                              // 설치형 앱: 측정 서비스는 계속 도는 중 → 측정 화면만 다시 띄움
     const { alive, ended } = await Native.peek({ sec: 1 }).catch(() => ({}));   // 0.12 이하 앱은 alive를 안 줌 → 예전처럼 살아 있다고 봄
     if (ended) { t0 = rec.startWall; return stopRec(false, ended); }       // 서비스가 스스로 끝냄(오래 걷지 않음·3시간·알림 끝내기) → 저장
+    if (Date.now() - rec.startWall > MAX_REC_S * 1000) { t0 = rec.startWall; return stopRec(false, 'maxEnd'); }   // 0.15 이하 앱은 서비스가 스스로 안 끝냄 → 3시간 넘으면 여기서 저장하고 끝냄 (예전엔 기록을 통째로 버림, 검수팀)
     if (alive === false) { t0 = rec.startWall; return stopRec(true); }      // 휴대폰이 앱을 정리함 → 파일에 남은 값으로 바로 결과
     document.body.classList.add('recording');
     $('setup').classList.add('hidden'); $('result').classList.add('hidden'); $('rec').classList.remove('hidden');
