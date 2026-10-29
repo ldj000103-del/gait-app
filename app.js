@@ -57,6 +57,29 @@ const REF_WHO = {
   studenski: '9개 코호트, 65세 이상 34,485명, 6~21년 추적 (성별·나라는 출처에 정보 없음)',
   neumann15: '출처에 나이·성별 정보 없음',
   ding2025: '57개 연구(35개 코호트): 미국 37%·영국 21%·일본 14%(한국 연구 없음), 일반 성인 56%·노인(평균 65세 이상) 44% (성별은 출처에 정보 없음)',
+  perry20range: 'Rancho Los Amigos 병원(미국 캘리포니아) 실험실에서 평소 빠르기로 걸은 성인 남 135명·여 158명(20~85세)',
+  perry1: '출처에 나이·성별 정보 없음',
+  perry3: '출처에 나이·성별 정보 없음',
+  perry4: '출처에 나이·성별 정보 없음',
+  perry5: '출처에 나이·성별 정보 없음',
+  perry7: '출처에 나이·성별 정보 없음',
+  perry9: '출처에 나이·성별 정보 없음',
+  perry10: '출처에 나이·성별 정보 없음',
+  perry12: '출처에 나이·성별 정보 없음',
+  perry17: '출처에 나이·성별 정보 없음',
+  neumann16: '출처에 나이·성별 정보 없음',
+  cooper1968: '출처에 나이·성별 정보 없음',
+  ota2021: '출처에 나이·성별 정보 없음',
+  heiderscheit: '취미로 달리는 사람 45명 (나이·성별·나라는 출처에 정보 없음)',
+  anderson2022: '37편 연구를 모은 체계적 고찰 (나이·성별·인원은 출처에 정보 없음)',
+  petri2026: '무릎앞통증이 있는 주자를 다룬 리뷰 8편 종합 (나이·성별·인원은 출처에 정보 없음)',
+  goss2025: '20편 연구 483명 (나이·성별·나라는 출처에 정보 없음)',
+  lee2014: '55,137명, 15년 추적 (나이·성별·나라는 출처에 정보 없음)',
+  pedisic2019: '여러 연구 약 23만 명을 모은 분석 (나이·성별·나라는 출처에 정보 없음)',
+  ikenaga2017: '70.8세 노인 81명 무작위 연구 (성별·나라는 출처에 정보 없음)',
+  russo2026: '건강한 성인 27명 (나이·성별·나라는 출처에 정보 없음)',
+  cheng2025: '20편 연구를 모은 체계적 고찰 (나이·성별·인원은 출처에 정보 없음)',
+  wegner2026: '무릎 골관절염 환자 예비 연구 (인원·나이·성별은 출처에 정보 없음)',
 };
 const refLi = r => `<li>${REF[r]}${REF_WHO[r] ? `<br><span class="sub" style="font-size:.75rem">누구 자료: ${REF_WHO[r]}</span>` : ''}</li>`;
 const ACT = { walk: '걷기', run: '러닝', slowrun: '슬로우 러닝', easyrun: '천천히 달리기', cooper: '12분 달리기', stairs: '계단 오르기', video: '영상', auto: '자동' };
@@ -867,7 +890,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v176';
+const APP_VERSION = 'v177';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
