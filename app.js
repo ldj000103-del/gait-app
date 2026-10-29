@@ -893,7 +893,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v197';
+const APP_VERSION = 'v198';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -2810,10 +2810,10 @@ const FP_CARDS = [
    ${FP_MUS('종아리 근육', '비복근·가자미근 등', '힘을 빼요. 다리는 앞으로 넘어가며 다음 걸음을 준비해요.')}</ul>`];
 function openFootLesson() {
   mvReady ??= import('./vendor/model-viewer-4.4.0.min.js').catch(e => { mvReady = null; throw e; });
-  exCache(['vendor/model-viewer-4.4.0.min.js', 'assets/exercise3d/timeline.json', 'assets/exercise3d/footpress.glb']);
+  exCache(['vendor/model-viewer-4.4.0.min.js', 'assets/exercise3d/timeline.json', 'assets/exercise3d/footpress.glb', 'assets/exercise3d/footsole.glb']);
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches, o = document.createElement('div');
   o.id = 'lessonOv'; o.setAttribute('role', 'dialog'); o.setAttribute('aria-modal', 'true'); o.setAttribute('aria-label', '걸을 때 발바닥에서 일어나는 일');
-  const VIEW = { in: '90deg 100deg auto', out: '-90deg 95deg auto', sole: '0deg 180deg auto' };   // 발바닥: 바로 아래에서 위로
+  const VIEW = { in: '90deg 100deg auto', out: '-90deg 95deg auto', sole: '-12deg 180deg auto' };   // 발바닥: 바로 아래에서 위로, 발 길이 방향이 세로(뒤꿈치 아래·엄지 오른쪽, 2D 요약 그림과 같은 방향)
   o.innerHTML = `<div class="dsheet lesson"><div class="lhead"><div><div class="sub" style="font-size:.75rem">걸음 수업</div><h3>걸을 때 발바닥에서 일어나는 일</h3></div><button class="lx" data-lx="close" aria-label="닫기">✕</button></div>
     <div class="fpbox"><model-viewer src="assets/exercise3d/footpress.glb" alt="오른쪽 무릎 아래 뼈와 근육 3D 모형. 한 발로 디디는 동안 일하는 근육이 진해지고, 바닥의 파란 점이 체중이 실리는 자리를 따라가요" camera-controls touch-action="pan-y" disable-pan interaction-prompt="none"
       camera-orbit="${VIEW.in}" max-camera-orbit="auto 180deg auto" field-of-view="26deg" min-field-of-view="10deg" exposure="1.05" environment-image="neutral" ${reduce ? '' : 'autoplay'}></model-viewer>
@@ -2824,8 +2824,13 @@ function openFootLesson() {
   document.body.append(o);
   for (const el of [document.querySelector('main'), $('tabbar')]) el.inert = true;
   const mv = o.querySelector('model-viewer'), cards = o.querySelector('.fpcards'), playB = o.querySelector('[data-fx=play]');
-  let musM = {}, tick = 0, cur = 0;
-  mv.addEventListener('load', () => { musM = exFixMats(mv); if (reduce || cur) seek(FP_SEEK[cur || 3]); });   // 다 불러오기 전에 고른 카드도 그 순간으로
+  let musM = {}, tick = 0, cur = 0, resume = null;
+  // 발바닥 보기는 발만 든 따로 파일(footsole.glb: 발은 보행 주기 20%로 고정, 점·점선만 움직임, 바닥 판 없음, 디자인 팀). 바꿀 때 지금 순간과 재생 상태를 이어 감
+  mv.addEventListener('load', async () => { musM = exFixMats(mv);
+    if (resume) { const r = resume; resume = null; seek(r.fr);
+      const co = mv.cameraOrbit; mv.cameraOrbit = '0deg 90deg auto'; await mv.updateComplete; mv.cameraOrbit = co; await mv.updateComplete; mv.jumpCameraToGoal();   // 새 파일을 불러오면 카메라가 처음 각도로 돌아가는데 같은 값은 다시 넣어도 안 바뀌어서 한 번 다른 값을 거쳐 넣음
+      if (!r.paused) setTimeout(() => mv.play(), 250); }
+    else if (reduce || cur) seek(FP_SEEK[cur || 3]); });   // 다 불러오기 전에 고른 카드도 그 순간으로
   mvReady.catch(() => { o.querySelector('.fpbox').innerHTML = '<p class="sub" style="text-align:center;padding:24px 8px">인터넷에 연결되면 3D로 볼 수 있어요</p>'; });
   exTimeline().then(TL => {                                                 // 근육 색: 그 순간 일하는 근육만 진하게 (운동 상세와 같은 색)
     const tl = TL.footpress; if (!tl || !o.isConnected) return;
@@ -2851,8 +2856,9 @@ function openFootLesson() {
   o.addEventListener('click', e => {
     const fi = e.target.closest('[data-fi]'); if (fi) return pick(+fi.dataset.fi);
     const fv = e.target.closest('[data-fv]');
-    if (fv) { mv.cameraOrbit = VIEW[fv.dataset.fv]; o.querySelectorAll('[data-fv]').forEach(c => c.setAttribute('aria-pressed', c === fv));
-      const pl = mv.model?.materials.find(m => m.name === 'plate'); pl?.pbrMetallicRoughness.setBaseColorFactor([0.83, 0.85, 0.84, fv.dataset.fv === 'sole' ? 0.15 : 0.55]); return; }   // 발바닥 보기에선 바닥 판을 거의 투명하게
+    if (fv) { const src = `assets/exercise3d/${fv.dataset.fv === 'sole' ? 'footsole' : 'footpress'}.glb`;
+      if (!mv.getAttribute('src').endsWith(src.split('/').pop())) { resume = { fr: Math.round((mv.currentTime || 0) * 10), paused: mv.paused }; mv.setAttribute('src', src); }   // 속성으로 바꿔야 getAttribute도 따라 바뀜
+      mv.setAttribute('camera-orbit', VIEW[fv.dataset.fv]); mv.cameraOrbit = VIEW[fv.dataset.fv]; o.querySelectorAll('[data-fv]').forEach(c => c.setAttribute('aria-pressed', c === fv)); return; }
     if (e.target.closest('[data-fx=play]')) { if (mv.paused) { mv.play(); playB.textContent = '❚❚ 멈춤'; } else { mv.pause(); playB.textContent = '▶ 이어서 보기'; } return; }
     if (e.target === o || e.target.closest('[data-lx=close]')) close();
   });
@@ -3017,7 +3023,7 @@ function openExDetail(kind, i, autoRun = false) {
     if (!b) return;
     if (b.dataset.view) return setView(b.dataset.view);
     if (b.dataset.stage) {                                                 // 단계 바꾸기: 3D와 '이렇게 해요'만 바뀜
-      const st = stages[+b.dataset.stage]; mv.src = `assets/exercise3d/${st.glb}.glb`; exCache([mv.src.replace(location.origin + '/', '')]);
+      const st = stages[+b.dataset.stage]; mv.setAttribute('src', `assets/exercise3d/${st.glb}.glb`);   // makeChips가 getAttribute로 읽음 exCache([mv.src.replace(location.origin + '/', '')]);
       o.querySelector('.exsteps').innerHTML = st.steps.map(s => `<li>${s}</li>`).join('');
       o.querySelectorAll('[data-stage]').forEach(c => c.setAttribute('aria-pressed', c === b)); exTimeline().then(makeChips); return;
     }
