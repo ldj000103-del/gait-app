@@ -892,7 +892,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v185';
+const APP_VERSION = 'v186';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -2953,6 +2953,7 @@ $('metroBtn').addEventListener('click', () => {
   metroT = metroCtx.currentTime + 0.05; metroN = 0;
   metroIv = setInterval(() => {                                            // 켠 채로 값을 바꾸면 다음 박부터 바로 반영
     const sp = 60 / Math.min(220, Math.max(40, metroBpm() || b));
+    if (metroT < metroCtx.currentTime) metroT = metroCtx.currentTime + 0.05;   // 다른 앱·탭에 갔다 와서 타이머가 늦게 돌면 놓친 박은 건너뜀 (한꺼번에 '따다닥' 울리지 않게, 검수팀)
     for (; metroT < metroCtx.currentTime + 0.15; metroT += sp, metroN++) metroBeep(metroT, $('metroAcc').checked && metroN % 4 === 0);
   }, 25);
   metroSet(true);
