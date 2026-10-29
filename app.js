@@ -893,7 +893,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v194';
+const APP_VERSION = 'v195';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -2777,7 +2777,7 @@ $('lessonCard').addEventListener('click', e => { if (e.target.closest('[data-les
 // 3D(assets/exercise3d/footpress.glb): Z-Anatomy 오른쪽 무릎 아래 뼈·근육 + 반투명 피부, 입각기(보행 주기 0~60%) 6초 고리. 근육 색은 timeline.json 'footpress'(Perry 4장 근육 시점)
 // 압력 중심 4점: Neumann 15장 그림 15.32 + 엄지발가락은 Perry 4장 84쪽. 엄지발가락벌림근: 근골격해부학 161쪽, 일하는 때 Perry 4장 그림 4.18(40%부터), Neumann 15장
 // 진단·효과 표현 없음. 근육 이름은 구용어, 엄지발가락벌림근만 예외(사용자 결정)
-const FP_SEEK = [null, 4, 20, 40, 55];                                    // 카드 ①~④ = 보행 주기 % (= 프레임)
+const FP_SEEK = [null, 4, 28, 46, 57];                                    // 카드 ①~④ = 보행 주기 % (= 프레임): 점이 그 번호 자리에 거의 닿은 순간, ③은 뒤꿈치가 눈에 띄게 들린 때 (디자인 팀)
 const FP_MUS = (n, w, does) => `<li><i aria-hidden="true"></i><span><b>${n}</b> · ${w}<br><span class="sub">${does}</span></span></li>`;
 const FP_CARDS = [
   `<h3>걸을 때 발바닥에서 일어나는 일</h3>
@@ -2811,10 +2811,10 @@ function openFootLesson() {
   exCache(['vendor/model-viewer-4.4.0.min.js', 'assets/exercise3d/timeline.json', 'assets/exercise3d/footpress.glb']);
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches, o = document.createElement('div');
   o.id = 'lessonOv'; o.setAttribute('role', 'dialog'); o.setAttribute('aria-modal', 'true'); o.setAttribute('aria-label', '걸을 때 발바닥에서 일어나는 일');
-  const VIEW = { in: '90deg 100deg auto', out: '-90deg 95deg auto', sole: '60deg 150deg auto' };
+  const VIEW = { in: '90deg 100deg auto', out: '-90deg 95deg auto', sole: '0deg 180deg auto' };   // 발바닥: 바로 아래에서 위로
   o.innerHTML = `<div class="dsheet lesson"><div class="lhead"><div><div class="sub" style="font-size:.75rem">걸음 수업</div><h3>걸을 때 발바닥에서 일어나는 일</h3></div><button class="lx" data-lx="close" aria-label="닫기">✕</button></div>
     <div class="fpbox"><model-viewer src="assets/exercise3d/footpress.glb" alt="오른쪽 무릎 아래 뼈와 근육 3D 모형. 한 발로 디디는 동안 일하는 근육이 진해지고, 바닥의 파란 점이 체중이 실리는 자리를 따라가요" camera-controls touch-action="pan-y" disable-pan interaction-prompt="none"
-      camera-orbit="${VIEW.in}" max-camera-orbit="auto 175deg auto" field-of-view="26deg" min-field-of-view="10deg" exposure="1.05" environment-image="neutral" ${reduce ? '' : 'autoplay'}></model-viewer>
+      camera-orbit="${VIEW.in}" max-camera-orbit="auto 180deg auto" field-of-view="26deg" min-field-of-view="10deg" exposure="1.05" environment-image="neutral" ${reduce ? '' : 'autoplay'}></model-viewer>
       <div class="d3bar"><span>${[['in', '안쪽'], ['out', '바깥쪽'], ['sole', '발바닥']].map(([v, n]) => `<button class="chip" data-fv="${v}" aria-pressed="${v === 'in'}">${n}</button>`).join('')}</span><button class="chip" data-fx="play">${reduce ? '▶ 움직임 보기' : '❚❚ 멈춤'}</button></div></div>
     <div class="exchips" role="tablist" aria-label="단계">${['요약', '①', '②', '③', '④'].map((n, i) => `<button class="chip" role="tab" data-fi="${i}" aria-selected="${i === 0}" aria-pressed="${i === 0}">${n}</button>`).join('')}</div>
     <div class="fpcards">${FP_CARDS.map((c, i) => `<section class="card fpcard" data-card="${i}" aria-label="${i ? `${'①②③④'[i - 1]} 단계` : '요약'}">${c}</section>`).join('')}</div>
@@ -2823,7 +2823,7 @@ function openFootLesson() {
   for (const el of [document.querySelector('main'), $('tabbar')]) el.inert = true;
   const mv = o.querySelector('model-viewer'), cards = o.querySelector('.fpcards'), playB = o.querySelector('[data-fx=play]');
   let musM = {}, tick = 0, cur = 0;
-  mv.addEventListener('load', () => { musM = exFixMats(mv); if (reduce) seek(FP_SEEK[3]); });
+  mv.addEventListener('load', () => { musM = exFixMats(mv); if (reduce || cur) seek(FP_SEEK[cur || 3]); });   // 다 불러오기 전에 고른 카드도 그 순간으로
   mvReady.catch(() => { o.querySelector('.fpbox').innerHTML = '<p class="sub" style="text-align:center;padding:24px 8px">인터넷에 연결되면 3D로 볼 수 있어요</p>'; });
   exTimeline().then(TL => {                                                 // 근육 색: 그 순간 일하는 근육만 진하게 (운동 상세와 같은 색)
     const tl = TL.footpress; if (!tl || !o.isConnected) return;
@@ -2849,7 +2849,8 @@ function openFootLesson() {
   o.addEventListener('click', e => {
     const fi = e.target.closest('[data-fi]'); if (fi) return pick(+fi.dataset.fi);
     const fv = e.target.closest('[data-fv]');
-    if (fv) { mv.cameraOrbit = VIEW[fv.dataset.fv]; o.querySelectorAll('[data-fv]').forEach(c => c.setAttribute('aria-pressed', c === fv)); return; }
+    if (fv) { mv.cameraOrbit = VIEW[fv.dataset.fv]; o.querySelectorAll('[data-fv]').forEach(c => c.setAttribute('aria-pressed', c === fv));
+      const pl = mv.model?.materials.find(m => m.name === 'plate'); pl?.pbrMetallicRoughness.setBaseColorFactor([0.83, 0.85, 0.84, fv.dataset.fv === 'sole' ? 0.15 : 0.55]); return; }   // 발바닥 보기에선 바닥 판을 거의 투명하게
     if (e.target.closest('[data-fx=play]')) { if (mv.paused) { mv.play(); playB.textContent = '❚❚ 멈춤'; } else { mv.pause(); playB.textContent = '▶ 이어서 보기'; } return; }
     if (e.target === o || e.target.closest('[data-lx=close]')) close();
   });
@@ -2933,7 +2934,7 @@ function exFixMats(mv) {
   const sc = mv[Object.getOwnPropertySymbols(mv).find(s => s.description === 'scene')], skins = [], musM = {};
   sc?.traverse(m => { if (!m.isMesh || !m.material.name || m.material.isShaderMaterial || m.userData.dep) return; m.userData.dep = 1;   // glTF 재질만(그림자 판·흐림 셰이더 제외), 한 번만 (검수팀 10/29)
     if (m.material.name.startsWith('mus_')) { m.renderOrder = -2; Object.assign(m.material, { blending: 5, blendSrc: 204, blendDst: 205, blendSrcAlpha: 201, blendDstAlpha: 205, blendEquation: 100, needsUpdate: true }); musM[m.material.name] = m; }   // 불투명 단계에 남긴 채 알파 섞기(CustomBlending 색: SrcAlpha·1−SrcAlpha, 알파: One·1−SrcAlpha = 화면 합성과 맞는 'over', 안 그러면 하얗게 뜸) → 피부 깊이 복제(-1)보다 먼저 그려짐
-    else if (m.material.transparent) skins.push(m); else m.renderOrder = -4; });   // 벽·상자·뼈는 근육보다 먼저 (옅은 근육이 깊이를 안 써서 뒤에 덮이지 않게)
+    else if (m.material.transparent && m.material.name === 'mannequin') skins.push(m); else if (m.material.transparent) m.material.depthWrite = false; else m.renderOrder = -4; });   // 피부만 한 겹 처리 (바닥 판·점 그림자는 깊이를 안 써서 발바닥 보기에서 발을 가리지 않게) · 벽·상자·뼈는 근육보다 먼저 (옅은 근육이 깊이를 안 써서 뒤에 덮이지 않게)
   for (const m of skins) {
     const d = new m.constructor(m.geometry, m.material.clone());
     if (m.isSkinnedMesh) d.bind(m.skeleton, m.bindMatrix);                // 뼈대로 휘는 피부(발바닥 수업)는 복제도 같이 휘게
