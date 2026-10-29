@@ -892,7 +892,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v192';
+const APP_VERSION = 'v193';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -2699,7 +2699,8 @@ function renderHomeTop() {
       <div class="sub" style="margin-top:6px">한 달에 한 번, 옆모습 영상으로 내 걸음을 비춰 봐요${last ? ` · 마지막 ${last.d.getMonth() + 1}월 ${last.d.getDate()}일` : ''}</div>
       ${pair ? `<a href="#" class="textlike" style="text-align:left;padding:8px 0 0;text-decoration:none" data-pair="${prev.i},${last.i}">${pair} 나란히 보기 ›</a>` : ''}</div>
 `;
-  $('lessonCard').innerHTML = `<button class="mcard" data-lesson><div class="mtop"><span class="mlab">걸음 수업 · 30초</span><span class="mdate">›</span></div><div style="font-weight:700;margin-top:6px">발이 굴러가는 흔들의자 3개</div><div class="msub">근육 그림으로 보는 한 걸음</div></button>`;   // 그림과 같은 주제로 고정 (디자인 팀 10/28, 날마다 바뀌던 사전 항목은 뺌)
+  $('lessonCard').innerHTML = `<button class="mcard" data-lesson><div class="mtop"><span class="mlab">걸음 수업 · 30초</span><span class="mdate">›</span></div><div style="font-weight:700;margin-top:6px">발이 굴러가는 흔들의자 3개</div><div class="msub">근육 그림으로 보는 한 걸음</div></button>
+    <button class="mcard" data-foot style="margin-top:8px"><div class="mtop"><span class="mlab">걸음 수업 · 3D</span><span class="mdate">›</span></div><div style="font-weight:700;margin-top:6px">걸을 때 발바닥에서 일어나는 일</div><div class="msub">체중이 옮겨 가는 길과 차례로 일하는 근육</div></button>`;   // 그림과 같은 주제로 고정 (디자인 팀 10/28, 날마다 바뀌던 사전 항목은 뺌)
   // 이번 주 카드: 월~일 그날 활동 색 점 + 측정 횟수 · 걷기 케이던스 평균 (달력과 같은 점 색)
   const mon0 = monOf(today), hist = store.get('history', []), tk = dayKey(today), cur = weekSummary(hist).cur;
   $('wkDots').innerHTML = ['월', '화', '수', '목', '금', '토', '일'].map((wd, k) => { const dk = dayKey(plusDays(mon0, k)), acts = [...new Set(hist.filter(h => dayKey(h.date) === dk).map(h => { const a = h.activity ?? 'walk'; return a === 'cooper' || a === 'easyrun' ? 'run' : a === 'stairs' ? 'walk' : a; }))];
@@ -2771,6 +2772,91 @@ function openLesson() {
 }
 $('lessonCard').addEventListener('click', e => { if (e.target.closest('[data-lesson]')) openLesson(); });
 
+// ── 걸음 수업 2: 걸을 때 발바닥에서 일어나는 일 (사용자 아이디어, 디자인 팀 10/30 최종) ──
+// 3D(assets/exercise3d/footpress.glb): Z-Anatomy 오른쪽 무릎 아래 뼈·근육 + 반투명 피부, 입각기(보행 주기 0~60%) 6초 고리. 근육 색은 timeline.json 'footpress'(Perry 4장 근육 시점)
+// 압력 중심 4점: Neumann 15장 그림 15.32 + 엄지발가락은 Perry 4장 84쪽. 엄지발가락벌림근: 근골격해부학 161쪽, 일하는 때 Perry 4장 그림 4.18(40%부터), Neumann 15장
+// 진단·효과 표현 없음. 근육 이름은 구용어, 엄지발가락벌림근만 예외(사용자 결정)
+const FP_SEEK = [null, 4, 20, 40, 55];                                    // 카드 ①~④ = 보행 주기 % (= 프레임)
+const FP_MUS = (n, w, does) => `<li><i aria-hidden="true"></i><span><b>${n}</b> · ${w}<br><span class="sub">${does}</span></span></li>`;
+const FP_CARDS = [
+  `<h3>걸을 때 발바닥에서 일어나는 일</h3>
+   <p><b>이게 뭐예요</b><br>한 발이 바닥을 디디는 약 0.6초 동안, 몸무게가 실리는 자리가 뒤꿈치에서 엄지발가락까지 옮겨 가요. 그 순간마다 다른 근육이 차례로 일해요.</p>
+   <p><b>왜 알아 두면 좋아요</b><br>배워 보기의 '발이 굴러가는 흔들의자 3개'가 발바닥에서는 이렇게 보여요. ①은 뒤꿈치 흔들의자, ②는 발목 흔들의자, ③은 앞발 흔들의자예요. 내 걸음 비춰 보기 영상에서 '뒤꿈치가 들리는 때'를 볼 때, 그 순간 발바닥과 근육에서 무슨 일이 일어나는지 함께 떠올릴 수 있어요.</p>
+   <div class="footfig"><svg viewBox="0 0 200 300" role="img" aria-label="오른발 발바닥을 아래에서 본 그림. 파란 점선은 뒤꿈치에서 엄지발가락까지 체중이 실리는 자리가 옮겨 가는 길, 빨간 띠는 엄지발가락벌림근">
+     <defs><marker id="fArr" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#2b3bd6"/></marker></defs>
+     <path d="M110 288 C82 288 78 262 80 236 C82 206 76 182 70 152 C64 126 48 112 51 92 C54 72 80 66 105 68 C130 70 153 78 157 98 C161 126 149 160 147 200 C145 236 141 288 110 288 Z" fill="#f7f8f8" stroke="#c9cfcc" stroke-width="2"/>
+     ${[[62, 40, 15, 19], [92, 33, 8, 10], [113, 37, 7, 9], [131, 46, 6, 8], [146, 59, 6, 7]].map(([x, y, rx, ry]) => `<ellipse cx="${x}" cy="${y}" rx="${rx}" ry="${ry}" fill="#f7f8f8" stroke="#c9cfcc" stroke-width="2"/>`).join('')}
+     <path d="M96 266 C88 238 86 206 81 170 C76 138 66 114 64 84" fill="none" stroke="#a8323e" stroke-opacity=".45" stroke-width="10" stroke-linecap="round"/>
+     <path d="M121 258 L146 178 L84 92 L62 46" fill="none" stroke="#2b3bd6" stroke-width="2.5" stroke-dasharray="5 4" marker-end="url(#fArr)"/>
+     ${[[121, 258], [146, 178], [84, 92], [62, 46]].map(([x, y], i) => `<circle cx="${x}" cy="${y}" r="9" fill="#fff" stroke="#2b3bd6" stroke-width="2"/><text x="${x}" y="${y + 4}" text-anchor="middle" font-size="11" font-weight="700" fill="#2b3bd6">${i + 1}</text>`).join('')}
+     <text x="4" y="296" font-size="11" fill="#69736f">오른발 · 발바닥 쪽에서 본 모습</text></svg></div>
+   <div class="fpleg"><span class="fpsw fpdash" aria-hidden="true"></span><b>파란 점선 = 체중이 실리는 자리가 옮겨 가는 길</b></div>
+   <p class="sub fpsm">한 발로 디디는 동안 발바닥에 실린 무게의 중심이 번호 순서대로 옮겨 가요(전문 용어로 압력 중심).</p>
+   <ol class="sub fpsm fpol"><li>발이 닿을 때: 뒤꿈치 가운데 바로 바깥쪽</li><li>발바닥 전체로 설 때: 발 중간 바깥쪽</li><li>뒤꿈치가 들릴 때: 앞발 안쪽 (엄지·둘째 발가락 뿌리 아래)</li><li>발이 떨어질 때: 엄지발가락</li></ol>
+   <p class="sub fpsm">사람마다 앞발이 닿는 순서는 달라요: 새끼발가락 쪽부터 71%, 앞발 전체가 한꺼번에 22%, 엄지 쪽부터 8%.</p>
+   <hr class="fphr">
+   <div class="fpleg"><span class="fpsw fpband" aria-hidden="true"></span><b>빨간 띠 = 엄지발가락벌림근</b></div>
+   <p class="sub fpsm">발뒤꿈치뼈에서 시작해 발 안쪽 가장자리를 따라 엄지발가락 뿌리에 붙는 근육이에요. 뒤꿈치가 들리며 체중이 앞발 안쪽(③)으로 옮겨 갈 때부터 일하기 시작해, 앞발을 받쳐 줘요.</p>`,
+  `<h3>① 발이 닿을 때 <span class="sub">· 뒤꿈치 가운데 바로 바깥쪽 · 보행 주기 0~12%</span></h3><ul class="exmus">
+   ${FP_MUS('전경골근', '정강이 앞 근육', '발이 ‘탁’ 떨어지지 않게 천천히 내려놓아요.')}${FP_MUS('후경골근', '종아리 안쪽 깊은 곳', '발이 닿을 때부터 일하기 시작해요.')}</ul>`,
+  `<h3>② 발바닥 전체로 설 때 <span class="sub">· 발 중간 바깥쪽 · 12~31%</span></h3><ul class="exmus">
+   ${FP_MUS('가자미근', '비복근 아래 깊은 곳의 넓적한 근육', '정강이가 너무 빨리 앞으로 넘어가지 않게 붙잡아요.')}${FP_MUS('후경골근', '종아리 안쪽 깊은 곳', '발 중간을 받쳐요.')}${FP_MUS('장지굴근', '종아리 뒤 깊은 곳에서 발가락까지', '이 무렵부터 함께 일해요.')}</ul>`,
+  `<h3>③ 뒤꿈치가 들릴 때 <span class="sub">· 앞발 안쪽 · 31~50%</span></h3><ul class="exmus">
+   ${FP_MUS('비복근·가자미근', '종아리', '이때 가장 세게 일해요.')}${FP_MUS('후경골근·장지굴근·장무지굴근', '종아리 깊은 곳', '발 중간을 단단하게 잠가요.')}${FP_MUS('엄지발가락벌림근 등 발 속 근육', '발바닥 안', '앞발을 받쳐요. 발 속 근육은 이 무렵 앞발을 안정시키고 안쪽 세로 아치를 높여요.')}</ul>`,
+  `<h3>④ 발이 떨어질 때 <span class="sub">· 엄지발가락 · 50~60%</span></h3><ul class="exmus">
+   ${FP_MUS('종아리 근육', '비복근·가자미근 등', '힘을 빼요. 다리는 앞으로 넘어가며 다음 걸음을 준비해요.')}</ul>`];
+function openFootLesson() {
+  mvReady ??= import('./vendor/model-viewer-4.4.0.min.js').catch(e => { mvReady = null; throw e; });
+  exCache(['vendor/model-viewer-4.4.0.min.js', 'assets/exercise3d/timeline.json', 'assets/exercise3d/footpress.glb']);
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches, o = document.createElement('div');
+  o.id = 'lessonOv'; o.setAttribute('role', 'dialog'); o.setAttribute('aria-modal', 'true'); o.setAttribute('aria-label', '걸을 때 발바닥에서 일어나는 일');
+  const VIEW = { in: '90deg 100deg auto', out: '-90deg 95deg auto', sole: '60deg 150deg auto' };
+  o.innerHTML = `<div class="dsheet lesson"><div class="lhead"><div><div class="sub" style="font-size:.75rem">걸음 수업</div><h3>걸을 때 발바닥에서 일어나는 일</h3></div><button class="lx" data-lx="close" aria-label="닫기">✕</button></div>
+    <div class="fpbox"><model-viewer src="assets/exercise3d/footpress.glb" alt="오른쪽 무릎 아래 뼈와 근육 3D 모형. 한 발로 디디는 동안 일하는 근육이 진해지고, 바닥의 파란 점이 체중이 실리는 자리를 따라가요" camera-controls touch-action="pan-y" disable-pan interaction-prompt="none"
+      camera-orbit="${VIEW.in}" max-camera-orbit="auto 175deg auto" field-of-view="26deg" min-field-of-view="10deg" exposure="1.05" environment-image="neutral" ${reduce ? '' : 'autoplay'}></model-viewer>
+      <div class="d3bar"><span>${[['in', '안쪽'], ['out', '바깥쪽'], ['sole', '발바닥']].map(([v, n]) => `<button class="chip" data-fv="${v}" aria-pressed="${v === 'in'}">${n}</button>`).join('')}</span><button class="chip" data-fx="play">${reduce ? '▶ 움직임 보기' : '❚❚ 멈춤'}</button></div></div>
+    <div class="exchips" role="tablist" aria-label="단계">${['요약', '①', '②', '③', '④'].map((n, i) => `<button class="chip" role="tab" data-fi="${i}" aria-selected="${i === 0}" aria-pressed="${i === 0}">${n}</button>`).join('')}</div>
+    <div class="fpcards">${FP_CARDS.map((c, i) => `<section class="card fpcard" data-card="${i}" aria-label="${i ? `${'①②③④'[i - 1]} 단계` : '요약'}">${c}</section>`).join('')}</div>
+    <p class="lfine">3D 모형: BodyParts3D · Z-Anatomy 뼈·근육(CC BY-SA)으로 만듦 · <a href="#" data-bonesrc>출처 보기 ›</a><br>근거: Perry 『Gait Analysis』 2장·4장(그림 4.18) · Neumann 『Kinesiology』 15장 · 정진우 『그림으로 보는 근골격해부학』 161쪽 · 그림은 위치를 나타낸 근사예요 · 일반적인 걸음 정보이며 진료를 대신하지 않아요</p></div>`;
+  document.body.append(o);
+  for (const el of [document.querySelector('main'), $('tabbar')]) el.inert = true;
+  const mv = o.querySelector('model-viewer'), cards = o.querySelector('.fpcards'), playB = o.querySelector('[data-fx=play]');
+  let musM = {}, tick = 0, cur = 0;
+  mv.addEventListener('load', () => { musM = exFixMats(mv); if (reduce) seek(FP_SEEK[3]); });
+  mvReady.catch(() => { o.querySelector('.fpbox').innerHTML = '<p class="sub" style="text-align:center;padding:24px 8px">인터넷에 연결되면 3D로 볼 수 있어요</p>'; });
+  exTimeline().then(TL => {                                                 // 근육 색: 그 순간 일하는 근육만 진하게 (운동 상세와 같은 색)
+    const tl = TL.footpress; if (!tl || !o.isConnected) return;
+    tick = setInterval(() => {
+      const f = (mv.currentTime || 0) * 10, mats = mv.model?.materials ?? [];
+      for (const [nm, pts] of Object.entries(tl.mus)) {
+        const m = mats.find(x => x.name === 'mus_' + nm), t = pwl(pts, f), me = musM['mus_' + nm];
+        m?.pbrMetallicRoughness.setBaseColorFactor([...MUS_PALE.map((p, j) => p + (MUS_LIN[j] - p) * t), 0.35 + 0.65 * t]);
+        if (me) { const deep = t > 0.9; me.material.depthWrite = deep; me.renderOrder = deep ? -3 : -2; }
+      }
+    }, 100);
+  });
+  function seek(fr) { const t = fr / 10; mv.currentTime = t; if (mv.paused) { mv.play(); setTimeout(() => { mv.currentTime = t; setTimeout(() => mv.pause(), 120); }, 60); } }   // 멈춘 채로 시간만 옮기면 안 그려져서 잠깐 재생 후 멈춤
+  function pick(i, fromScroll) {                                            // 번호 ↔ 카드 맞물림. 카드 ①~④는 그 순간으로 가서 멈춤
+    cur = i;
+    o.querySelectorAll('[data-fi]').forEach(c => { c.setAttribute('aria-pressed', +c.dataset.fi === i); c.setAttribute('aria-selected', +c.dataset.fi === i); });
+    if (!fromScroll) cards.scrollTo({ left: cards.children[i].offsetLeft - cards.offsetLeft, behavior: reduce ? 'auto' : 'smooth' });
+    if (FP_SEEK[i] != null) { mv.pause(); playB.textContent = '▶ 이어서 보기'; seek(FP_SEEK[i]); }
+  }
+  let st = 0;
+  cards.addEventListener('scroll', () => { clearTimeout(st); st = setTimeout(() => { const i = Math.round(cards.scrollLeft / cards.clientWidth); if (i !== cur) pick(i, true); }, 120); });
+  const close = () => { clearInterval(tick); for (const el of [document.querySelector('main'), $('tabbar')]) el.inert = false; o.remove(); $('lessonCard').querySelector('[data-foot]')?.focus(); };
+  o.addEventListener('click', e => {
+    const fi = e.target.closest('[data-fi]'); if (fi) return pick(+fi.dataset.fi);
+    const fv = e.target.closest('[data-fv]');
+    if (fv) { mv.cameraOrbit = VIEW[fv.dataset.fv]; o.querySelectorAll('[data-fv]').forEach(c => c.setAttribute('aria-pressed', c === fv)); return; }
+    if (e.target.closest('[data-fx=play]')) { if (mv.paused) { mv.play(); playB.textContent = '❚❚ 멈춤'; } else { mv.pause(); playB.textContent = '▶ 이어서 보기'; } return; }
+    if (e.target === o || e.target.closest('[data-lx=close]')) close();
+  });
+  o.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
+  o.querySelector('[data-lx=close]').focus();
+}
+$('lessonCard').addEventListener('click', e => { if (e.target.closest('[data-foot]')) openFootLesson(); });
+
 
 // ── 뛰기 전 몸 풀기 · 뛴 뒤 정리 운동 판 (디자인 팀 10/29, 법률 검토 22번 통과) ──
 // 시간·방법: Kisner 『운동치료총론』 개정8판 4장 113쪽(정적 신장 30초)·7장 298~299쪽(준비·정리 5~10분), NASM-CPT 7장 146~147쪽·8장 166~168쪽
@@ -2840,6 +2926,20 @@ const EX_TIMER = { brisk: [[120, '']], jog: [[120, '']], slowwalk: [[180, '']],
   quad: [[30, '한쪽'], [30, '반대쪽']], ham: [[30, '한쪽'], [30, '반대쪽']], glute: [[30, '한쪽'], [30, '반대쪽']] };
 let exRun = 0, exLock = null;
 const exUnlock = () => { exLock?.release().catch(() => {}); exLock = null; };   // 타이머 동안만 화면 켜짐 (검수팀: 화면이 꺼지면 '반대쪽' 진동이 안 옴)
+// 3D 재질 손보기 (운동 상세·발바닥 수업 같이 씀): 반투명 피부는 바깥 한 겹만 보이게 피부 깊이만 먼저 쓰는 복제(색 없음)를 붙이고, 근육은 그보다 먼저 그림. 근육 메시 {재질 이름: 메시}를 돌려줌
+// ponytail: model-viewer 안쪽 three.js 장면(Symbol 'scene')을 직접 만짐 → model-viewer 버전을 올리면 다시 확인
+function exFixMats(mv) {
+  const sc = mv[Object.getOwnPropertySymbols(mv).find(s => s.description === 'scene')], skins = [], musM = {};
+  sc?.traverse(m => { if (!m.isMesh || !m.material.name || m.material.isShaderMaterial || m.userData.dep) return; m.userData.dep = 1;   // glTF 재질만(그림자 판·흐림 셰이더 제외), 한 번만 (검수팀 10/29)
+    if (m.material.name.startsWith('mus_')) { m.renderOrder = -2; Object.assign(m.material, { blending: 5, blendSrc: 204, blendDst: 205, blendSrcAlpha: 201, blendDstAlpha: 205, blendEquation: 100, needsUpdate: true }); musM[m.material.name] = m; }   // 불투명 단계에 남긴 채 알파 섞기(CustomBlending 색: SrcAlpha·1−SrcAlpha, 알파: One·1−SrcAlpha = 화면 합성과 맞는 'over', 안 그러면 하얗게 뜸) → 피부 깊이 복제(-1)보다 먼저 그려짐
+    else if (m.material.transparent) skins.push(m); else m.renderOrder = -4; });   // 벽·상자·뼈는 근육보다 먼저 (옅은 근육이 깊이를 안 써서 뒤에 덮이지 않게)
+  for (const m of skins) {
+    const d = new m.constructor(m.geometry, m.material.clone());
+    if (m.isSkinnedMesh) d.bind(m.skeleton, m.bindMatrix);                // 뼈대로 휘는 피부(발바닥 수업)는 복제도 같이 휘게
+    Object.assign(d.material, { colorWrite: false, transparent: false, depthWrite: true }); d.renderOrder = -1; m.add(d); m.material.depthWrite = true;
+  }
+  return musM;
+}
 const MUS_LIN = [0.392, 0.032, 0.048], MUS_PALE = [0.89, 0.60, 0.56];   // 근육 빨강 #a8323e(선형) · 조건 전 피부에 가까운 연분홍 #f2cbc5(불투명 35%, 디자인 팀 10/29)
 function openExDetail(kind, i, autoRun = false) {
   const list = EX[kind].items, [k, name] = list[i], [dose, pose, steps, area, extra, theta] = EXD[k], cool = kind === 'cool' && k !== 'slowwalk';
@@ -2878,14 +2978,7 @@ function openExDetail(kind, i, autoRun = false) {
   // 반투명 피부는 바깥 한 겹만 (디자인 팀 10/29: 관절 구 이음이 겹쳐 비치지 않게): 피부 깊이만 먼저 쓰는 복제(색 없음)를 붙이고, 근육은 그보다 먼저 그림
   // ponytail: model-viewer 안쪽 three.js 장면(Symbol 'scene')을 직접 만짐 → model-viewer 버전을 올리면 다시 확인
   mv.addEventListener('load', () => {
-    const sc = mv[Object.getOwnPropertySymbols(mv).find(s => s.description === 'scene')], skins = []; musM = {};
-    sc?.traverse(m => { if (!m.isMesh || !m.material.name || m.material.isShaderMaterial || m.userData.dep) return; m.userData.dep = 1;   // glTF 재질만(그림자 판·흐림 셰이더 제외), 한 번만 (검수팀 10/29)
-      if (m.material.name.startsWith('mus_')) { m.renderOrder = -2; Object.assign(m.material, { blending: 5, blendSrc: 204, blendDst: 205, blendSrcAlpha: 201, blendDstAlpha: 205, blendEquation: 100, needsUpdate: true }); musM[m.material.name] = m; }   // 불투명 단계에 남긴 채 알파 섞기(CustomBlending 색: SrcAlpha·1−SrcAlpha, 알파: One·1−SrcAlpha = 화면 합성과 맞는 'over', 안 그러면 하얗게 뜸) → 피부 깊이 복제(-1)보다 먼저 그려짐
-      else if (m.material.transparent) skins.push(m); else m.renderOrder = -4; });   // 벽·상자는 근육보다 먼저 (옅은 근육이 깊이를 안 써서 뒤 벽에 덮이지 않게)
-    for (const m of skins) {
-      const d = new m.constructor(m.geometry, m.material.clone());
-      Object.assign(d.material, { colorWrite: false, transparent: false, depthWrite: true }); d.renderOrder = -1; m.add(d); m.material.depthWrite = true;
-    }
+    musM = exFixMats(mv);
     if (reduce) { mv.play(); setTimeout(() => { mv.currentTime = EX_HOLD[mv.src.match(/(\w+)\.glb$/)?.[1]] ?? EX_HOLD[k]; setTimeout(() => mv.pause(), 120); }, 60); }   // 움직임 줄이기: 선 자세 대신 늘이는(움직이는) 순간을 멈춰 보여 줌 (멈춘 채로 시간만 옮기면 안 그려져서 0.1초만 재생 후 멈춤)
   });
   // 정리 운동 시간표 (assets/exercise3d/timeline.json, Blender 렌더와 같은 값): 단계 글, 조건이 갖춰질 때만 진해지는 근육 색, 멈춤 표시(6초 동안 차는 고리 = 실제 30초)
