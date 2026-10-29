@@ -251,7 +251,7 @@
   .d3hold small { font-weight:400; color:var(--sub); font-size:.75rem; } .d3hold svg { width:20px; height:20px; transform:rotate(-90deg); } .d3hold circle { fill:none; stroke-width:3; } .d3hold circle:first-child { stroke:var(--line); } .d3hold circle:last-child { stroke:var(--accent); stroke-dasharray:56.5; stroke-dashoffset:56.5; }   /* 멈춤 6초 동안 차는 고리 */
   @media (prefers-color-scheme: dark) {   /* 다크 모드에서도 3D·운동 그림은 밝은 무대 판 위에 (피부 40% 반투명이 어두운 바탕에서 회색으로 얼룩져서, 디자인 팀 10/29) */
     #exDet model-viewer, .d3 picture img, .exlist img, .excmp img { background:#eceeed; border-radius:var(--r-md); }
-    .d3stage { color:#69736f; } .d3hold { background:#fff; border-color:#e6eae8; color:#121816; } .d3hold small { color:#69736f; } .d3hold circle:first-child { stroke:#e6eae8; } .d3hold circle:last-child { stroke:#1d6b5c; }   /* 판 위에 뜨는 글은 라이트 모드 색 */
+    .d3stage { color:#69736f; } .d3hold { background:#fff; border-color:#e6eae8; color:#121816; } .d3hold small { color:#69736f; } .d3hold circle:first-child { stroke:#e6eae8; } .d3hold circle:last-child { stroke:#1d6b5c; } .d3chips .chip:not([aria-pressed="true"]) { background:#fff; color:#121816; border-color:#e6eae8; }   /* 판 위에 뜨는 글·칩은 라이트 모드 색 (선택된 칩은 초록 그대로) */
   }
   #exDet .lfine { overflow-wrap:anywhere; }   /* 출처 줄은 잘리지 않고 두 줄로 (법률 23번) */
   .d3bar { display:flex; justify-content:space-between; align-items:center; gap:8px; margin-top:4px; } .d3bar .chip { margin:0 6px 0 0; }
