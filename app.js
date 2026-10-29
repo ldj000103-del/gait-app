@@ -850,7 +850,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v170';
+const APP_VERSION = 'v171';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -2745,7 +2745,7 @@ const EXD = {
   jog: ['2분', '선 자세', ['걷는 속도로 가볍게 뛰기 시작해요.', '조금씩 속도를 올려요.', '2분 뒤 측정을 시작해요.'], '다리 전체와 팔', [], -60],
   slowwalk: ['3분', '선 자세', ['달리기를 멈추고 천천히 걸어요.', '숨이 고를 때까지 3분 동안 걸어요.'], '다리 전체 (늘어나는 곳 없음)', [], -60],
   calf: ['좌우 각 30초씩 두 자세(무릎 펴서 / 살짝 굽혀서)', '벽 짚기', ['벽을 마주 보고 서서 두 손을 벽에 대요.', '한 발을 앞으로 내딛고, 뒤 발의 뒤꿈치를 바닥에 평평하게 붙여요. 뒤 발끝은 살짝 안쪽을 향하게 해요.', '뒤 무릎을 편 채, 종아리가 당길 때까지 몸을 벽 쪽으로 천천히 기울여 30초 있어요.', '이번엔 뒤 무릎을 살짝 굽혀 30초 더 있어요. 반대쪽도 같게 해요.'], '무릎을 펴면 비복근, 살짝 굽히면 가자미근 (비복근은 무릎과 발목 두 관절을 지나서 무릎을 펴야 늘어나요)', [], -120],
-  quad: ['좌우 각 30초', '벽이나 의자 짚기', ['벽 옆에 서서 한 손으로 벽을 짚어요.', '벽에서 먼 쪽 무릎을 굽혀 같은 쪽 손으로 발목을 잡아요.', '엉덩이를 살짝 앞으로 밀어 골반을 뒤로 말고, 허벅지를 몸 뒤쪽으로 살짝 보내 허벅지 앞이 당길 때까지 있어요.', '멈춘 채로 30초 있다가 천천히 내려놓아요. 반대쪽도 같게 해요.'], '무릎을 굽힌 채 허벅지를 몸 뒤로 보낼 때 대퇴직근 (무릎과 엉덩관절 두 관절을 지나요)', ['허리를 뒤로 젖히지 않아요'], -60],
+  quad: ['좌우 각 30초', '벽이나 의자 짚기', ['벽 옆에 서서 한 손으로 벽을 짚어요.', '벽에서 먼 쪽 무릎을 굽혀 같은 쪽 손으로 발목을 잡아요.', '엉덩이를 살짝 앞으로 밀어 골반을 뒤로 말고, 허벅지를 몸 뒤쪽으로 살짝 보내 허벅지 앞이 당길 때까지 있어요.', '멈춘 채로 30초 있다가 천천히 내려놓아요. 반대쪽도 같게 해요.'], '무릎을 굽힌 채 허벅지를 몸 뒤로 보낼 때 대퇴직근 (무릎과 엉덩관절 두 관절을 지나요)', ['허리를 뒤로 젖히지 않아요'], -90],   // 옆: 허벅지가 몸통 선 뒤로 가는 게 보이게
   ham: ['좌우 각 30초', '1단계 의자 2개 · 2단계 낮은 계단', ['낮은 계단이나 의자 앞에 서서 한쪽 발뒤꿈치를 올려요.', '올린 다리의 무릎은 편 채, 등을 곧게 펴요.', '허리를 말지 말고 엉덩이에서 몸통을 앞으로 숙여 허벅지 뒤가 당길 때까지 있어요.', '멈춘 채로 30초 있다가 천천히 일어나요. 반대쪽도 같게 해요.'], '무릎을 편 채 엉덩이부터 숙일 때 햄스트링 (무릎과 엉덩관절 두 관절을 지나요)', ['발끝에 손을 대려고 등을 둥글게 말지 않아요'], -120],
   glute: ['좌우 각 30초', '의자에 앉기', ['의자에 앉아 두 발을 바닥에 대요.', '한 발목을 반대쪽 무릎 위에 올려 다리로 4자를 만들어요.', '허리를 편 채 상체를 앞으로 숙여 엉덩이 뒤쪽이 당길 때까지 있어요.', '멈춘 채로 30초 있다가 천천히 일어나 앉아요. 반대쪽도 같게 해요.'], '4자를 만든 채 허리 펴고 숙일 때 엉덩이 뒤쪽(대둔근·중둔근)', [], -130],
 };
@@ -2769,7 +2769,7 @@ const EX_CMP = { ham: '<div class="card"><div class="excmp"><figure><img src="as
   + '<figure><img src="assets/exercise/ham-bad.webp" alt="틀린 자세: 발끝을 잡으려 등을 둥글게 만 모습" width="150" height="175"><figcaption><span class="exno">× 발끝 잡으려 등 말기</span></figcaption></figure></div>'
   + '<p class="sub" style="margin:6px 0 0">숙이는 정도는 사람마다 달라요. 당기는 느낌까지만 해요.</p></div>' };   // 움직임 줄이기면 이 순간(초)에 멈춰 보여 줌
 const exCache = urls => caches?.open('ex3d').then(c => Promise.all(urls.map(u => c.match(u).then(h => h || c.add(u))))).catch(() => {});
-const MUS_LIN = [0.392, 0.032, 0.048], MUS_PALE = [0.80, 0.42, 0.42];   // 근육 빨강 #a8323e(선형) · 옅게
+const MUS_LIN = [0.392, 0.032, 0.048], MUS_PALE = [0.89, 0.60, 0.56];   // 근육 빨강 #a8323e(선형) · 조건 전 피부에 가까운 연분홍 #f2cbc5(불투명 35%, 디자인 팀 10/29)
 function openExDetail(kind, i) {
   const list = EX[kind].items, [k, name] = list[i], [dose, pose, steps, area, extra, theta] = EXD[k], cool = kind === 'cool' && k !== 'slowwalk';
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches, mus = ['calf', 'quad', 'ham', 'glute'].includes(k);
@@ -2781,7 +2781,7 @@ function openExDetail(kind, i) {
   o.id = 'exDet'; o.setAttribute('role', 'dialog'); o.setAttribute('aria-modal', 'true'); o.setAttribute('aria-label', name);
   const VIEW3 = { side: -90, back: 180, front: 0 };
   o.innerHTML = `<div class="sphead"><button class="spBack" data-exd="back" aria-label="목록으로">‹</button><h2>${name}</h2></div>
-    <div class="d3">${['calf', 'quad', 'ham', 'glute'].includes(k) ? `<div class="d3stage${stages ? ' low' : ''}" hidden></div><div class="d3hold" hidden><svg viewBox="0 0 22 22" aria-hidden="true"><circle cx="11" cy="11" r="9"/><circle cx="11" cy="11" r="9"/></svg>멈춘 채로 30초 <small>(실제로는 30초)</small></div>` : ''}${stages ? `<div class="d3chips">${stages.map((s, j) => `<button class="chip" data-stage="${j}" aria-pressed="${j === 0}">${s.label}</button>`).join('')}</div>` : ''}<model-viewer src="assets/exercise3d/${glb0}.glb" alt="${name} 3D 모형, 손가락으로 밀어 돌려 볼 수 있어요" camera-controls touch-action="pan-y" disable-pan interaction-prompt="none"
+    <div class="d3">${['calf', 'quad', 'ham', 'glute'].includes(k) ? `<div class="d3stage${stages ? ' low' : ''}" hidden></div><div class="d3hold" hidden><svg viewBox="0 0 22 22" aria-hidden="true"><circle cx="11" cy="11" r="9"/><circle cx="11" cy="11" r="9"/></svg>멈춘 채로 30초 <small>(그림은 6초로 줄였어요)</small></div>` : ''}${stages ? `<div class="d3chips">${stages.map((s, j) => `<button class="chip" data-stage="${j}" aria-pressed="${j === 0}">${s.label}</button>`).join('')}</div>` : ''}<model-viewer src="assets/exercise3d/${glb0}.glb" alt="${name} 3D 모형, 손가락으로 밀어 돌려 볼 수 있어요" camera-controls touch-action="pan-y" disable-pan interaction-prompt="none"
       camera-orbit="${theta}deg 80deg auto" shadow-intensity="1" shadow-softness="0.3" environment-image="neutral" exposure="1.05" ${reduce ? '' : 'autoplay'}></model-viewer>
       <div class="d3bar"><span>${['side', 'back', 'front'].map(v => `<button class="chip" data-view="${v}">${{ side: '옆', back: '뒤', front: '앞' }[v]}</button>`).join('')}</span><button class="chip" data-exd="play">${reduce ? '▶ 동작 보기' : '❚❚ 동작 멈춤'}</button></div></div>
     <p class="lfine" style="margin-top:4px">3D 모형: Human Base Meshes(CC0)${mus ? ' · BodyParts3D · Z-Anatomy 근육(CC BY-SA)' : ''}으로 만듦 · <a href="#" data-exd="src">출처 보기 ›</a></p>
@@ -2799,15 +2799,16 @@ function openExDetail(kind, i) {
   const fallback = () => { const d3 = o.querySelector('.d3'); if (!d3 || d3.dataset.fb) return; d3.dataset.fb = 1;
     d3.innerHTML = `<picture><source srcset="assets/exercise/${k}-still.webp" media="(prefers-reduced-motion: reduce)"><img src="assets/exercise/${k}.webp" alt="${name} 동작 그림" style="display:block;margin:0 auto;width:208px;height:242px"></picture><p class="sub" style="text-align:center;margin:4px 0 0">인터넷에 연결되면 3D로 볼 수 있어요</p>`; };
   mvReady.catch(fallback); mv.addEventListener('error', fallback);
-  let userCam = false;                                                   // 손으로 돌렸거나 옆·뒤·앞을 누르면 자동 각도 바꾸기를 멈춤
+  let userCam = false, musM = {};                                                   // 손으로 돌렸거나 옆·뒤·앞을 누르면 자동 각도 바꾸기를 멈춤
   mv.addEventListener('camera-change', e => { if (e.detail?.source === 'user-interaction') userCam = true; });
   const setView = v => { userCam = true; mv.cameraOrbit = `${VIEW3[v]}deg 80deg auto`; o.querySelectorAll('[data-view]').forEach(c => c.setAttribute('aria-pressed', c.dataset.view === v)); };
   // 반투명 피부는 바깥 한 겹만 (디자인 팀 10/29: 관절 구 이음이 겹쳐 비치지 않게): 피부 깊이만 먼저 쓰는 복제(색 없음)를 붙이고, 근육은 그보다 먼저 그림
   // ponytail: model-viewer 안쪽 three.js 장면(Symbol 'scene')을 직접 만짐 → model-viewer 버전을 올리면 다시 확인
   mv.addEventListener('load', () => {
-    const sc = mv[Object.getOwnPropertySymbols(mv).find(s => s.description === 'scene')], skins = [];
+    const sc = mv[Object.getOwnPropertySymbols(mv).find(s => s.description === 'scene')], skins = []; musM = {};
     sc?.traverse(m => { if (!m.isMesh || !m.material.name || m.userData.dep) return; m.userData.dep = 1;   // glTF 재질만(그림자 판 제외), 한 번만 (검수팀 10/29)
-      if (m.material.name.startsWith('mus_')) m.renderOrder = -2; else if (m.material.transparent) skins.push(m); });
+      if (m.material.name.startsWith('mus_')) { m.renderOrder = -2; Object.assign(m.material, { blending: 5, blendSrc: 204, blendDst: 205, blendSrcAlpha: 201, blendDstAlpha: 205, blendEquation: 100, needsUpdate: true }); musM[m.material.name] = m; }   // 불투명 단계에 남긴 채 알파 섞기(CustomBlending 색: SrcAlpha·1−SrcAlpha, 알파: One·1−SrcAlpha = 화면 합성과 맞는 'over', 안 그러면 하얗게 뜸) → 피부 깊이 복제(-1)보다 먼저 그려짐
+      else if (m.material.transparent) skins.push(m); else m.renderOrder = -4; });   // 벽·상자는 근육보다 먼저 (옅은 근육이 깊이를 안 써서 뒤 벽에 덮이지 않게)
     for (const m of skins) {
       const d = new m.constructor(m.geometry, m.material.clone());
       Object.assign(d.material, { colorWrite: false, transparent: false, depthWrite: true }); d.renderOrder = -1; m.add(d); m.material.depthWrite = true;
@@ -2820,14 +2821,15 @@ function openExDetail(kind, i) {
     const name = mv.src.match(/(\w+)\.glb$/)?.[1], tl = TL[name]; if (!tl) return;
     const f = (mv.currentTime || 0) * 10, mats = mv.model?.materials ?? [];
     for (const [nm, pts] of Object.entries(tl.mus)) {
-      const m = mats.find(x => x.name === 'mus_' + nm), t = 0.1 + 0.9 * pwl(pts, f);
-      m?.pbrMetallicRoughness.setBaseColorFactor([...MUS_PALE.map((p, j) => p + (MUS_LIN[j] - p) * t), 1]);
+      const m = mats.find(x => x.name === 'mus_' + nm), t = pwl(pts, f), me = musM['mus_' + nm];
+      m?.pbrMetallicRoughness.setBaseColorFactor([...MUS_PALE.map((p, j) => p + (MUS_LIN[j] - p) * t), 0.35 + 0.65 * t]);   // 조건 전 옅게 35% → 다 맞으면 진하게 100%
+      if (me) { const deep = t > 0.9; me.material.depthWrite = deep; me.renderOrder = deep ? -3 : -2; }   // 진한 근육을 먼저 그려 옅은 근육(가자미근 위 비복근 등) 너머로 비쳐 보이게
     }
     const lab = o.querySelector('.d3stage'), txt = tl.labels.find(([a, b]) => f >= a && f < b)?.[2] ?? '';
     if (lab && lab.textContent !== txt) { lab.textContent = txt; lab.hidden = !txt; }
     const h = tl.holds.find(([a, b]) => f >= a && f < b), hb = o.querySelector('.d3hold');
     if (hb) { hb.hidden = !h; if (h) hb.querySelector('circle:last-child').style.strokeDashoffset = (56.5 * (1 - (f - h[0]) / (h[1] - h[0]))).toFixed(1); }
-    if (name === 'calf' && !userCam) { const side = f >= 80 && f < 155; if (side !== (mv.dataset.side === '1')) { mv.dataset.side = side ? '1' : ''; mv.cameraOrbit = `${side ? -90 : theta}deg 80deg auto`; } }   // 무릎 굽힘이 보이게 옆에서
+    if (name === 'calf' && !userCam) { const side = f >= 80 && f < 155; if (side !== (mv.dataset.side === '1')) { mv.dataset.side = side ? '1' : ''; mv.cameraOrbit = `${side ? -140 : theta}deg 80deg auto`; } }   // 무릎 굽힘과 종아리 뒤가 보이게 뒤쪽 옆에서
   };
   if (['calf', 'quad', 'ham', 'glute'].includes(k)) exTimeline().then(TL => { if (o.isConnected) exTick = setInterval(tlTick(TL), 100); });
   const close = () => { clearInterval(exTick); o.remove(); if ($('exOv')) { $('exOv').inert = false; $('exOv').querySelectorAll('.exlist li')[i]?.querySelector('button, [tabindex]')?.focus(); } };
