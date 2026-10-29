@@ -893,7 +893,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v199';
+const APP_VERSION = 'v200';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -3023,7 +3023,7 @@ function openExDetail(kind, i, autoRun = false) {
     if (!b) return;
     if (b.dataset.view) return setView(b.dataset.view);
     if (b.dataset.stage) {                                                 // 단계 바꾸기: 3D와 '이렇게 해요'만 바뀜
-      const st = stages[+b.dataset.stage]; mv.setAttribute('src', `assets/exercise3d/${st.glb}.glb`);   // makeChips가 getAttribute로 읽음 exCache([mv.src.replace(location.origin + '/', '')]);
+      const st = stages[+b.dataset.stage]; mv.setAttribute('src', `assets/exercise3d/${st.glb}.glb`); exCache([`assets/exercise3d/${st.glb}.glb`]);   // makeChips가 getAttribute로 읽음, 오프라인에서도 열리게 저장
       o.querySelector('.exsteps').innerHTML = st.steps.map(s => `<li>${s}</li>`).join('');
       o.querySelectorAll('[data-stage]').forEach(c => c.setAttribute('aria-pressed', c === b)); exTimeline().then(makeChips); return;
     }
