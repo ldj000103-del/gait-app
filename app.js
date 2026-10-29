@@ -2756,9 +2756,9 @@ const EX_CAU = { warm: { tip: ['천천히 시작해서 조금씩 빠르게 해�
   walk: { tip: [], safe: ['통증이 있거나 어지러우면 멈춰요'] } };
 const EX_FINE = '일반적인 운동 안내이며 치료·재활을 대신하지 않아요. 통증이 있거나 어지러우면 멈추고 전문가와 상담하세요.<br>참고한 자료: 운동치료총론 개정8판 4·7·20·22장, NASM-CPT 7·8장';
 // 보기 도구 model-viewer 4.4.0(Apache-2.0, vendor/)은 처음 상세를 열 때만 불러옴. 본 3D 파일·보기 도구는 'ex3d' 저장소에 넣어 오프라인에서도 열리게 (sw.js가 지우지 않음)
-let mvReady = null, exTick = 0, exTL = null;
+let mvReady = null, exTick = 0, exTL = null;   // exTick: 정리 운동 시간표 타이머 (이전/다음으로 넘어가도 하나만 남게)
 const exTimeline = () => exTL ??= fetch('assets/exercise3d/timeline.json').then(r => r.json()).catch(() => { exTL = null; return {}; });
-const pwl = (pts, f) => { if (f <= pts[0][0]) return pts[0][1]; for (let i = 1; i < pts.length; i++) if (f <= pts[i][0]) { const [f0, v0] = pts[i - 1], [f1, v1] = pts[i]; return v0 + (v1 - v0) * (f - f0) / (f1 - f0); } return pts[pts.length - 1][1]; };   // 꺾은선                                          // exTick: 종아리 색·단계 타이머 (이전/다음으로 넘어가도 하나만 남게)
+const pwl = (pts, f) => { if (f <= pts[0][0]) return pts[0][1]; for (let i = 1; i < pts.length; i++) if (f <= pts[i][0]) { const [f0, v0] = pts[i - 1], [f1, v1] = pts[i]; return v0 + (v1 - v0) * (f - f0) / (f1 - f0); } return pts[pts.length - 1][1]; };   // 꺾은선
 const EX_HOLD = { brisk: 0.4, march: 1.2, swing: 0.6, ankle: 1.2, heel: 1.2, jog: 0.4, slowwalk: 0.2, calf: 5.0, quad: 6.0, ham: 5.5, ham1: 5.5, glute: 5.5 };   // 정리 운동은 멈춤 시작 3초 뒤(조건이 다 갖춰진 장면)
 // 단계가 있는 동작 (디자인 팀 10/29, Kisner 879~880쪽·그림 4.10B·20.18): 3D 위 칩을 눌러 바꿈(자동으로 넘어가지 않음), 처음엔 1단계
 const EX_STAGES = { ham: [
