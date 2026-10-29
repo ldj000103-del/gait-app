@@ -850,7 +850,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v166';
+const APP_VERSION = 'v169';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -1924,15 +1924,31 @@ function showRecord(i) {
 }
 
 // ── 영상 분석 (옆·앞·뒤) ──
-const VGUIDE = {
-  side: ['휴대폰을 <b>허리 높이</b>에 세워 고정해요(누가 들어 주거나 물건에 기대기). 세로보다 <b>가로</b>로 찍으면 더 많이 담겨요.',
-    '걷는 길에서 <b>3~4m 떨어져 옆에서</b> 찍어요. 화면 끝에서 끝까지 <b>4~5m 지나가며 3걸음 이상</b> 담기게 해요.',
-    '머리부터 발끝까지 보이게, 밝은 곳에서. 반바지나 몸에 붙는 옷이 잘 잡혀요. 10~20초면 충분해요.',
-    '걷는 사람은 바닥이나 휴대폰 말고 <b>앞쪽 목표물</b>(문, 벽의 표시 등)을 보며 평소처럼 걸어요.'],
-  front: ['휴대폰을 <b>허리 높이, 정면</b>에 고정해요.', '<b>6~8m 떨어진 곳에서 카메라 쪽으로</b> 평소처럼 걸어와요.', '머리부터 발끝까지 보이게, 밝은 곳에서. 10~20초면 충분해요.', '걷는 사람은 바닥이나 휴대폰 말고 <b>앞쪽 목표물</b>(문, 벽의 표시 등)을 보며 평소처럼 걸어요.'],
-  back: ['휴대폰을 <b>허리 높이</b>에 고정해요.', '카메라 바로 앞에서 출발해 <b>6~8m 멀어지며</b> 평소처럼 걸어가요.', '머리부터 발끝까지 보이게, 밝은 곳에서. 10~20초면 충분해요.', '걷는 사람은 바닥이나 휴대폰 말고 <b>앞쪽 목표물</b>(문, 벽의 표시 등)을 보며 평소처럼 걸어요.'],
-};
-function showVGuide() { $('vguide').innerHTML = VGUIDE[$('vview').value].map(x => `<li>${x}</li>`).join(''); }
+// 촬영 전 조건 확인 (디자인 팀 10/29, 교수님 아이디어 ①A): 누르면 켜지고 꺼지는 체크 5개(처음엔 모두 꺼짐, 방향마다 지난 선택 기억)
+// 근거: Perry 『보행 분석』 17장 362쪽(걷는 길과 직각), 365쪽(초당 60장), 20장 439~440쪽(양 끝 2m 여유, 연습 한 번) — refs/video_shooting_conditions.md
+const VCHECK = {
+  side: ['휴대폰을 엉덩이 높이에 가로로 고정했어요 (줌 없이)', '걷는 길과 직각으로, 3~4m 떨어져 있어요', '화면 양 끝보다 2m 앞에서 출발해 2m 지나서 멈춰요',
+    '밝은 곳, 몸에 붙는 옷, 화면에 나만 (비교하려면 지난번과 같게)', '찍기 전에 연습으로 한 번 걸어 봤어요'],
+  front: ['휴대폰을 엉덩이 높이에 가로로 고정했어요 (줌 없이)', '휴대폰 정면에 서요', '6~8m 떨어진 곳에서 카메라 쪽으로 평소처럼 걸어와요',
+    '밝은 곳, 몸에 붙는 옷, 화면에 나만 (비교하려면 지난번과 같게)', '찍기 전에 연습으로 한 번 걸어 봤어요'],
+  back: ['휴대폰을 엉덩이 높이에 가로로 고정했어요 (줌 없이)', '휴대폰 바로 앞에서 출발해요', '6~8m 멀어지며 평소처럼 걸어가요',
+    '밝은 곳, 몸에 붙는 옷, 화면에 나만 (비교하려면 지난번과 같게)', '찍기 전에 연습으로 한 번 걸어 봤어요'] };
+// 위에서 본 배치 (옆 방향만): 걷는 길 점선, 화면에 담기는 곳(연초록), 양 끝 2m 여유, 휴대폰 → 길 수직 3~4m
+const VFIG = `<svg viewBox="0 0 340 150" role="img" aria-label="위에서 본 촬영 배치: 휴대폰을 걷는 길과 직각으로 3~4m 떨어뜨리고, 화면에 담기는 곳 양 끝으로 2m씩 더 걸어요">
+  <rect x="100" y="22" width="140" height="28" rx="6" fill="var(--accent)" opacity=".16"/><text x="170" y="16" font-size="11" text-anchor="middle" fill="currentColor">화면에 담기는 곳</text>
+  <line x1="20" y1="36" x2="320" y2="36" stroke="currentColor" stroke-width="2" stroke-dasharray="6 5"/><path d="M312 31l8 5-8 5" fill="none" stroke="currentColor" stroke-width="2"/>
+  <text x="58" y="64" font-size="11" text-anchor="middle" fill="currentColor" opacity=".75">2m 여유</text><text x="282" y="64" font-size="11" text-anchor="middle" fill="currentColor" opacity=".75">2m 여유</text>
+  <line x1="170" y1="50" x2="170" y2="118" stroke="currentColor" stroke-width="1.5"/><path d="M170 50v8h8" fill="none" stroke="currentColor" stroke-width="1.2"/>
+  <text x="180" y="92" font-size="11" fill="currentColor">3~4m · 직각</text>
+  <rect x="150" y="118" width="40" height="22" rx="4" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="182" cy="129" r="3" fill="currentColor"/><text x="140" y="133" font-size="11" text-anchor="end" fill="currentColor">휴대폰(가로)</text></svg>`;
+function showVGuide() {
+  const v = $('vview').value, on = store.get('vchecks', {})[v] ?? [];
+  $('vfig').innerHTML = v === 'side' ? VFIG : '';
+  $('vguide').innerHTML = VCHECK[v].map((x, i) => `<li><label><input type="checkbox" data-vc="${i}"${on[i] ? ' checked' : ''}><span>${x}</span></label></li>`).join('');
+  document.querySelectorAll('[data-cloth]').forEach(c => c.setAttribute('aria-pressed', c.dataset.cloth === store.get('vcloth', null)));
+}
+$('vguide').addEventListener('change', e => { const c = e.target.closest('[data-vc]'); if (!c) return; const all = store.get('vchecks', {}), v = $('vview').value; (all[v] ??= [])[+c.dataset.vc] = c.checked; store.set('vchecks', all); });
+document.querySelector('.vcloth').addEventListener('click', e => { const c = e.target.closest('[data-cloth]'); if (!c) return; store.set('vcloth', store.get('vcloth', null) === c.dataset.cloth ? null : c.dataset.cloth); showVGuide(); });
 $('vview').value = store.get('vview', 'side');
 $('vview').addEventListener('change', () => { store.set('vview', $('vview').value); showVGuide(); });
 showVGuide();
@@ -1945,7 +1961,7 @@ async function runVideo(file) {
   const prog = (r, msg) => { $('vbar').style.width = `${Math.round(r * 100)}%`; $('vmsg').textContent = msg; };
   prog(0, '자세 인식 프로그램 준비 중… (처음 한 번은 조금 걸려요)');
   try {
-    const { frames, W, H, video, dur, processed, delegate } = await extractPose(file, r => prog(r, `영상 분석 중… ${Math.round(r * 100)}%`));
+    const { frames, W, H, video, dur, processed, delegate, srcFps, bright } = await extractPose(file, r => prog(r, `영상 분석 중… ${Math.round(r * 100)}%`));
     prog(1, '계산 중…');
     // 실패하면 원인을 찾을 수 있게 숫자를 같이 보여 줌
     const info = extra => `<details open><summary>측정 정보 (문제 찾기용)</summary><div class="sub">영상 길이 ${dur.toFixed(1)}초(최대 20초 분석) · 화면 ${W}×${H} · 확인한 장면 ${processed}개 · 사람이 잡힌 장면 ${frames.length}개 · 계산 방식 ${delegate}${extra || ''}</div></details>`;
@@ -1959,6 +1975,7 @@ async function runVideo(file) {
     $('vcanvas').classList.remove('hidden');
     await drawSnapshot($('vcanvas'), video, frames[Math.floor(frames.length / 2)], videoMarks(r));
     URL.revokeObjectURL(video.src);
+    r.cond = shootCond(view, frames, r, srcFps, bright);                   // 이번 촬영 조건 (휴대폰 기록에만, 시트로 안 보냄)
     const hist = store.get('history', []);
     const vrec = { date: new Date().toISOString(), activity: 'video', view, r };   // 영상은 저장 안 하고 계산된 숫자만
     hist.unshift(vrec); store.set('history', hist.slice(0, 200));
@@ -1973,6 +1990,30 @@ async function runVideo(file) {
   } finally { $('vprog').classList.add('hidden'); }
 }
 
+// ── 이번 촬영 조건 (디자인 팀 10/29, 교수님 아이디어 ②B): 앱이 영상에서 잰 값 + 고른 옷·체크 수. 같은 방향 바로 전 영상과 나란히 ──
+function shootCond(view, frames, r, srcFps, bright) {
+  const sz = frames.map(f => { const ys = [29, 30, 31, 32].map(i => f.lm[i]?.y).filter(y => y != null); return ys.length && f.lm[0] ? Math.max(...ys) - f.lm[0].y : null; }).filter(x => x > 0).sort((a, b) => a - b);
+  const checks = (store.get('vchecks', {})[view] ?? []).filter(Boolean).length;
+  return { view, fps: srcFps, steps: view === 'side' ? r.diag?.contacts ?? null : r.fc?.n ?? null, size: sz.length ? Math.round(sz[Math.floor(sz.length / 2)] * 100) : null,
+    bright: bright == null ? null : Math.round(bright), cloth: store.get('vcloth', null), checks };
+}
+// 다른 칸 표시 기준은 디자인 팀이 정한 '눈에 띄게 할 차이'이고 연구 근거는 아님: 방향·옷·초당 장수는 다르면, 사람 크기는 10%p, 밝기는 15 이상. 담긴 걸음은 표시 안 함
+function condHtml(r) {
+  const c = r.cond; if (!c) return '';
+  const hist = store.get('history', []), me = hist.findIndex(h => h.date === shownDate);
+  const prev = hist.slice(me + 1).find(h => h.activity === 'video' && h.view === c.view && h.r?.cond)?.r.cond, pd = prev && hist.slice(me + 1).find(h => h.r?.cond === prev);
+  const VIEWN = { side: '옆', front: '앞', back: '뒤' }, CL = { tight: '몸에 붙는 옷', loose: '헐렁한 옷' };
+  const rows = [['방향', x => VIEWN[x.view], (a, b) => a.view !== b.view], ['초당 장수', x => x.fps ? `${x.fps}장` : '알 수 없음', (a, b) => a.fps && b.fps && a.fps !== b.fps],
+    [c.view === 'side' ? '담긴 발 닿기' : '담긴 보행 주기', x => x.steps ?? '-', () => false], ['사람 크기', x => x.size != null ? `${x.size}%` : '-', (a, b) => a.size != null && b.size != null && Math.abs(a.size - b.size) >= 10],
+    ['밝기', x => x.bright != null ? `${x.bright}` : '-', (a, b) => a.bright != null && b.bright != null && Math.abs(a.bright - b.bright) >= 15], ['옷', x => CL[x.cloth] ?? '고르지 않음', (a, b) => a.cloth && b.cloth && a.cloth !== b.cloth],
+    ['찍기 전 확인', x => `${x.checks ?? 0} / 5`, () => false]];
+  const cell = (x, d) => d ? `<span class="vdiff">${x}</span>` : x;
+  return `<div class="metric"><div class="mhead"><div><b>이번 촬영 조건</b></div></div><table class="vcond"><tr><th></th><th>이번</th>${prev ? `<th>${new Date(pd.date).getMonth() + 1}월 ${new Date(pd.date).getDate()}일</th>` : ''}</tr>
+    ${rows.map(([k, f, diff]) => { const d = prev && diff(c, prev); return `<tr><td>${k}</td><td>${cell(f(c), d)}</td>${prev ? `<td>${cell(f(prev), d)}</td>` : ''}</tr>`; }).join('')}</table>
+    <div class="sub" style="font-size:.75rem;margin-top:4px">사람 크기 = 화면 높이에 대한 머리~발 길이 · 밝기 0~100 · 분석은 초당 30장으로 해요</div>
+    <div class="sub" style="margin-top:6px">조건이 다르면 각도가 몇 도 달라질 수 있어요${c.fps && c.fps < 60 ? '<br>페리 기준 연구는 초당 60장으로 찍었어요 (『보행 분석』 365쪽)' : ''}</div>
+    <div class="sub" style="font-size:.75rem">Lights, Cameras, Action, J Biomech 2026 · Pérez-de la Cruz, Sensors 2026</div></div>`;
+}
 function showV(html) {
   const el = $('vresult'); el.innerHTML = html;
   if (shownDate) el.querySelector('h2')?.insertAdjacentHTML('afterend', shareBtn(shownDate));
@@ -2376,7 +2417,7 @@ function renderVideo(r, dur) {
       body: `<div class="sub">두 발목 사이 가로 거리 ÷ 양쪽 엉덩이 점 사이 거리 (중앙값). 참고: Neumann 15장 성인 걸음 폭 8~10cm</div>`,
       why: ['영상에는 cm 기준이 없어서 골반 너비에 대한 비율로만 보여 줘요'], refs: ['neumann15'] });
   }
-  html += recSection(videoRecs(r), '레퍼런스로 본 걷는 법') + READ_GUIDE;
+  html += recSection(videoRecs(r), '레퍼런스로 본 걷는 법') + condHtml(r) + READ_GUIDE;
   html += `<div class="sub" style="margin-top:12px">이 결과는 의료 진단이 아니에요. 걸음이 걱정되면 전문가와 상담하세요. 영상은 저장되지 않았어요(계산된 숫자만 지난 기록에 남아요).</div>`;
   showV(html);
 }
@@ -2686,11 +2727,11 @@ const EX = {
     ['ankle', '발목 돌리기', '좌우 10번', '발끝을 바닥에 대고 천천히 원을 그려요'],
     ['heel', '뒤꿈치 들기', '10번', '발끝으로 섰다가 천천히 내려와요'],
     ['jog', '천천히 달리기', '2분', '걷는 속도로 가볍게 뛰다가 조금씩 속도를 올려요']] },
-  cool: { title: '뛴 뒤 정리 운동', sub: '당기는 느낌이 들 때까지, 아프지 않은 범위에서 늘여요', line: '튕기지 말고 멈춘 채로 늘여요', time: '약 7분', items: [
+  cool: { title: '뛴 뒤 정리 운동', sub: '당기는 느낌이 들 때까지, 아프지 않은 범위에서 늘여요', line: '튕기지 말고 멈춘 채로 늘여요', when: '뛴 직후 몸이 따뜻할 때, 천천히 걷기 다음에 해요 · 일주일에 2~5번', time: '약 7분', items: [   // when: Kisner 4장 115·123쪽(신장 전 몸 데우기, 주 2~5회)
     ['slowwalk', '천천히 걷기', '3분', '숨이 고를 때까지 천천히 걸어요'],
     ['calf', '종아리 늘이기', '좌우 30초 × 2', '벽을 짚고 한 발을 뒤로 빼요. 뒤꿈치를 붙인 채 무릎 펴서 30초, 살짝 굽혀서 30초', 1],
     ['quad', '허벅지 앞 늘이기', '좌우 30초', '벽을 짚고 한 발목을 잡아, 골반을 뒤로 말며 허벅지 앞을 늘여요', 1],
-    ['ham', '허벅지 뒤 늘이기', '좌우 30초', '낮은 계단에 발뒤꿈치를 올리고, 등을 편 채 엉덩이에서 숙여요', 1],
+    ['ham', '허벅지 뒤 늘이기', '좌우 30초', '앉아서 해 보고, 편하면 낮은 계단에 발을 올려 서서 해요', 1, 'ham1'],   // 6번째 = 목록 그림 이름 (1단계)
     ['glute', '엉덩이 늘이기', '좌우 30초', '의자에 앉아 한 발목을 반대 무릎에 올리고 허리를 편 채 숙여요', 1]] },
 };
 // 동작 상세 (디자인 팀 시안 A 10/29, 법률 23번): 3D 보기 + 카드 4개. 정리 운동 근육·자세는 Kisner 20·22장, 준비 운동은 7장 298쪽 원칙 (사용자 규칙: Kisner가 기준)
@@ -2705,33 +2746,43 @@ const EXD = {
   slowwalk: ['3분', '선 자세', ['달리기를 멈추고 천천히 걸어요.', '숨이 고를 때까지 3분 동안 걸어요.'], '다리 전체 (늘어나는 곳 없음)', [], -60],
   calf: ['좌우 각 30초씩 두 자세(무릎 펴서 / 살짝 굽혀서)', '벽 짚기', ['벽을 마주 보고 서서 두 손을 벽에 대요.', '한 발을 앞으로 내딛고, 뒤 발의 뒤꿈치를 바닥에 평평하게 붙여요. 뒤 발끝은 살짝 안쪽을 향하게 해요.', '뒤 무릎을 편 채, 종아리가 당길 때까지 몸을 벽 쪽으로 천천히 기울여 30초 있어요.', '이번엔 뒤 무릎을 살짝 굽혀 30초 더 있어요. 반대쪽도 같게 해요.'], '뒤 다리의 종아리 — 무릎 펴면 비복근, 살짝 굽히면 가자미근', [], -120],
   quad: ['좌우 각 30초', '벽이나 의자 짚기', ['벽 옆에 서서 한 손으로 벽을 짚어요.', '벽에서 먼 쪽 무릎을 굽혀 같은 쪽 손으로 발목을 잡아요.', '엉덩이를 살짝 앞으로 밀어 골반을 뒤로 말고, 허벅지를 몸 뒤쪽으로 살짝 보내 허벅지 앞이 당길 때까지 있어요.', '멈춘 채로 30초 있다가 천천히 내려놓아요. 반대쪽도 같게 해요.'], '잡은 다리의 허벅지 앞(대퇴사두근)', ['허리를 뒤로 젖히지 않아요'], -60],
-  ham: ['좌우 각 30초', '낮은 계단이나 의자 사용', ['낮은 계단이나 의자 앞에 서서 한쪽 발뒤꿈치를 올려요.', '올린 다리의 무릎은 편 채, 등을 곧게 펴요.', '허리를 말지 말고 엉덩이에서 몸통을 앞으로 숙여 허벅지 뒤가 당길 때까지 있어요.', '멈춘 채로 30초 있다가 천천히 일어나요. 반대쪽도 같게 해요.'], '올린 다리의 허벅지 뒤(햄스트링)', ['발끝에 손을 대려고 등을 둥글게 말지 않아요'], -120],
+  ham: ['좌우 각 30초', '1단계 의자 2개 · 2단계 낮은 계단', ['낮은 계단이나 의자 앞에 서서 한쪽 발뒤꿈치를 올려요.', '올린 다리의 무릎은 편 채, 등을 곧게 펴요.', '허리를 말지 말고 엉덩이에서 몸통을 앞으로 숙여 허벅지 뒤가 당길 때까지 있어요.', '멈춘 채로 30초 있다가 천천히 일어나요. 반대쪽도 같게 해요.'], '올린 다리의 허벅지 뒤(햄스트링)', ['발끝에 손을 대려고 등을 둥글게 말지 않아요'], -120],
   glute: ['좌우 각 30초', '의자에 앉기', ['의자에 앉아 두 발을 바닥에 대요.', '한 발목을 반대쪽 무릎 위에 올려 다리로 4자를 만들어요.', '허리를 편 채 상체를 앞으로 숙여 엉덩이 뒤쪽이 당길 때까지 있어요.', '멈춘 채로 30초 있다가 천천히 일어나 앉아요. 반대쪽도 같게 해요.'], '올린 다리의 엉덩이 뒤쪽(대둔근·중둔근)', [], -130],
 };
 const EX_CAU = { warm: ['천천히 시작해서 조금씩 빠르게 해요', '숨이 너무 차면 속도를 줄여요', '통증이 있거나 어지러우면 멈춰요'],
-  cool: ['튕기지 말고 멈춘 채로 늘여요', '당기는 느낌까지만, 아프지 않은 범위에서 해요', '숨을 참지 말고 편하게 쉬어요', '통증이 있거나 어지러우면 멈춰요'] };
+  cool: ['튕기지 말고 멈춘 채로 늘여요', '당기는 느낌까지만, 아프지 않은 범위에서 해요', '숨을 참지 말고 편하게 쉬어요', '통증이 있거나 어지러우면 멈춰요',
+    '관절을 억지로 꺾지 않아요', '붓거나 다친 곳은 늘이지 않아요', '다음 날까지 아프면 다음엔 더 약하게 해요'] };   // 뒤 3줄: Kisner 4장 125쪽
 const EX_FINE = '일반적인 운동 안내이며 치료·재활을 대신하지 않아요. 통증이 있거나 어지러우면 멈추고 전문가와 상담하세요.<br>참고한 자료: 운동치료총론 개정8판 4·7·20·22장, NASM-CPT 7·8장';
 // 보기 도구 model-viewer 4.4.0(Apache-2.0, vendor/)은 처음 상세를 열 때만 불러옴. 본 3D 파일·보기 도구는 'ex3d' 저장소에 넣어 오프라인에서도 열리게 (sw.js가 지우지 않음)
 let mvReady = null, exTick = 0;                                          // exTick: 종아리 색·단계 타이머 (이전/다음으로 넘어가도 하나만 남게)
-const EX_HOLD = { brisk: 0.4, march: 1.2, swing: 0.6, ankle: 1.2, heel: 1.2, jog: 0.4, slowwalk: 0.2, calf: 1.5, quad: 2.5, ham: 2.5, glute: 2.5 };   // 움직임 줄이기면 이 순간(초)에 멈춰 보여 줌
+const EX_HOLD = { brisk: 0.4, march: 1.2, swing: 0.6, ankle: 1.2, heel: 1.2, jog: 0.4, slowwalk: 0.2, calf: 1.5, quad: 2.5, ham: 2.5, ham1: 2.5, glute: 2.5 };
+// 단계가 있는 동작 (디자인 팀 10/29, Kisner 879~880쪽·그림 4.10B·20.18): 3D 위 칩을 눌러 바꿈(자동으로 넘어가지 않음), 처음엔 1단계
+const EX_STAGES = { ham: [
+  { label: '1 앉아서', glb: 'ham1', steps: ['의자 끝에 앉아 한 다리를 앞 의자에 뻗고, 반대 발은 바닥에 둬요.', '허리를 편 채 엉덩이에서 몸통을 앞으로 숙여 허벅지 뒤가 당길 때까지 30초 있어요.'] },
+  { label: '2 서서', glb: 'ham', steps: ['1단계가 편하면, 낮은 계단에 발뒤꿈치를 올리고 무릎을 펴요.', '등을 곧게 편 채 엉덩이부터 숙여 당길 때까지 30초 있어요. 반대쪽도 같게 해요.'] }] };
+// 바른 자세·틀린 자세 (2단계를 바로 옆에서 본 정지 그림, 틀린 그림엔 근육 강조 없음). Kisner 880쪽(등 말지 않기)·125쪽(당기는 느낌까지만)
+const EX_CMP = { ham: '<div class="card"><div class="excmp"><figure><img src="assets/exercise/ham-good.webp" alt="바른 자세: 등을 편 채 엉덩이부터 숙인 모습" width="150" height="175"><figcaption class="exok">○ 등 펴고 엉덩이부터</figcaption></figure>'
+  + '<figure><img src="assets/exercise/ham-bad.webp" alt="틀린 자세: 발끝을 잡으려 등을 둥글게 만 모습" width="150" height="175"><figcaption><span class="exno">× 발끝 잡으려 등 말기</span></figcaption></figure></div>'
+  + '<p class="sub" style="margin:6px 0 0">숙이는 정도는 사람마다 달라요. 당기는 느낌까지만 해요.</p></div>' };   // 움직임 줄이기면 이 순간(초)에 멈춰 보여 줌
 const exCache = urls => caches?.open('ex3d').then(c => Promise.all(urls.map(u => c.match(u).then(h => h || c.add(u))))).catch(() => {});
 const MUS_LIN = [0.392, 0.032, 0.048], MUS_PALE = [0.80, 0.42, 0.42];   // 근육 빨강 #a8323e(선형) · 옅게
 function openExDetail(kind, i) {
   const list = EX[kind].items, [k, name] = list[i], [dose, pose, steps, area, extra, theta] = EXD[k], cool = kind === 'cool' && k !== 'slowwalk';
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches, mus = ['calf', 'quad', 'ham', 'glute'].includes(k);
   mvReady ??= import('./vendor/model-viewer-4.4.0.min.js').catch(e => { mvReady = null; throw e; });
-  exCache(['vendor/model-viewer-4.4.0.min.js', `assets/exercise3d/${k}.glb`]);
+  const stages = EX_STAGES[k], glb0 = stages ? stages[0].glb : k;
+  exCache(['vendor/model-viewer-4.4.0.min.js', `assets/exercise3d/${glb0}.glb`, ...(EX_CMP[k] ? ['assets/exercise/ham-good.webp', 'assets/exercise/ham-bad.webp'] : [])]);
   clearInterval(exTick); $('exDet')?.remove();
   const o = document.createElement('div');
   o.id = 'exDet'; o.setAttribute('role', 'dialog'); o.setAttribute('aria-modal', 'true'); o.setAttribute('aria-label', name);
   const VIEW3 = { side: -90, back: 180, front: 0 };
   o.innerHTML = `<div class="sphead"><button class="spBack" data-exd="back" aria-label="목록으로">‹</button><h2>${name}</h2></div>
-    <div class="d3">${k === 'calf' ? '<div class="d3stage" hidden></div>' : ''}<model-viewer src="assets/exercise3d/${k}.glb" alt="${name} 3D 모형, 손가락으로 밀어 돌려 볼 수 있어요" camera-controls touch-action="pan-y" disable-pan interaction-prompt="none"
-      camera-orbit="${theta}deg 80deg auto" shadow-intensity="0.6" environment-image="neutral" exposure="1.05" ${reduce ? '' : 'autoplay'}></model-viewer>
+    <div class="d3">${k === 'calf' ? '<div class="d3stage" hidden></div>' : ''}${stages ? `<div class="d3chips">${stages.map((s, j) => `<button class="chip" data-stage="${j}" aria-pressed="${j === 0}">${s.label}</button>`).join('')}</div>` : ''}<model-viewer src="assets/exercise3d/${glb0}.glb" alt="${name} 3D 모형, 손가락으로 밀어 돌려 볼 수 있어요" camera-controls touch-action="pan-y" disable-pan interaction-prompt="none"
+      camera-orbit="${theta}deg 80deg auto" shadow-intensity="1" shadow-softness="0.3" environment-image="neutral" exposure="1.05" ${reduce ? '' : 'autoplay'}></model-viewer>
       <div class="d3bar"><span>${['side', 'back', 'front'].map(v => `<button class="chip" data-view="${v}">${{ side: '옆', back: '뒤', front: '앞' }[v]}</button>`).join('')}</span><button class="chip" data-exd="play">${reduce ? '▶ 동작 보기' : '❚❚ 동작 멈춤'}</button></div></div>
     <p class="lfine" style="margin-top:4px">3D 모형: Human Base Meshes(CC0)${mus ? ' · BodyParts3D · Z-Anatomy 근육(CC BY-SA)' : ''}으로 만듦 · <a href="#" data-exd="src">출처 보기 ›</a></p>
     <div class="card"><h3>시간·횟수·자세</h3><p>${dose} · ${pose}</p></div>
-    <div class="card"><h3>이렇게 해요</h3><ol class="exsteps">${steps.map(s => `<li>${s}</li>`).join('')}</ol></div>
+    <div class="card"><h3>이렇게 해요</h3><ol class="exsteps">${(stages ? stages[0].steps : steps).map(s => `<li>${s}</li>`).join('')}</ol></div>${EX_CMP[k] ?? ''}
     <div class="card"><h3>${cool ? '<span class="exleg" style="margin:0"><i aria-hidden="true"></i></span>늘어나는 곳' : '주로 움직이는 곳'}</h3><p>${area}</p></div>
     <div class="card"><h3>주의할 점</h3><ul class="exsteps">${[...(cool ? EX_CAU.cool : kind === 'warm' ? EX_CAU.warm : ['통증이 있거나 어지러우면 멈춰요']), ...extra].map(s => `<li>${s}</li>`).join('')}</ul></div>
     <p class="lfine">${EX_FINE}</p>
@@ -2756,8 +2807,8 @@ function openExDetail(kind, i) {
       const d = new m.constructor(m.geometry, m.material.clone());
       Object.assign(d.material, { colorWrite: false, transparent: false, depthWrite: true }); d.renderOrder = -1; m.add(d); m.material.depthWrite = true;
     }
-    if (reduce) { mv.play(); setTimeout(() => { mv.currentTime = EX_HOLD[k]; setTimeout(() => mv.pause(), 120); }, 60); }   // 움직임 줄이기: 선 자세 대신 늘이는(움직이는) 순간을 멈춰 보여 줌 (멈춘 채로 시간만 옮기면 안 그려져서 0.1초만 재생 후 멈춤)
-  }, { once: true });
+    if (reduce) { mv.play(); setTimeout(() => { mv.currentTime = EX_HOLD[mv.src.match(/(\w+)\.glb$/)?.[1]] ?? EX_HOLD[k]; setTimeout(() => mv.pause(), 120); }, 60); }   // 움직임 줄이기: 선 자세 대신 늘이는(움직이는) 순간을 멈춰 보여 줌 (멈춘 채로 시간만 옮기면 안 그려져서 0.1초만 재생 후 멈춤)
+  });
   if (k === 'calf') {                                                    // 종아리: 첫 멈춤(무릎 폄)에 비복근, 두 번째 멈춤(살짝 굽힘)에 가자미근을 진하게 (render_ex2.py와 같은 구간, 10fps)
     const ramp = (f, a, c) => f < a || f >= c + 3 ? 0 : f < a + 3 ? (f - a) / 3 : f < c ? 1 : (c + 3 - f) / 3;
     const paint = () => { const f = (mv.currentTime || 0) * 10, mats = mv.model?.materials ?? [];
@@ -2771,9 +2822,14 @@ function openExDetail(kind, i) {
   }
   const close = () => { clearInterval(exTick); o.remove(); if ($('exOv')) { $('exOv').inert = false; $('exOv').querySelectorAll('.exlist li')[i]?.querySelector('button, [tabindex]')?.focus(); } };
   o.addEventListener('click', e => {
-    const b = e.target.closest('[data-exd], [data-view]');
+    const b = e.target.closest('[data-exd], [data-view], [data-stage]');
     if (!b) return;
     if (b.dataset.view) return setView(b.dataset.view);
+    if (b.dataset.stage) {                                                 // 단계 바꾸기: 3D와 '이렇게 해요'만 바뀜
+      const st = stages[+b.dataset.stage]; mv.src = `assets/exercise3d/${st.glb}.glb`; exCache([mv.src.replace(location.origin + '/', '')]);
+      o.querySelector('.exsteps').innerHTML = st.steps.map(s => `<li>${s}</li>`).join('');
+      o.querySelectorAll('[data-stage]').forEach(c => c.setAttribute('aria-pressed', c === b)); return;
+    }
     const a = b.dataset.exd;
     if (a === 'back') close();
     else if (a === 'play') { if (mv.paused) { mv.play(); playBtn.textContent = '❚❚ 동작 멈춤'; } else { mv.pause(); playBtn.textContent = '▶ 동작 보기'; } }
@@ -2788,13 +2844,13 @@ function openEx(kind, fromHome = false) {
   const d = EX[kind], o = document.createElement('div');
   o.id = 'exOv'; o.setAttribute('role', 'dialog'); o.setAttribute('aria-modal', 'true'); o.setAttribute('aria-label', d.title);
   o.innerHTML = `<div class="dsheet lesson"><div class="lhead"><div><div class="sub" style="font-size:.75rem">${d.time}</div><h3>${d.title}</h3></div><button class="lx" data-ex="close" aria-label="닫기">✕</button></div>
-    <p class="sub" style="margin:4px 0 0">${d.sub}</p>${d.line ? `<p style="margin:4px 0 0;font-weight:600">${d.line}</p>` : ''}
+    <p class="sub" style="margin:4px 0 0">${d.sub}</p>${d.when ? `<p class="sub" style="margin:2px 0 0">${d.when}</p>` : ''}${d.line ? `<p style="margin:4px 0 0;font-weight:600">${d.line}</p>` : ''}
     ${d.items.some(x => x[4]) ? '<p class="exleg"><i aria-hidden="true"></i>늘어나는 곳 <span class="sub">· 해부학 그림에서 흔히 쓰는 근육 색이에요</span></p>' : ''}
-    <ol class="exlist">${d.items.map(([k, name, dose, how], i) => `<li><button class="exrow" data-exi="${i}" aria-label="${name} 자세히 보기"></button><picture><source srcset="assets/exercise/${k}-still.webp" media="(prefers-reduced-motion: reduce)"><img src="assets/exercise/${k}.webp" alt="${name} 동작 그림" width="128" height="149" loading="lazy"></picture>
+    <ol class="exlist">${d.items.map(([k, name, dose, how, , img = k], i) => `<li><button class="exrow" data-exi="${i}" aria-label="${name} 자세히 보기"></button><picture><source srcset="assets/exercise/${img}-still.webp" media="(prefers-reduced-motion: reduce)"><img src="assets/exercise/${img}.webp" alt="${name} 동작 그림" width="128" height="149" loading="lazy"></picture>
       <div><b>${name}</b> <span class="exdose">${dose}</span><p>${how}</p></div><span class="exgo" aria-hidden="true">›</span></li>`).join('')}</ol>
     ${kind === 'warm' && !fromHome ? '<button data-ex="start">측정 시작</button>' : ''}
     <p class="lfine">${EX_FINE} · <a href="#" data-ex="src">출처 보기 ›</a></p></div>`;
-  exCache(d.items.flatMap(([k]) => [`assets/exercise/${k}.webp`, `assets/exercise/${k}-still.webp`]));   // 목록 그림도 오프라인에서
+  exCache(d.items.flatMap(([k, , , , , img = k]) => [`assets/exercise/${img}.webp`, `assets/exercise/${img}-still.webp`]));   // 목록 그림도 오프라인에서
   const back = document.activeElement;
   document.body.append(o);
   for (const el of [document.querySelector('main'), $('tabbar')]) el.inert = true;

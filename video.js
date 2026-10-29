@@ -193,6 +193,19 @@ async function getLandmarker(force) {
   return landmarker;
 }
 // ponytail: 프레임마다 영상을 되감아(seek) 처리해서 느림(20초 영상에 수십 초). 빨라야 하면 requestVideoFrameCallback으로 재생하며 처리
+// 영상의 실제 초당 장수: 잠깐 재생하며 화면에 나온 장면 시각(mediaTime) 간격의 중앙값 → 반올림. 이 기능이 없는 브라우저면 null ('분석 30장'만 표시)
+async function videoFps(video) {
+  if (!video.requestVideoFrameCallback) return null;
+  const ts = [];
+  await new Promise(done => {
+    let n = 0; setTimeout(done, 1500);
+    const cb = (_, m) => { ts.push(m.mediaTime); if (++n < 14) video.requestVideoFrameCallback(cb); else done(); };
+    video.requestVideoFrameCallback(cb); video.play().catch(done);
+  });
+  video.pause();
+  const d = ts.slice(1).map((t, i) => t - ts[i]).filter(x => x > 0.004).sort((a, b) => a - b);
+  return d.length >= 4 ? Math.round(1 / d[Math.floor(d.length / 2)]) : null;
+}
 export async function extractPose(file, onProgress, { fps = 30, maxSec = 20 } = {}) {
   let lmk = await getLandmarker();
   const video = document.createElement('video');
@@ -200,6 +213,8 @@ export async function extractPose(file, onProgress, { fps = 30, maxSec = 20 } = 
   await new Promise((ok, no) => { video.onloadeddata = ok; video.onerror = () => no(new Error('영상을 열 수 없어요. 다른 영상으로 해 보세요.')); });
   // 휴대폰 브라우저는 한 번도 재생 안 한 영상을 넘기면 검은 화면이 나오기도 해서 잠깐 재생해 깨움
   try { await video.play(); video.pause(); } catch {}
+  let srcFps = null; try { srcFps = await videoFps(video); } catch {}   // 촬영 조건 표용 (디자인 팀 10/29)
+  const lc = document.createElement('canvas'); lc.width = 32; lc.height = 18; const lx = lc.getContext('2d', { willReadFrequently: true }); const lum = [];   // 밝기: 10장마다 작게 그려 평균
   const dur = Math.min(Number.isFinite(video.duration) ? video.duration : maxSec, maxSec);
   const run = async (from, to, step) => {
     const out = [];
@@ -207,6 +222,7 @@ export async function extractPose(file, onProgress, { fps = 30, maxSec = 20 } = 
       video.currentTime = t;
       await new Promise(r => { video.onseeked = r; setTimeout(r, 1500); });   // 넘기기가 멈추면 1.5초 뒤 다음으로
       const res = lmk.detectForVideo(video, ts += 34);
+      if (out.length % 10 === 0) { try { lx.drawImage(video, 0, 0, 32, 18); const p = lx.getImageData(0, 0, 32, 18).data; let s = 0; for (let i = 0; i < p.length; i += 4) s += 0.2126 * p[i] + 0.7152 * p[i + 1] + 0.0722 * p[i + 2]; lum.push(s / (p.length / 4) / 2.55); } catch {} }
       if (res.landmarks?.[0]) out.push({ t, lm: res.landmarks[0].map(q => ({ x: q.x, y: q.y, v: q.visibility ?? 1 })) });
       onProgress?.(t / dur);
     }
@@ -217,7 +233,8 @@ export async function extractPose(file, onProgress, { fps = 30, maxSec = 20 } = 
   if (!frames.length && delegate === 'GPU') { lmk = await getLandmarker('CPU'); frames = await run(0, Math.min(1, dur), 1 / fps); }
   frames = frames.concat(await run(Math.min(1, dur), dur, 1 / fps));
   const processed = Math.round(dur * fps);
-  return { frames, W: video.videoWidth, H: video.videoHeight, video, dur, processed, delegate };
+  const bright = lum.length ? lum.reduce((a, b) => a + b, 0) / lum.length : null;   // 0~100
+  return { frames, W: video.videoWidth, H: video.videoHeight, video, dur, processed, delegate, srcFps, bright };
 }
 
 // 결과 확인용: 가운데 장면에 인식된 뼈대를 그려 보여 줌
