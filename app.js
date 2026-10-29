@@ -2806,7 +2806,7 @@ function openExDetail(kind, i) {
   // ponytail: model-viewer 안쪽 three.js 장면(Symbol 'scene')을 직접 만짐 → model-viewer 버전을 올리면 다시 확인
   mv.addEventListener('load', () => {
     const sc = mv[Object.getOwnPropertySymbols(mv).find(s => s.description === 'scene')], skins = []; musM = {};
-    sc?.traverse(m => { if (!m.isMesh || !m.material.name || m.userData.dep) return; m.userData.dep = 1;   // glTF 재질만(그림자 판 제외), 한 번만 (검수팀 10/29)
+    sc?.traverse(m => { if (!m.isMesh || !m.material.name || m.material.isShaderMaterial || m.userData.dep) return; m.userData.dep = 1;   // glTF 재질만(그림자 판·흐림 셰이더 제외), 한 번만 (검수팀 10/29)
       if (m.material.name.startsWith('mus_')) { m.renderOrder = -2; Object.assign(m.material, { blending: 5, blendSrc: 204, blendDst: 205, blendSrcAlpha: 201, blendDstAlpha: 205, blendEquation: 100, needsUpdate: true }); musM[m.material.name] = m; }   // 불투명 단계에 남긴 채 알파 섞기(CustomBlending 색: SrcAlpha·1−SrcAlpha, 알파: One·1−SrcAlpha = 화면 합성과 맞는 'over', 안 그러면 하얗게 뜸) → 피부 깊이 복제(-1)보다 먼저 그려짐
       else if (m.material.transparent) skins.push(m); else m.renderOrder = -4; });   // 벽·상자는 근육보다 먼저 (옅은 근육이 깊이를 안 써서 뒤 벽에 덮이지 않게)
     for (const m of skins) {
