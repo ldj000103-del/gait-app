@@ -9,6 +9,7 @@ public class MainActivity extends BridgeActivity {
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(GaitRecorderPlugin.class);   // 화면 꺼져도 측정하는 네이티브 기능
         registerPlugin(HealthStepsPlugin.class);    // 헬스 커넥트 하루 걸음 수
+        registerPlugin(AutoRecPlugin.class);        // 걷기 자동 측정 (선택)
         super.onCreate(savedInstanceState);
         // 휴대폰 뒤로 가기: 화면(app.js window.gaitBack)에 먼저 물어 열린 판을 닫고, 닫을 게 없으면 예전처럼 앱을 닫음
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {

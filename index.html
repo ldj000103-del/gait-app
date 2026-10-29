@@ -313,13 +313,13 @@
   .seg button[aria-pressed="true"] { border-color:var(--accent); color:var(--accent); }
   input.bignum { width:100%; box-sizing:border-box; border-radius:var(--r-pill); font-size:1.375rem; text-align:center; padding:12px; margin-top:6px; }
   /* 지표 사전 설명 카드: 아래에서 올라오는 판, 옆으로 넘기기(scroll-snap) */
-  #permOv, #dictOv, #fbOv, #lessonOv, #exOv { position:fixed; inset:0; z-index:40; background:rgba(0,0,0,.45); display:flex; align-items:flex-end; }
+  #permOv, #dictOv, #fbOv, #lessonOv, #exOv, #autoOv { position:fixed; inset:0; z-index:40; background:rgba(0,0,0,.45); display:flex; align-items:flex-end; }
   .dsheet { background:var(--card); color:var(--ink); width:100%; max-width:640px; margin:0 auto; border-radius:var(--radius) var(--radius) 0 0; padding:18px 0 calc(16px + env(safe-area-inset-bottom)); }
   .dtrack { display:flex; overflow-x:auto; scroll-snap-type:x mandatory; scrollbar-width:none; } .dtrack::-webkit-scrollbar { display:none; }
   .dcard { flex:0 0 100%; scroll-snap-align:start; padding:0 20px; box-sizing:border-box; } .dcard .picon { width:44px; height:44px; }
   .dcard h3 { margin:8px 0 4px; } .dcard p { margin:2px 0 10px; color:var(--sub); }
   .ddots { text-align:center; margin:4px 0 10px; } .ddots i { display:inline-block; width:7px; height:7px; border-radius:50%; background:var(--line); margin:0 3px; } .ddots i.on { background:var(--accent); }
-  .pcard { background:var(--bg); border-radius:var(--r-md); padding:10px 12px; margin-top:8px; } #permOv button { margin-top:10px; }
+  .pcard { background:var(--bg); border-radius:var(--r-md); padding:10px 12px; margin-top:8px; } #permOv button, #autoOv button { margin-top:10px; }
   .sr { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); }   /* 화면낭독에만 읽힘 */
   #fbOv [hidden] { display:none; }   /* .chk·button의 display가 hidden을 덮지 않게 */
   #fbPics { display:flex; gap:8px; flex-wrap:wrap; } .fbpic { display:flex; flex-direction:column; align-items:center; gap:4px; } .fbpic img { width:72px; height:72px; object-fit:cover; border-radius:var(--r-sm); } #fbOv .fbpic .chip { margin:0; } #fbOv .dsheet { max-height:92vh; overflow-y:auto; }
@@ -626,12 +626,22 @@
     <input type="hidden" id="sex">
     <label for="age" class="sub" style="display:block;margin-top:12px">나이 (만 나이)</label>
     <input id="age" class="bignum" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="3" autocomplete="off" placeholder="예: 45">
+    <div class="sub" style="margin-top:4px">키·몸무게는 걸음 분석 값에 쓰이지 않아 받지 않아요. 나이·성별은 기준값을 맞추는 데만 쓰고, 넣지 않아도 측정할 수 있어요.</div>
     <div class="sub" style="margin-top:4px">올해 생일이 지났으면 '올해 − 태어난 해', 안 지났으면 거기서 1을 빼요.</div>
     <button id="profSave">저장</button><div id="profMsg" class="sub" role="status" style="text-align:center;margin-top:4px"></div>
     </div>
     <div id="ageNote" class="sub hidden" style="margin-top:6px">만 14세 미만은 법정대리인(부모님 등) 동의가 필요해서, 동의 여부와 상관없이 결과를 운영자에게 보내지 않아요. 측정과 기록은 휴대폰 안에서 그대로 쓸 수 있어요.</div>
     </div>
     <div class="card" id="setHC" hidden><h2>헬스 커넥트</h2><div id="hcSet"></div></div>
+    <div class="card" id="setAuto" hidden><h2>걷기 자동 측정 <span class="sub">(선택)</span></h2>
+      <label class="chk" style="justify-content:flex-start"><input type="checkbox" id="autoOn"><span>켜기<br><small class="sub" id="autoState"></small></span></label>
+      <div id="autoShareBox" hidden>
+        <label class="chk" style="justify-content:flex-start"><input type="checkbox" id="autoS1"><span><b>[선택]</b> 자동으로 잰 결과도 익명으로 보내기</span></label>
+        <label class="chk" style="justify-content:flex-start"><input type="checkbox" id="autoS2"><span><b>[선택]</b> 자동 측정 결과의 건강정보(민감정보) 수집·이용에 별도 동의</span></label>
+        <div class="sub" id="autoShareNote"></div>
+      </div>
+      <button class="ghost" id="autoClear">자동 측정 기록 모두 지우기</button>
+    </div>
     <div class="card" id="remindCard" hidden>
       <h2>측정 알림</h2>
       <div class="sub">고른 요일·시간에 이번 주 기록을 알림으로 보여 줘요.</div>

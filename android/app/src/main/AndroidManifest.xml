@@ -50,6 +50,12 @@
             android:exported="false"
             android:foregroundServiceType="health|location" />
 
+        <!-- 걷기 자동 측정 (선택 기능, 켠 동안 알림 표시). 움직임 센서만, 위치 안 씀 -->
+        <service
+            android:name=".AutoService"
+            android:exported="false"
+            android:foregroundServiceType="health" />
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"

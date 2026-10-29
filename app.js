@@ -157,11 +157,12 @@ function changeNote(id, seenKey, date, text, href, view) {
 if (store.get('locConsent', null) && store.get('locTermsSeen', null) !== LOC_TERMS)
   changeNote('locNote', 'locTermsSeen', LOC_TERMS, '위치기반서비스 이용약관이 바뀌었어요 (2026년 10월 26일 시행). 위치를 받는 방법, 기록 보관, 다른 사람에게 주지 않는다는 설명을 보탰어요. 동의하신 내용은 그대로라 다시 동의할 필요는 없어요.', 'location-terms.html', '약관 보기');
 // 처리방침 10번 "바꾸면 앱에 미리 알립니다". 바꿀 때마다 새 값. 익명 결과 전송 동의자에게는 수집 항목이 바뀐 안내를, 나머지 동의자에게는 지난 안내(사진 첨부)를
-const PRIV_DATE = '2026-10-28-delete';
+const PRIV_DATE = '2026-10-30-auto';
 const privSeen = store.get('privSeen', null), cons = store.get('consent', null);
 if (cons && privSeen !== PRIV_DATE)                                       // 이번 변경(기록 지우기) + 익명 전송 동의자가 지난 수집 안내를 아직 못 봤으면 함께
-  changeNote('privNote', 'privSeen', PRIV_DATE, (cons.share && privSeen !== '2026-10-26-quality' ? '익명 결과 수집 안내가 바뀌었어요: 측정 품질 정보와 결과가 안 나온 측정의 이유도 함께 보내요(걸음 숫자·위치는 없어요). 원하지 않으면 화면 아래 ‘동의 변경’에서 끌 수 있어요. ' : '')
-    + '개인정보 처리방침에 기록 지우기와 익명 결과 삭제 요청 방법이 추가됐어요 (2026년 10월 28일 시행).', 'privacy.html', '처리방침 보기');
+  changeNote('privNote', 'privSeen', PRIV_DATE, '걷기 자동 측정(선택 기능)과, 켠 사람만 따로 동의하는 자동 측정 결과 전송 내용을 처리방침에 보탰어요. 켜지 않으면 달라지는 게 없어요 (2026년 10월 30일 시행). '
+    + (privSeen === '2026-10-28-delete' ? '' : (cons.share && privSeen !== '2026-10-26-quality' ? '익명 결과 수집 안내가 바뀌었어요: 측정 품질 정보와 결과가 안 나온 측정의 이유도 함께 보내요(걸음 숫자·위치는 없어요). 원하지 않으면 화면 아래 ‘동의 변경’에서 끌 수 있어요. ' : '')
+    + '기록 지우기와 익명 결과 삭제 요청 방법도 추가됐어요 (2026년 10월 28일 시행).'), 'privacy.html', '처리방침 보기');
 const usesGps = a => a === 'cooper' || (a !== 'slowrun' && a !== 'stairs' && $('dmode').value === 'gps');   // 계단은 실내라 GPS 안 씀
 function showLoc() {
   const need = usesGps($('act').value);
@@ -233,7 +234,7 @@ window.gaitBack = () => {
   if (!$('pickSheet').hidden) { closePick(); return true; }
   if (!$('stopSheet').hidden) { closeStopSheet(); $('stop').focus(); return true; }   // 측정 종료 확인 창 = '계속 측정'
   if ($('exDet')) { $('exDet').querySelector('[data-exd=back]').click(); return true; }   // 운동 상세 → 목록
-  const btn = document.querySelector('#permOv [data-p=later], #fbOv [data-f=close], #dictOv [data-dx=skip], #lessonOv [data-lx=close], #exOv [data-ex=close]');   // 권한 안내 = '나중에', 건의하기 = '닫기'(Esc와 같음), 지표 사전 = '건너뛰기'(닫기)
+  const btn = document.querySelector('#permOv [data-p=later], #fbOv [data-f=close], #dictOv [data-dx=skip], #lessonOv [data-lx=close], #exOv [data-ex=close], #autoOv [data-a=cancel]');   // 권한 안내 = '나중에', 건의하기 = '닫기'(Esc와 같음), 지표 사전 = '건너뛰기'(닫기)
   if (btn) { btn.click(); return true; }
   if (!$('tip').classList.contains('hidden')) { $('tip').classList.add('hidden'); return true; }   // 용어 풀이 팝업
   if (subOpen) { closeSub(); return true; }                                 // 홈 하위 화면 → 홈
@@ -657,7 +658,7 @@ function finish(data, demo = false, gps = [], press = []) {
   saveRec(rec, hist, demo, data);
   shownDate = rec.date;
   route = rec.route;
-  const prev = hist.find(h => !h.practice && h !== rec && (h.activity ?? 'walk') === act);
+  const prev = hist.find(h => !h.practice && !h.autoRec && h !== rec && (h.activity ?? 'walk') === act);
   act === 'walk' ? render(rec, prev) : renderRun(rec, prev);
   renderHistory();
 }
@@ -802,14 +803,15 @@ async function rawGet(key) {
   const db = await rawDb();
   return new Promise(ok => { const q = db.transaction('raw').objectStore('raw').get(key); q.onsuccess = () => ok(q.result ?? null); q.onerror = () => ok(null); });
 }
+const keepHist = hist => { let m = 0, a = 0; return hist.filter(h => h.autoRec ? a++ < 200 : m++ < 200); };   // 자동 기록은 따로 200개 (법률 29번: 직접 잰 기록이 자동 기록에 밀려 지워지지 않게)
 function saveRec(rec, hist, demo, raw) {
   if (pendingEnd) { rec.warnings = [...(rec.warnings ?? []), pendingEnd]; pendingEnd = null; }   // 결과·기록·익명 전송에 '자동으로 끝냄'
   if (raw && !demo && !raw[0]?.mag) rawPut(rec.date, raw.map(p => [Math.round(p.t * 10) / 10, +p.x.toFixed(3), +p.y.toFixed(3), +p.z.toFixed(3)])).catch(() => {});
   hist.unshift(rec);
   hist.forEach((h, i) => { if (i >= ROUTE_KEEP) delete h.route; });     // ponytail: 휴대폰 저장 공간(약 5MB) 때문에 최근 30개만. 더 필요하면 IndexedDB로
-  store.set('history', hist.slice(0, 200));
+  store.set('history', keepHist(hist));
   if (demo || !consent?.share || !ENDPOINT) return;
-  try { rec.receipt = send(rec); store.set('history', hist.slice(0, 200)); } catch {}
+  try { rec.receipt = send(rec); store.set('history', keepHist(hist)); } catch {}
 }
 const osName = () => /iPhone|iPad/.test(navigator.userAgent) ? 'iOS' : /Android/.test(navigator.userAgent) ? 'Android' : '기타';
 function send(r) {
@@ -822,7 +824,7 @@ function send(r) {
     cadence: num(r.cadence, 1), steps: r.steps ?? '', activeS: num(r.activeS, 1), regularity: num(r.regularity, 2),
     speed: r.speed ? +r.speed.toFixed(2) : '', stepLength: r.stepLength ? +r.stepLength.toFixed(2) : '', distance: r.distance ? +r.distance.toFixed(1) : '',
     // ponytail: 시트 칸을 늘리려면 Apps Script 재배포가 필요해서 거리 출처(gps)는 warnings 칸에 붙여 보냄
-    position: r.position, practice: r.practice, warnings: [r.activity !== 'walk' && r.activity, ...r.warnings, r.distSource === 'gps' && 'gps', r.sd != null && `sd${r.sd.toFixed(1)}`,   // 흔들림 세기(m/s²): 걷기·달리기 구분 기준 RUN_SD를 실제 기록으로 보정하려고
+    position: r.position, practice: r.practice, warnings: [r.activity !== 'walk' && r.activity, r.autoRec && 'auto', ...r.warnings, r.distSource === 'gps' && 'gps', r.sd != null && `sd${r.sd.toFixed(1)}`,   // 흔들림 세기(m/s²): 걷기·달리기 구분 기준 RUN_SD를 실제 기록으로 보정하려고
       r.diag && `d:${r.diag.src}/${r.diag.durS.toFixed(0)}s/${r.diag.hz.toFixed(0)}hz/gap${r.diag.gapS.toFixed(1)}/gps${r.diag.gpsGood}`].filter(Boolean).join(' '),
     ageGroup: +age ? Math.floor(+age / 10) * 10 : '', sex: sex || '',
     os: osName(),
@@ -896,7 +898,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v189';
+const APP_VERSION = 'v190';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -908,7 +910,7 @@ function updateConsentBtn() { $('cOk').disabled = !$('cMust').checked; }
 $('cMust').addEventListener('change', updateConsentBtn);
 $('cAll').addEventListener('click', () => { $('cMust').checked = $('cShare').checked = $('cHealth').checked = true; updateConsentBtn(); });
 $('cOk').addEventListener('click', () => {
-  consent = { date: new Date().toISOString(), version: 1, share: $('cShare').checked && $('cHealth').checked };
+  consent = { autoShare: consent?.autoShare ?? null, date: new Date().toISOString(), version: 1, share: $('cShare').checked && $('cHealth').checked };   // 자동 측정 결과 동의는 따로 (설정)
   store.set('consent', consent); store.set('privSeen', PRIV_DATE);          // 지금 처리방침을 보고 동의함
   $('privNote')?.remove();
   document.body.classList.remove('needConsent');
@@ -1032,6 +1034,7 @@ function render(r, prev) {
     : (c >= 130 ? '고강도 (6 MET)' : c >= 100 ? '중강도 (3 MET)' : '저강도');
 
   let html = `<h2>결과 ${r.practice ? '<span class="badge b-n">연습</span>' : ''}</h2>`;
+  if (r.autoRec) html += '<div class="warn">자동으로 잰 기록이에요. 휴대폰을 둔 곳(주머니·가방·손)을 모르고 짐작해서, 직접 잰 측정보다 덜 정확할 수 있어요. 걷기를 알아채기까지 몇 초 걸려 걸음 수가 조금 적게 잡혀요.</div>';
   if (r.practice) html += `<div class="warn">오늘 첫 측정은 연습으로 저장했어요. 처음 걸을 때는 보통 7% 느리게 나와요(Perry 20장). 한 번 더 걸어 주세요.</div>`;
   html += autoNote(r) + warnHtml(r);
   const gps = r.distSource === 'gps';
@@ -1631,7 +1634,7 @@ function renderHistory() {
   $('histBody').innerHTML = `<div class="sub">줄을 누르면 그때 결과를 다시 볼 수 있어요.</div>` + hist.slice(0, 20).map((h, i) => {
     const d = new Date(h.date), when = Number.isNaN(+d) ? '날짜 모름' : `${d.getMonth() + 1}월 ${d.getDate()}일`;   // 날짜가 없거나 깨진 기록
     const what = h.view ? `영상 ${{ side: '옆모습', front: '앞모습', back: '뒷모습' }[h.view]}` : ACT[h.activity ?? 'walk'];
-    return `<button class="dayrec" data-i="${i}"><span>${when} · ${what}${h.practice ? ' <span class="sub">(연습)</span>' : ''}${h.receipt ? `<br><span class="sub">접수 ${h.receipt}</span>` : ''}${h.ctx && ctxText(h.ctx) ? `<br><span class="sub">${ctxText(h.ctx)}</span>` : ''}</span><span class="sub" style="text-align:right;white-space:nowrap">${histNum(h)} ›</span></button>`;
+    return `<button class="dayrec" data-i="${i}"><span>${when} · ${what}${h.practice ? ' <span class="sub">(연습)</span>' : ''}${h.autoRec ? ' <span class="sub">(자동)</span>' : ''}${h.receipt ? `<br><span class="sub">접수 ${h.receipt}</span>` : ''}${h.ctx && ctxText(h.ctx) ? `<br><span class="sub">${ctxText(h.ctx)}</span>` : ''}</span><span class="sub" style="text-align:right;white-space:nowrap">${histNum(h)} ›</span></button>`;
   }).join('');
 }
 // 기록 줄의 대표 숫자: 걷기·러닝 = 케이던스, 옆 영상 = 유각기 무릎 최대 굽힘, 앞·뒤 영상 = 골반 내려감(큰 쪽), 12분 테스트 = 거리. 없으면 비움
@@ -1690,13 +1693,13 @@ function mcard({ label, color, date = '', value, unit, sub, i, vals = [], k, bas
   if (value == null) return `<div class="mcard empty">${top}<div class="mrow"><div class="mnum">기록 없음</div></div><div class="msub">${sub}</div></div>`;
   return `<button class="mcard" ${i != null ? `data-i="${i}"` : ''}${k ? ` data-k="${k}" aria-expanded="false"` : ''}>${top}<div class="mrow"><div class="mnum">${value}<small>${unit}</small></div>${spark(vals, color, base)}</div><div class="msub">${sub}</div></button>`;
 }
-const trendVals = key => store.get('history', []).filter(h => !h.practice).map(TREND[key].pick).filter(v => v != null && !Number.isNaN(v)).slice(0, 7).reverse();
+const trendVals = key => store.get('history', []).filter(h => !h.practice && !h.autoRec).map(TREND[key].pick).filter(v => v != null && !Number.isNaN(v)).slice(0, 7).reverse();
 
 // 주간 통계: 고른 주(월~일) vs 그 전 주, 점수 없이 숫자와 차이만
 const dayKey = d => new Date(d).toLocaleDateString('sv-SE');                 // 2026-10-25 (휴대폰 시간 기준)
 const monOf = d => { const m = new Date(d); m.setHours(0, 0, 0, 0); m.setDate(m.getDate() - ((m.getDay() + 6) % 7)); return m; };
 const avgOf = xs => xs.length ? xs.reduce((s, x) => s + x, 0) / xs.length : null;
-const inRange = (hist, a, b) => hist.filter(h => { const t = new Date(h.date); return !h.practice && t >= a && t < b; });
+const inRange = (hist, a, b) => hist.filter(h => { const t = new Date(h.date); return !h.practice && !h.autoRec && t >= a && t < b; });
 function statOf(list) {
   const walk = list.filter(h => (h.activity ?? 'walk') === 'walk');
   return { n: list.length, days: new Set(list.map(h => dayKey(h.date))).size, walkCad: avgOf(walk.map(h => h.cadence)), speed: avgOf(walk.filter(h => h.speed).map(h => h.speed)),
@@ -1726,7 +1729,7 @@ function renderWeek() {
   const sel = new Date(calSel + 'T00:00'), selList = byDay[calSel] ?? [];
   const val = h => h.activity === 'video' ? `${VIEW[h.view]}모습 영상` : h.activity === 'cooper' ? `${Math.round(h.distance)} m` : h.activity === 'stairs' ? histNum(h) : h.cadence != null ? `${h.cadence.toFixed(0)} 걸음/분` : '';
   const recs = selList.length ? selList.map(i => { const h = hist[i];
-      return `<button class="dayrec" data-i="${i}"><span>${ACT[h.activity ?? 'walk']}${h.practice ? ' <span class="sub">(연습)</span>' : ''}</span>
+      return `<button class="dayrec" data-i="${i}"><span>${ACT[h.activity ?? 'walk']}${h.practice ? ' <span class="sub">(연습)</span>' : ''}${h.autoRec ? ' <span class="sub">(자동)</span>' : ''}</span>
         <span>${val(h)} <span class="sub">${new Date(h.date).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })} ›</span></span></button>`; }).join('')
     : '<div class="sub" style="margin-top:6px">이날은 기록이 없어요.</div>';
   // 고른 날이 속한 주의 통계
@@ -1790,7 +1793,7 @@ function calChart(start, end, mo) {                                       // 카
   } };
 }
 function bestRows() {
-  const hist = store.get('history', []).filter(h => !h.practice), rows = [];
+  const hist = store.get('history', []).filter(h => !h.practice && !h.autoRec), rows = [];
   const top = (list, key) => list.reduce((b, h) => !b || key(h) > key(b) ? h : b, null);
   const walk = hist.filter(h => (h.activity ?? 'walk') === 'walk');
   const sp = top(walk.filter(h => h.speed), h => h.speed);
@@ -1840,12 +1843,12 @@ function openCard(t) {
 }
 function renderTiles() {
   const hist = store.get('history', []);
-  const idx = f => hist.findIndex(f);
+  const idx = f => hist.findIndex(h => !h.autoRec && f(h));               // 자동 측정 기록은 홈 대표 값에서 뺌
   const isWalk = h => (h.activity ?? 'walk') === 'walk';
   // 대표 값은 추세선(trendVals)처럼 연습 측정을 뺀 최근 기록, 연습뿐이면 연습 기록 (그날 첫 걷기는 늘 연습)
   const pick = f => { const j = idx(h => !h.practice && f(h)); return j >= 0 ? j : idx(f); };
   const iw = pick(isWalk), w = hist[iw];
-  const wPrev = iw >= 0 ? hist.slice(iw + 1).find(h => isWalk(h) && !h.practice) : null;
+  const wPrev = iw >= 0 ? hist.slice(iw + 1).find(h => isWalk(h) && !h.practice && !h.autoRec) : null;
   const is = pick(h => isWalk(h) && h.speed), sp = hist[is];
   const ir = pick(isRun), rn = hist[ir];
   const iv = pick(h => h.activity === 'video' && h.view === 'side' && h.r?.m), vd = hist[iv];
@@ -1920,7 +1923,7 @@ $('tmetric').value = store.get('tmetric', 'walkCad');
 $('tmetric').addEventListener('change', () => { store.set('tmetric', $('tmetric').value); renderTrend(); });
 function renderTrend() {
   const cfg = TREND[$('tmetric').value], dec = cfg.dec ?? 0;
-  const pts = store.get('history', []).filter(h => !h.practice).map(h => ({ d: h.date, v: cfg.pick(h) })).filter(p => p.v != null && !Number.isNaN(p.v)).reverse().slice(-20);
+  const pts = store.get('history', []).filter(h => !h.practice && !h.autoRec).map(h => ({ d: h.date, v: cfg.pick(h) })).filter(p => p.v != null && !Number.isNaN(p.v)).reverse().slice(-20);
   const ref = cfg.ref();
   if (pts.length < 2) { $('tchart').innerHTML = `<div class="sub" style="margin-top:10px">기록이 2개 이상 쌓이면 그래프가 그려져요. (지금 ${pts.length}개, 연습 측정은 빼요)</div>`; return; }
   const vals = pts.map(p => p.v).concat(ref.band ?? [], ref.line ?? []);
@@ -1963,7 +1966,7 @@ function showRecord(i) {
   const del = `<button class="textlike delRec" data-delrec="${h.date}">이 기록 지우기</button>`;   // 기록 탭에서 연 결과에만 (디자인 팀 10/28)
   if (act === 'video') { setTab('video'); $('vcanvas').classList.add('hidden'); renderVideo(h.r); $('vresult').insertAdjacentHTML('afterbegin', banner); $('vresult').insertAdjacentHTML('beforeend', del); return; }
   setTab('measure');
-  const prev = hist.slice(i + 1).find(x => !x.practice && (x.activity ?? 'walk') === act);
+  const prev = hist.slice(i + 1).find(x => !x.practice && !x.autoRec && (x.activity ?? 'walk') === act);
   if (act === 'slowrun') renderSlow(h, hist); else if (act === 'cooper') renderCooper(h); else if (act === 'stairs') renderStairs(h); else if (act === 'walk') render(h, prev); else renderRun(h, prev);
   $('result').insertAdjacentHTML('afterbegin', banner); $('result').insertAdjacentHTML('beforeend', del);
 }
@@ -2023,7 +2026,7 @@ async function runVideo(file) {
     r.cond = shootCond(view, frames, r, srcFps, bright);                   // 이번 촬영 조건 (휴대폰 기록에만, 시트로 안 보냄)
     const hist = store.get('history', []);
     const vrec = { date: new Date().toISOString(), activity: 'video', view, r };   // 영상은 저장 안 하고 계산된 숫자만
-    hist.unshift(vrec); store.set('history', hist.slice(0, 200));
+    hist.unshift(vrec); store.set('history', keepHist(hist));
     shownDate = vrec.date;
     renderVideo(r, dur);
     renderHistory();
@@ -3075,3 +3078,101 @@ $('recMode').textContent = Native ? '설치형 앱 · 화면 꺼도 돼요' : '�
 $('recMode').classList.toggle('web', !Native);
 if (Native) (async () => { try { const { version } = await Native.info(); if (version) $('appver').textContent = `설치형 앱 ${version} · 화면 ${APP_VERSION}`; } catch {} })();
 syncPicks();                                                               // 처음 불러온 select 값(지난 선택)을 고르기 줄에 반영
+
+// ── 걷기 자동 측정 (선택, 민원 10/30·법률 검토 29번): AutoService가 남긴 파일을 앱을 열 때 가져와 걷기로 분석해 '자동' 기록으로 저장 ──
+// 걷기 신호가 없으면(차·자전거 등) 버림. 위치 없음. 자동 결과는 '자동 측정 결과 전송' 두 칸에 동의한 날 이후 것만, 만 14세 이상만(send) 보냄
+const AR = Native ? window.Capacitor.Plugins.AutoRec : null;
+let autoBusy = false;
+async function importAuto() {
+  if (!AR || autoBusy) return; autoBusy = true;
+  let added = 0;
+  try {
+    const { items } = await AR.list();
+    for (const it of items) {
+      const { samples: s } = await AR.take({ id: it.id });
+      if (s.length < 1000) continue;                                       // 50Hz로 20초 미만
+      const position = guessPosition(s, 'walk');
+      if (guessActivity(s, position) === 'run') continue;                  // ponytail: 자동 측정은 걷기만. 달리기도 남기려면 analyzeJog로
+      const res = analyzeWalk(s, { position, activity: 'walk' });
+      if (res.error) continue;
+      Object.assign(res, fastMinutes(s, { position, activity: 'walk' }));
+      let maxGap = 0; for (let i = 1; i < s.length; i++) maxGap = Math.max(maxGap, s[i].t - s[i - 1].t);
+      const durS = (s[s.length - 1].t - s[0].t) / 1000;
+      const rec = { date: new Date(it.wall).toISOString(), start: it.wall, activity: 'walk', position, auto: { pos: position }, autoRec: true, practice: false, ...res,
+        diag: { src: 'auto', n: s.length, durS, hz: s.length / durS, gapS: maxGap / 1000, sd: res.sd, gpsN: 0, gpsGood: 0 } };
+      const a = consent?.autoShare;
+      if (a && ENDPOINT && it.wall >= Date.parse(a.date)) try { rec.receipt = send(rec); } catch {}   // 동의한 날 이후 기록만
+      const hist = store.get('history', []); hist.push(rec); hist.sort((x, y) => new Date(y.date) - new Date(x.date));
+      store.set('history', keepHist(hist)); added++;
+    }
+  } catch {} finally { autoBusy = false; }
+  if (added) { renderHistory(); if (document.body.dataset.tab === 'home') renderHome(); }
+}
+function setAutoShare(on) {
+  consent = { ...consent, autoShare: on ? { date: new Date().toISOString(), version: 1 } : null }; store.set('consent', consent);
+}
+function autoShareNote() {
+  const a = consent?.autoShare;
+  $('autoShareNote').textContent = a ? `${new Date(a.date).toLocaleDateString('ko-KR')}부터 자동으로 잰 결과를 익명으로 보내요. 체크를 풀면 다음 측정부터 보내지 않아요. 이미 보낸 결과는 기록의 접수번호로 삭제를 요청할 수 있어요.`
+    : '두 칸에 모두 체크해야 자동으로 잰 결과를 보내요. 아니면 이 휴대폰에만 남아요.';
+}
+async function renderAuto() {
+  if (!AR) return;
+  $('setAuto').hidden = false;
+  let st = { on: false, running: false, supported: true };
+  try { st = await AR.status(); } catch {}
+  if (st.on && !st.running) try { await AR.enable(); } catch {}            // 휴대폰을 껐다 켜면 서비스가 없음 → 앱을 열 때 다시 켬
+  $('autoOn').checked = st.on; $('autoOn').disabled = !st.supported;
+  $('autoState').textContent = !st.supported ? '이 휴대폰에는 걷기를 알아채는 센서가 없어 쓸 수 없어요.' : st.on ? '켜져 있어요. 휴대폰 위쪽 알림의 [끄기]로도 끌 수 있어요.' : '걸으면 저절로 재요. 위치는 쓰지 않아요.';
+  $('autoShareBox').hidden = !st.on;
+  $('autoS1').checked = $('autoS2').checked = !!consent?.autoShare;
+  autoShareNote();
+}
+// 켤 때 안내 (법률 검토 29번 ① 문구 그대로). 두 동의칸은 처음에 비어 있음
+function openAutoSheet() {
+  const o = document.createElement('div');
+  o.id = 'autoOv'; o.setAttribute('role', 'dialog'); o.setAttribute('aria-modal', 'true'); o.setAttribute('aria-label', '걷기 자동 측정을 켤까요?');
+  o.innerHTML = `<div class="dsheet" style="padding-left:20px;padding-right:20px"><h3 style="margin:0 0 4px">걷기 자동 측정을 켤까요?</h3>
+    <ul class="sub" style="padding-left:18px;margin:6px 0">
+      <li>화면이 꺼져 있어도 휴대폰 움직임 센서로 걷기를 알아채, 측정을 저절로 시작하고 끝내요.</li>
+      <li>위치(GPS)는 쓰지 않아요. 그래서 자동 측정에는 거리·속도·경로가 없어요.</li>
+      <li>켜져 있는 동안 휴대폰 위쪽에 알림이 떠 있어요. 알림의 [끄기]나 설정에서 언제든 끌 수 있어요.</li>
+      <li>자동으로 잰 기록은 이 휴대폰에 저장되고, 기록 목록에 '자동' 표시가 붙어요.</li></ul>
+    <label class="chk" style="justify-content:flex-start"><input type="checkbox" id="aoS1"><span><b>[선택]</b> 자동으로 잰 결과도 익명으로 보내는 것에 동의해요</span></label>
+    <div class="pcard sub">· 항목: 수동 측정과 같은 항목(케이던스, 걸음 수, 걷는 시간, 걸음 신호 규칙성, 휴대폰을 둔 곳, 경고 종류, 측정 품질 정보, 나이대(10살 단위), 성별, 운영체제, 측정 날짜)에 '자동 측정' 표시를 더해요. 측정 시각·위치·이름은 받지 않아요.<br>· 목적: 자동 측정 기능 시험과 측정 정확도 개선<br>· 보관: 받은 날부터 3년 뒤 파기<br>· 동의하지 않아도 자동 측정은 똑같이 쓸 수 있어요. 결과가 이 휴대폰에만 남아요.</div>
+    <label class="chk" style="justify-content:flex-start"><input type="checkbox" id="aoS2"><span><b>[선택]</b> 위 자동 측정 결과의 건강정보(민감정보) 수집·이용에 별도로 동의해요</span></label>
+    <div class="pcard sub">· 걸음 측정값은 개인정보 보호법 제23조의 '건강'에 관한 정보(민감정보)에 해당할 수 있어요.<br>· 항목·목적·보관 기간은 위와 같아요. 거부해도 불이익이 없어요.</div>
+    <p class="sub" style="font-size:.75rem;margin:8px 0 0">두 칸에 모두 동의해야 자동 측정 결과를 보내요. 동의하신 날부터 잰 결과만 보내고, 그 전 기록은 보내지 않아요. 만 14세 미만은 보내지 않아요.</p>
+    <div class="sub" id="aoMsg" role="status"></div>
+    <button data-a="ok">켜기</button><button class="ghost" data-a="cancel">취소</button></div>`;
+  document.body.append(o);
+  for (const el of [document.querySelector('main'), $('tabbar')]) el.inert = true;
+  const close = () => { for (const el of [document.querySelector('main'), $('tabbar')]) el.inert = false; o.remove(); $('autoOn').focus(); };
+  o.addEventListener('click', async e => {
+    const b = e.target.closest('[data-a]'); if (!b) return;
+    if (b.dataset.a === 'cancel') return close();
+    try { await Native.requestPermissions({ permissions: ['notifications'] }); } catch {}   // 켜져 있다는 알림을 보이려고 (거절해도 측정은 됨)
+    try { await AR.enable(); } catch { $('aoMsg').textContent = '이 휴대폰에는 걷기를 알아채는 센서가 없어 자동 측정을 쓸 수 없어요.'; return; }
+    setAutoShare($('aoS1').checked && $('aoS2').checked);
+    close(); renderAuto();
+  });
+  o.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
+  o.querySelector('h3').tabIndex = -1; o.querySelector('h3').focus();
+}
+$('autoOn').addEventListener('change', async () => {
+  if ($('autoOn').checked) { $('autoOn').checked = false; return openAutoSheet(); }
+  try { await AR.disable(); } catch {}
+  renderAuto();
+});
+for (const id of ['autoS1', 'autoS2']) $(id).addEventListener('change', () => {
+  const both = $('autoS1').checked && $('autoS2').checked;
+  if (both !== !!consent?.autoShare) setAutoShare(both);
+  autoShareNote();
+});
+$('autoClear').addEventListener('click', async () => {
+  if (!confirm('자동으로 잰 기록을 모두 지울까요? 지운 기록은 되살릴 수 없어요.')) return;
+  store.set('history', store.get('history', []).filter(h => !h.autoRec));
+  try { await AR?.clear(); } catch {}                                        // 아직 가져오지 않은 파일도
+  renderHistory(); toast('자동 측정 기록을 모두 지웠어요');
+});
+if (AR) { importAuto(); renderAuto(); document.addEventListener('visibilitychange', () => { if (!document.hidden) { importAuto(); renderAuto(); } }); }
