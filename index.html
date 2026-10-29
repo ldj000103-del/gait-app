@@ -89,6 +89,7 @@
   #meBtn { display:inline-flex; align-items:center; gap:4px; width:auto; min-height:44px; min-width:44px; margin:0 -8px 0 0; padding:0 8px; font-size:.8125rem; flex:none; }   /* 설정 입구: 톱니 + 글자, 누르는 곳 44px (디자인 팀 2B) */
   #meBtn svg { width:18px; height:18px; fill:none; stroke:currentColor; stroke-width:1.75; stroke-linejoin:round; }
   #spSet { z-index:19; } #spSet a.dayrec { text-decoration:none; }
+  #profRow > span:last-child { display:inline-block; transition:transform 150ms ease-out; } #profRow[aria-expanded="true"] > span:last-child { transform:rotate(90deg); }   /* 펼치면 아래 방향 (디자인 팀) */
   #home .mcard, #home .card { box-shadow:none; border-radius:var(--radius); }
   .grp { grid-column:1 / -1; font-size:.875rem; font-weight:700; margin:8px 0 -2px 4px; }
   .mcard { display:block; width:100%; background:var(--card); border:0; border-radius:var(--radius); padding:14px 16px; margin:10px 0 0; box-shadow:var(--shadow); text-align:left; color:var(--ink); font-weight:400; cursor:pointer; }
