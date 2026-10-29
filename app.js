@@ -890,7 +890,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v183';
+const APP_VERSION = 'v184';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -2919,6 +2919,32 @@ function openEx(kind, fromHome = false) {
   o.querySelector('[data-ex=close]').focus();
 }
 $('warmBtn').addEventListener('click', () => openEx('warm'));
+// 박자 소리 (민원팀·아버님 10/29): 사용자가 정한 분당 걸음 수로 '딱'. 웹 오디오로 0.15초 앞까지 미리 예약해 박자가 밀리지 않게. 권하는 값 없음(사용자가 직접 정함)
+let metroCtx = null, metroIv = 0, metroT = 0, metroN = 0;
+const metroBpm = () => Math.round(+$('metroBpm').value);
+$('metroBpm').value = store.get('metroBpm', '') || '';
+$('metroAcc').checked = store.get('metroAcc', false);
+$('metroBpm').addEventListener('change', () => store.set('metroBpm', metroBpm() || ''));
+$('metroAcc').addEventListener('change', () => store.set('metroAcc', $('metroAcc').checked));
+function metroBeep(t, hi) {
+  const o = metroCtx.createOscillator(), g = metroCtx.createGain();
+  o.frequency.value = hi ? 1760 : 1046; g.gain.setValueAtTime(0.5, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.05);
+  o.connect(g).connect(metroCtx.destination); o.start(t); o.stop(t + 0.06);
+}
+function metroSet(on) { $('metroBtn').textContent = on ? '소리 끄기' : '소리 켜기'; $('metroBtn').setAttribute('aria-pressed', on); }
+$('metroBtn').addEventListener('click', () => {
+  if (metroIv) { clearInterval(metroIv); metroIv = 0; metroCtx.suspend(); return metroSet(false); }
+  const b = metroBpm();
+  if (!(b >= 40 && b <= 220)) return ($('metroMsg').textContent = '분당 걸음 수를 40~220 사이로 넣어 주세요.');
+  $('metroMsg').textContent = '';
+  metroCtx ??= new AudioContext(); metroCtx.resume();
+  metroT = metroCtx.currentTime + 0.05; metroN = 0;
+  metroIv = setInterval(() => {                                            // 켠 채로 값을 바꾸면 다음 박부터 바로 반영
+    const sp = 60 / Math.min(220, Math.max(40, metroBpm() || b));
+    for (; metroT < metroCtx.currentTime + 0.15; metroT += sp, metroN++) metroBeep(metroT, $('metroAcc').checked && metroN % 4 === 0);
+  }, 25);
+  metroSet(true);
+});
 $('exCard').addEventListener('click', e => { const b = e.target.closest('[data-exopen]'); if (b) openEx(b.dataset.exopen, true); });   // 홈 '배워 보기'에서도 (본부 10/29). 여기선 [측정 시작] 없음 — 배우는 화면에서 바로 측정이 시작되지 않게
 $('result').addEventListener('click', e => { if (e.target.closest('[data-ex=cool]')) openEx('cool'); });
 $('homeTop').addEventListener('click', e => {

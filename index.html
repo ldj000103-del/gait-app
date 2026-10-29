@@ -534,6 +534,13 @@
     </div>
     <div id="locBox" class="sub hidden" style="margin-top:8px"><label><input type="checkbox" id="locOk"> <a href="location-terms.html" target="_blank">위치기반서비스 이용약관</a>에 동의해요</label> (GPS로 거리·경로를 잴 때 필요해요. 체크를 풀면 언제든 철회돼요)</div>
     </div>
+    <details class="howto" id="metro"><summary>박자 소리 (메트로놈)</summary>
+      <div class="sub">직접 정한 빠르기로 '딱' 소리를 내요. 소리에 발을 맞춰 걸어 볼 수 있어요. 앱이 정해 주거나 권하는 값은 아니에요. 측정 중에도 계속 나요.</div>
+      <label for="metroBpm">분당 걸음 수</label>
+      <input id="metroBpm" type="number" inputmode="numeric" min="40" max="220" step="1" placeholder="예: 120">
+      <label class="chk" style="justify-content:flex-start"><input type="checkbox" id="metroAcc"><span>네 박마다 첫 박을 높은 소리로 (하나·둘·셋·넷 세기)</span></label>
+      <button id="metroBtn" class="ghost" type="button" aria-pressed="false">소리 켜기</button>
+      <div class="sub" id="metroMsg" role="status"></div></details>
     <button id="warmBtn" class="textlike hidden" type="button">뛰기 전 몸 풀기 ›</button>
     <button id="start" class="bigstart">시작<small>누르고 3초 안에 주머니에 넣어요</small></button>
     <div class="warn hidden" id="pocketNote">웹은 화면을 켠 채 손에 들고 재요 · <a href="install.html">설치형 앱</a></div>
