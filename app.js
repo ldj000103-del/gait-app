@@ -237,8 +237,12 @@ window.gaitBack = () => {
   if (btn) { btn.click(); return true; }
   if (!$('tip').classList.contains('hidden')) { $('tip').classList.add('hidden'); return true; }   // 용어 풀이 팝업
   if (subOpen) { closeSub(); return true; }                                 // 홈 하위 화면 → 홈
-  return false;
+  if (document.body.classList.contains('recording')) return false;        // 측정 중은 예전 그대로
+  if (document.body.dataset.tab !== 'home') { setTab('home'); scrollTo(0, 0); return true; }   // 다른 탭 → 홈 (민원 10/30: 뒤로 가기에 앱이 바로 꺼짐)
+  if (Date.now() - backAt < 2000) return false;                           // 홈에서 2초 안에 한 번 더 = 앱 닫기
+  backAt = Date.now(); toast('뒤로 가기를 한 번 더 누르면 앱이 닫혀요'); return true;
 };
+let backAt = 0;
 // 홈 '공유 카드 만들기' → 같은 판에서 이 주·이 달·최고 기록 고르기. 받는 사람이 숫자를 본다는 안내는 공유 직전 이 판에 (개인정보 보호법 제23조 3항 취지)
 function openShare() {
   pickFor = null; $('pickQ').textContent = '어떤 카드를 공유할까요?';
@@ -851,7 +855,7 @@ function openFeedback() {
   o.id = 'fbOv'; o.setAttribute('role', 'dialog'); o.setAttribute('aria-modal', 'true'); o.setAttribute('aria-label', '건의하기');
   o.innerHTML = `<div class="dsheet" style="padding-left:20px;padding-right:20px"><h3 style="margin:0 0 4px">건의하기</h3>
     <div class="sub">앱을 쓰면서 불편한 점이나 바라는 점을 적어 주세요.</div>
-    <textarea id="fbText" maxlength="1000" rows="5" aria-label="건의 내용"></textarea>
+    <textarea id="fbText" maxlength="1000" rows="5" aria-label="건의 내용" placeholder="예: 어느 화면에서 무엇이 불편했는지 적어 주세요. 기록 탭에서 지난 결과를 찾기 어려웠어요 / 측정 시작 버튼이 잘 안 보여요"></textarea>
     <div class="sub" style="font-size:.8125rem">앱 화면 캡처처럼 문제를 보여 주는 사진만 올려 주세요. 사람 얼굴, 이름, 진료기록, 다른 사람이 찍힌 사진은 올리지 마세요. 사진은 촬영 위치·기기 정보를 지우고 보내며 90일 뒤 지워요.</div>
     <div id="fbPics"></div>
     <button class="ghost" id="fbAdd" data-f="add">사진 넣기 (선택 · 3장까지)</button><input type="file" id="fbFile" accept="image/*" multiple hidden>
@@ -887,12 +891,12 @@ function openFeedback() {
     }
     $('fbFile').value = ''; showPhotos();
   });
-  $('fbText').focus();
+  o.tabIndex = -1; o.focus({ preventScroll: true });                       // 처음엔 자판을 띄우지 않고 화면부터 보이게, 빈칸을 누르면 자판 (민원 10/30)
 }
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v187';
+const APP_VERSION = 'v188';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -2821,14 +2825,19 @@ const EX_CMP = { ham: '<div class="card"><div class="excmp"><figure><img src="as
   + '<figure><img src="assets/exercise/ham-bad.webp" alt="틀린 자세: 발끝을 잡으려 등을 둥글게 만 모습" width="150" height="175"><figcaption><span class="exno">× 발끝 잡으려 등 말기</span></figcaption></figure></div>'
   + '<p class="sub" style="margin:6px 0 0">숙이는 정도는 사람마다 달라요. 당기는 느낌까지만 해요.</p></div>' };   // 움직임 줄이기면 이 순간(초)에 멈춰 보여 줌
 const exCache = urls => caches?.open('ex3d').then(c => Promise.all(urls.map(u => c.match(u).then(h => h || c.add(u))))).catch(() => {});
+// 따라 하기 타이머 (민원 10/30): 시간이 정해진 동작만. [초, 지금 할 쪽·자세] 구간이 바뀔 때 진동. 시간은 위 EXD(Kisner 기준)와 같음, 횟수로 하는 동작은 타이머 없음
+const EX_TIMER = { brisk: [[120, '']], jog: [[120, '']], slowwalk: [[180, '']],
+  calf: [[30, '한쪽 · 무릎 펴서'], [30, '한쪽 · 무릎 살짝 굽혀서'], [30, '반대쪽 · 무릎 펴서'], [30, '반대쪽 · 무릎 살짝 굽혀서']],
+  quad: [[30, '한쪽'], [30, '반대쪽']], ham: [[30, '한쪽'], [30, '반대쪽']], glute: [[30, '한쪽'], [30, '반대쪽']] };
+let exRun = 0;
 const MUS_LIN = [0.392, 0.032, 0.048], MUS_PALE = [0.89, 0.60, 0.56];   // 근육 빨강 #a8323e(선형) · 조건 전 피부에 가까운 연분홍 #f2cbc5(불투명 35%, 디자인 팀 10/29)
-function openExDetail(kind, i) {
+function openExDetail(kind, i, autoRun = false) {
   const list = EX[kind].items, [k, name] = list[i], [dose, pose, steps, area, extra, theta] = EXD[k], cool = kind === 'cool' && k !== 'slowwalk';
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches, mus = ['calf', 'quad', 'ham', 'glute'].includes(k);
   mvReady ??= import('./vendor/model-viewer-4.4.0.min.js').catch(e => { mvReady = null; throw e; });
   const stages = EX_STAGES[k], glb0 = stages ? stages[0].glb : k;
   exCache(['vendor/model-viewer-4.4.0.min.js', 'assets/exercise3d/timeline.json', `assets/exercise3d/${glb0}.glb`, ...(EX_CMP[k] ? ['assets/exercise/ham-good.webp', 'assets/exercise/ham-bad.webp'] : [])]);
-  clearInterval(exTick); $('exDet')?.remove();
+  clearInterval(exTick); clearInterval(exRun); exRun = 0; $('exDet')?.remove();
   const o = document.createElement('div');
   o.id = 'exDet'; o.setAttribute('role', 'dialog'); o.setAttribute('aria-modal', 'true'); o.setAttribute('aria-label', name);
   const VIEW3 = { side: -90, back: 180, front: 0 };
@@ -2837,6 +2846,7 @@ function openExDetail(kind, i) {
       camera-orbit="${theta}deg 80deg auto" shadow-intensity="1" shadow-softness="0.3" environment-image="neutral" exposure="1.05" ${reduce ? '' : 'autoplay'}></model-viewer>
       <div class="d3bar"><span>${['side', 'back', 'front'].map(v => `<button class="chip" data-view="${v}">${{ side: '옆', back: '뒤', front: '앞' }[v]}</button>`).join('')}</span><button class="chip" data-exd="play">${reduce ? '▶ 동작 보기' : '❚❚ 동작 멈춤'}</button></div></div>
     <p class="lfine" style="margin-top:4px">3D 모형: Human Base Meshes(CC0)${mus ? ' · BodyParts3D · Z-Anatomy 근육(CC BY-SA)' : ''}으로 만듦 · <a href="#" data-exd="src">출처 보기 ›</a></p>
+    ${EX_TIMER[k] ? `<div class="card extimer"><div class="extrow"><b class="exclock">${clock(EX_TIMER[k].reduce((s, [t]) => s + t, 0))}</b><span class="sub exseg">${EX_TIMER[k][0][1]}</span></div><div class="bar2"><i style="width:0"></i></div><button class="ghost" data-exd="run">▶ 따라 하기 시작</button></div>` : ''}
     <div class="card"><h3>시간·횟수·자세</h3><p>${dose} · ${pose}</p></div>
     <div class="card"><h3>이렇게 해요</h3><ol class="exsteps">${(stages ? stages[0].steps : steps).map(s => `<li>${s}</li>`).join('')}</ol></div>${EX_CMP[k] ?? ''}
     <div class="card"><h3>${cool ? '<span class="exleg" style="margin:0"><i aria-hidden="true"></i></span>늘어나는 곳' : '주로 움직이는 곳'}</h3><p>${area}</p></div>
@@ -2884,7 +2894,7 @@ function openExDetail(kind, i) {
     if (name === 'calf' && !userCam) { const side = f >= 80 && f < 155; if (side !== (mv.dataset.side === '1')) { mv.dataset.side = side ? '1' : ''; mv.cameraOrbit = `${side ? -140 : theta}deg 80deg auto`; } }   // 무릎 굽힘과 종아리 뒤가 보이게 뒤쪽 옆에서
   };
   if (['calf', 'quad', 'ham', 'glute'].includes(k)) exTimeline().then(TL => { if (o.isConnected) exTick = setInterval(tlTick(TL), 100); });
-  const close = () => { clearInterval(exTick); o.remove(); if ($('exOv')) { $('exOv').inert = false; $('exOv').querySelectorAll('.exlist li')[i]?.querySelector('button, [tabindex]')?.focus(); } };
+  const close = () => { clearInterval(exTick); clearInterval(exRun); exRun = 0; o.remove(); if ($('exOv')) { $('exOv').inert = false; $('exOv').querySelectorAll('.exlist li')[i]?.querySelector('button, [tabindex]')?.focus(); } };
   o.addEventListener('click', e => {
     const b = e.target.closest('[data-exd], [data-view], [data-stage]');
     if (!b) return;
@@ -2897,11 +2907,37 @@ function openExDetail(kind, i) {
     const a = b.dataset.exd;
     if (a === 'back') close();
     else if (a === 'play') { if (mv.paused) { mv.play(); playBtn.textContent = '❚❚ 동작 멈춤'; } else { mv.pause(); playBtn.textContent = '▶ 동작 보기'; } }
+    else if (a === 'run') run();
+    else if (a === 'next2') openExDetail(kind, i + 1, true);               // 타이머를 다 마치고 넘어가면 다음 동작도 바로 시작
     else if (a === 'prev' || a === 'next') openExDetail(kind, i + (a === 'next' ? 1 : -1));
     else if (a === 'src') { e.preventDefault(); close(); $('exOv')?.querySelector('[data-ex=close]')?.click(); setTab('home'); const s = $('boneSrc'); s.open = true; s.scrollIntoView({ block: 'center' }); }
   });
+  // 따라 하기: 시작 ↔ 잠시 멈춤, 끝나면 '다음 동작' 버튼. 시계로 남은 시간을 재서 화면이 늦게 그려져도 밀리지 않음
+  const segs = EX_TIMER[k], total = segs?.reduce((s, [t]) => s + t, 0), tb = o.querySelector('.extimer');
+  let left = total, endAt = 0, seg = 0;
+  function show() {
+    tb.querySelector('.exclock').textContent = clock(Math.ceil(left));
+    tb.querySelector('.bar2 i').style.width = `${(100 * (1 - left / total)).toFixed(1)}%`;
+    let el = total - left, s = 0; while (s < segs.length - 1 && el >= segs[s][0]) el -= segs[s++][0];
+    if (s !== seg) { seg = s; navigator.vibrate?.(300); }                 // 반대쪽·다른 자세로 바꿀 때 진동
+    tb.querySelector('.exseg').textContent = segs[seg][1];
+  }
+  function run() {
+    const btn = tb.querySelector('[data-exd=run]');
+    if (exRun) { clearInterval(exRun); exRun = 0; btn.textContent = '▶ 계속하기'; return; }
+    endAt = Date.now() + left * 1000; btn.textContent = '❚❚ 잠시 멈춤';
+    exRun = setInterval(() => {
+      left = Math.max(0, (endAt - Date.now()) / 1000); show();
+      if (left > 0) return;
+      clearInterval(exRun); exRun = 0; navigator.vibrate?.([200, 100, 200]);
+      tb.querySelector('.exseg').textContent = '다 했어요';
+      btn.outerHTML = i < list.length - 1 ? `<button data-exd="next2">다음 동작: ${list[i + 1][1]} ›</button>` : '<button data-exd="back">다 했어요 · 목록으로</button>';
+      tb.querySelector('button').focus();
+    }, 200);
+  }
   o.addEventListener('keydown', e => { if (e.key === 'Escape') { e.stopPropagation(); close(); } });
   o.querySelector('[data-exd=back]').focus();
+  if (autoRun && segs) run();
 }
 
 function openEx(kind, fromHome = false) {
