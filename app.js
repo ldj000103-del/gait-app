@@ -232,6 +232,7 @@ addEventListener('popstate', () => closePick(false));
 window.gaitBack = () => {
   if (!$('pickSheet').hidden) { closePick(); return true; }
   if (!$('stopSheet').hidden) { closeStopSheet(); $('stop').focus(); return true; }   // 측정 종료 확인 창 = '계속 측정'
+  if ($('srcOv')) { $('srcOv').querySelector('[data-s=close]').click(); return true; }   // 출처 판은 운동 창 위에 떠서 먼저 닫음 (검수팀)
   if ($('exDet')) { $('exDet').querySelector('[data-exd=back]').click(); return true; }   // 운동 상세 → 목록
   const btn = document.querySelector('#permOv [data-p=later], #fbOv [data-f=close], #dictOv [data-dx=skip], #lessonOv [data-lx=close], #srcOv [data-s=close], #exOv [data-ex=close], #autoOv [data-a=cancel]');   // 권한 안내 = '나중에', 건의하기 = '닫기'(Esc와 같음), 지표 사전 = '건너뛰기'(닫기)
   if (btn) { btn.click(); return true; }
@@ -892,7 +893,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v193';
+const APP_VERSION = 'v194';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -1864,7 +1865,7 @@ function renderTiles() {
       ref: '기준선 없음 · 내 기록의 변화만 봐요',
       about: '달릴 때 1분 동안의 걸음 수예요. 이 앱은 러닝 케이던스에 기준선을 두지 않고 내 기록끼리 비교해요.' },
     { k: 'knee', label: '유각기 무릎', color: 'var(--c-video)', base: 60, h: vd, i: iv, value: vd ? vd.r.m.kneeSwingMax.toFixed(0) : null, unit: '°', vals: trendVals('knee'),
-      sub: vd ? '페리 약 60°' : '걸음걸이 탭 → 옆모습',
+      sub: vd ? '페리 약 60°' : '내 걸음 비춰 보기 → 옆모습',
       ref: '페리의 보행 분석 기준 약 60° · 출처: Perry 9장',
       about: '발이 땅에서 떨어져 앞으로 나갈 때(유각기) 무릎이 가장 많이 굽혀진 각도예요. 옆모습 영상으로 재고, 정확도는 참고 수준이에요.' },
   ];
@@ -2249,7 +2250,7 @@ function cmpRender(box) {
   }
   box.querySelector('.phN').textContent = `오른발 기준 · ${st.view === 'front' ? '앞에서 본 모습(거울처럼 반대)' : '뒤에서 본 모습'}`;
   box.querySelector('.cmpTabNote').textContent = m ? (cmpFC ? `단계는 오른발의 보행 주기예요(디딘 발이 왼발에서 오른발로 바뀌는 순간을 첫 닿기로 본 근사, 주기 ${cmpFC.n}개 평균). 오른발 유각기에는 왼발이 디뎌요. 그림과 표는 그 순간 잰 값이에요(재생하면 따라 바뀜). 영상 전체의 상위 10% 값은 아래 결과 카드에 있어요. 휴대폰 영상의 앞·뒤 단계별 각도는 검증 연구를 찾지 못했어요.`
-    : '단계는 오른발의 보행 주기예요. 오른발 유각기에는 왼발이 디뎌요. 이 기록은 단계별 값이 없어 그림만 영상 전체의 상위 10% 값을 발을 디딜 때(체중 받기)에 가장 크게 맞춰 보여 줘요.') : '걸음걸이 탭에서 앞모습이나 뒷모습 영상을 분석하면 여기에 보여요.';
+    : '단계는 오른발의 보행 주기예요. 오른발 유각기에는 왼발이 디뎌요. 이 기록은 단계별 값이 없어 그림만 영상 전체의 상위 10% 값을 발을 디딜 때(체중 받기)에 가장 크게 맞춰 보여 줘요.') : '내 걸음 비춰 보기에서 앞모습이나 뒷모습 영상을 분석하면 여기에 보여요.';
 }
 // 재생: 한 주기를 CMP_T 동안 돌림. 카드가 안 보이면(다른 탭) 일시정지
 const playTxt = () => cmpSt.playing ? '❚❚ 일시정지' : '▶ 재생';
@@ -2558,19 +2559,19 @@ markTerms($('learn'));
 // ── 지표 사전: 앱 숫자의 뜻과 왜 보는지만 (연구 숫자는 '알아보기', 재는 방법은 '처음 쓰는 법'). 누르면 옆으로 넘기는 설명 카드 ──
 const DICT = [
   { part: 'step', name: '케이던스', short: '1분 걸음 수', mean: '1분 동안 걸은 걸음 수예요. 휴대폰이 발이 땅에 닿는 흔들림을 세요.',
-    why: '걷는 리듬을 숫자 하나로 보여 줘요. 같은 조건에서 여러 번 재면 변화가 보여요.', where: '홈 · 측정 결과 · 걸음걸이 탭(영상)' },
+    why: '걷는 리듬을 숫자 하나로 보여 줘요. 같은 조건에서 여러 번 재면 변화가 보여요.', where: '홈 · 측정 결과 · 내 걸음 비춰 보기(영상)' },
   { part: 'step', name: '걷기 속도', short: '1초에 가는 거리', mean: '1초 동안 걸어간 거리(m)예요. GPS나 직접 넣은 거리를 걸은 시간으로 나눠요.',
     why: '같은 길을 같은 방식으로 재면 내 걷는 속도가 어떻게 달라지는지 볼 수 있어요.', where: '홈 · 측정 결과(GPS나 거리 입력)' },
   { part: 'knee', name: '무릎 각도', short: '발 보낼 때 굽힘', mean: '발이 땅에서 떨어져 앞으로 갈 때(유각기) 무릎이 가장 많이 굽혀진 각도예요.',
-    why: '발을 앞으로 보낼 때 무릎을 얼마나 굽히는지 숫자로 봐요. 페리의 보행 분석 기준과 나란히 볼 수 있어요.', where: '홈 · 걸음걸이 탭(옆모습 영상)' },
+    why: '발을 앞으로 보낼 때 무릎을 얼마나 굽히는지 숫자로 봐요. 페리의 보행 분석 기준과 나란히 볼 수 있어요.', where: '홈 · 내 걸음 비춰 보기(옆모습 영상)' },
   { part: 'thigh', name: '넓적다리 각도', short: '허벅지 앞뒤 기울기', mean: '허벅지가 수직선에서 앞(굽힘)이나 뒤(폄)로 기운 각도예요.',
-    why: '걸을 때 다리를 앞뒤로 얼마나 보내는지 봐요.', where: '걸음걸이 탭(옆모습 영상)' },
+    why: '걸을 때 다리를 앞뒤로 얼마나 보내는지 봐요.', where: '내 걸음 비춰 보기(옆모습 영상)' },
   { part: 'ankle', name: '발목 각도', short: '발끝 올리고 내리기', mean: '정강이와 발 사이 각도예요. 발끝이 정강이 쪽으로 올라가면 발등굽힘, 내려가면 발바닥굽힘이에요.',
-    why: '발을 디디고 뗄 때 발목이 얼마나 움직이는지 봐요.', where: '걸음걸이 탭(옆모습 영상)' },
+    why: '발을 디디고 뗄 때 발목이 얼마나 움직이는지 봐요.', where: '내 걸음 비춰 보기(옆모습 영상)' },
   { part: 'pelvis', name: '골반 내려감 정도', short: '좌우 높이 차이', mean: '한 발로 디딜 때 반대쪽 골반이 수평에서 내려간 각도예요.',
-    why: '왼발로 디딜 때와 오른발로 디딜 때를 나란히 놓고 비교해요.', where: '걸음걸이 탭(앞·뒤모습 영상)' },
+    why: '왼발로 디딜 때와 오른발로 디딜 때를 나란히 놓고 비교해요.', where: '내 걸음 비춰 보기(앞·뒤모습 영상)' },
   { part: 'knee', name: '무릎 안쪽 모임', short: '디딜 때 무릎 방향', mean: '디딜 때 무릎이 엉덩이와 발목을 잇는 선보다 안쪽(+)이나 바깥쪽(−)으로 간 각도예요.',
-    why: '왼쪽과 오른쪽을 비교해 봐요. 이 각도는 페리의 보행 분석 기준값이 없어요.', where: '걸음걸이 탭(앞·뒤모습 영상)' },
+    why: '왼쪽과 오른쪽을 비교해 봐요. 이 각도는 페리의 보행 분석 기준값이 없어요.', where: '내 걸음 비춰 보기(앞·뒤모습 영상)' },
 ];
 $('dict').innerHTML = DICT.map((d, i) => `<button class="dayrec" data-di="${i}"><span style="white-space:nowrap">${d.name}</span><span class="sub" style="text-align:right">${d.short} ›</span></button>`).join('');
 $('dict').addEventListener('click', e => { const b = e.target.closest('[data-di]'); if (b) openDict(+b.dataset.di); });
@@ -2793,7 +2794,7 @@ const FP_CARDS = [
    <div class="fpleg"><span class="fpsw fpdash" aria-hidden="true"></span><b>파란 점선 = 체중이 실리는 자리가 옮겨 가는 길</b></div>
    <p class="sub fpsm">한 발로 디디는 동안 발바닥에 실린 무게의 중심이 번호 순서대로 옮겨 가요(전문 용어로 압력 중심).</p>
    <ol class="sub fpsm fpol"><li>발이 닿을 때: 뒤꿈치 가운데 바로 바깥쪽</li><li>발바닥 전체로 설 때: 발 중간 바깥쪽</li><li>뒤꿈치가 들릴 때: 앞발 안쪽 (엄지·둘째 발가락 뿌리 아래)</li><li>발이 떨어질 때: 엄지발가락</li></ol>
-   <p class="sub fpsm">사람마다 앞발이 닿는 순서는 달라요: 새끼발가락 쪽부터 71%, 앞발 전체가 한꺼번에 22%, 엄지 쪽부터 8%.</p>
+   <p class="sub fpsm">사람마다 앞발이 닿는 순서는 달라요: 새끼발가락 쪽부터 71%, 앞발 전체가 한꺼번에 22%, 엄지 쪽부터 8%(반올림).</p>
    <hr class="fphr">
    <div class="fpleg"><span class="fpsw fpband" aria-hidden="true"></span><b>빨간 띠 = 엄지발가락벌림근</b></div>
    <p class="sub fpsm">발뒤꿈치뼈에서 시작해 발 안쪽 가장자리를 따라 엄지발가락 뿌리에 붙는 근육이에요. 뒤꿈치가 들리며 체중이 앞발 안쪽(③)으로 옮겨 갈 때부터 일하기 시작해, 앞발을 받쳐 줘요.</p>`,
@@ -2953,7 +2954,7 @@ function openExDetail(kind, i, autoRun = false) {
   const VIEW3 = { side: -90, back: 180, front: 0 };
   o.innerHTML = `<div class="sphead"><button class="spBack" data-exd="back" aria-label="목록으로">‹</button><h2>${name}</h2></div>
     <div class="d3">${['calf', 'quad', 'ham', 'glute'].includes(k) ? `<div class="d3stage${stages ? ' low' : ''}" hidden></div><div class="d3hold" hidden><svg viewBox="0 0 22 22" aria-hidden="true"><circle cx="11" cy="11" r="9"/><circle cx="11" cy="11" r="9"/></svg>멈춘 채로 30초 <small>(그림은 6초로 줄였어요)</small></div>` : ''}${stages ? `<div class="d3chips">${stages.map((s, j) => `<button class="chip" data-stage="${j}" aria-pressed="${j === 0}">${s.label}</button>`).join('')}</div>` : ''}<model-viewer src="assets/exercise3d/${glb0}.glb" alt="${name} 3D 모형, 손가락으로 밀어 돌려 볼 수 있어요" camera-controls touch-action="pan-y" disable-pan interaction-prompt="none"
-      camera-orbit="${theta}deg 80deg auto" field-of-view="22deg" min-field-of-view="10deg" shadow-intensity="1" shadow-softness="0.3" environment-image="neutral" exposure="1.05" ${reduce ? '' : 'autoplay'}></model-viewer>
+      camera-orbit="${theta}deg 80deg auto" field-of-view="16deg" min-field-of-view="8deg" shadow-intensity="1" shadow-softness="0.3" environment-image="neutral" exposure="1.05" ${reduce ? '' : 'autoplay'}></model-viewer>
       <div class="d3bar"><span>${['side', 'back', 'front'].map(v => `<button class="chip" data-view="${v}">${{ side: '옆', back: '뒤', front: '앞' }[v]}</button>`).join('')}</span><button class="chip" data-exd="play">${reduce ? '▶ 동작 보기' : '❚❚ 동작 멈춤'}</button></div></div>
     <div class="exchips" role="group" aria-label="단계" hidden></div>
     <p class="lfine" style="margin-top:4px">3D 모형: Human Base Meshes(CC0)${mus ? ' · BodyParts3D · Z-Anatomy 근육(CC BY-SA)' : ''}으로 만듦 · <a href="#" data-exd="src">출처 보기 ›</a></p>
@@ -2995,15 +2996,15 @@ function openExDetail(kind, i, autoRun = false) {
     if (lab && lab.textContent !== txt) { lab.textContent = txt; lab.hidden = !txt; }
     const h = tl.holds.find(([a, b]) => f >= a && f < b), hb = o.querySelector('.d3hold');
     if (hb) { hb.hidden = !h; if (h) hb.querySelector('circle:last-child').style.strokeDashoffset = (56.5 * (1 - (f - h[0]) / (h[1] - h[0]))).toFixed(1); }
-    o.querySelectorAll('.exchips .chip').forEach(c => c.setAttribute('aria-pressed', f >= +c.dataset.f && f < +c.dataset.e));   // 지금 단계 칩
+    o.querySelectorAll('.exchips .chip').forEach(c => c.setAttribute('aria-pressed', c.dataset.r.split(',').some(r => { const [x, y] = r.split('-'); return f >= +x && f < +y; })));   // 지금 단계 칩
     if (name === 'calf' && !userCam) { const side = f >= 80 && f < 155; if (side !== (mv.dataset.side === '1')) { mv.dataset.side = side ? '1' : ''; mv.cameraOrbit = `${side ? -140 : theta}deg 80deg auto`; } }   // 무릎 굽힘과 종아리 뒤가 보이게 뒤쪽 옆에서
   };
-  if (['calf', 'quad', 'ham', 'glute'].includes(k)) exTimeline().then(TL => { if (o.isConnected) { exTick = setInterval(tlTick(TL), 100); makeChips(TL); } });
+  exTimeline().then(TL => { if (o.isConnected && TL[glb0]) { exTick = setInterval(tlTick(TL), 100); makeChips(TL); } });   // 정리 운동 + 준비 운동 6개 (디자인 팀 10/30)
   // 단계 칩 (디자인 팀 B안): timeline.json 단계 글을 짧은 이름으로('→ …이 늘어나요'·번호 뺌, 같은 글은 하나로). 누르면 그 단계 시작으로, 멈춘 상태면 그 장면에서 멈춤
   function makeChips(TL) {
     const tl = TL[mv.getAttribute('src').match(/(\w+)\.glb$/)?.[1]], box = o.querySelector('.exchips'); if (!tl || !box) return;
-    const st = []; for (const [a, b, t] of tl.labels) { const n = t.split(' → ')[0].replace(/^[①-⑳]\s*/, ''); if (st.at(-1)?.n === n) st.at(-1).e = b; else st.push({ n, f: a, e: b }); }
-    box.innerHTML = st.map((s, j) => `<button class="chip" data-seek="${s.f}" data-f="${s.f}" data-e="${s.e}" aria-pressed="false">${j + 1} ${s.n}</button>`).join(''); box.hidden = false;
+    const st = []; for (const [a, b, t] of tl.labels) { const n = t.split(' → ')[0].replace(/^[①-⑳]\s*/, ''), x = st.find(q => q.n === n); if (x) x.r.push([a, b]); else st.push({ n, r: [[a, b]] }); }
+    box.innerHTML = st.map((s, j) => `<button class="chip" data-seek="${s.r[0][0]}" data-r="${s.r.map(r => r.join('-')).join(',')}" aria-pressed="false">${j + 1} ${s.n}</button>`).join(''); box.hidden = false;
   }
   const close = () => { clearInterval(exTick); clearInterval(exRun); exRun = 0; exUnlock(); o.remove(); if ($('exOv')) { $('exOv').inert = false; $('exOv').querySelectorAll('.exlist li')[i]?.querySelector('button, [tabindex]')?.focus(); } };
   o.addEventListener('click', e => {
@@ -3251,7 +3252,7 @@ function openAutoSheet() {
       <li>켜져 있는 동안 휴대폰 위쪽에 알림이 떠 있어요. 알림의 [끄기]나 설정에서 언제든 끌 수 있어요.</li>
       <li>자동으로 잰 기록은 이 휴대폰에 저장되고, 기록 목록에 '자동' 표시가 붙어요.</li></ul>
     <label class="chk" style="justify-content:flex-start"><input type="checkbox" id="aoS1"><span><b>[선택]</b> 자동으로 잰 결과도 익명으로 보내는 것에 동의해요</span></label>
-    <div class="pcard sub">· 항목: 수동 측정과 같은 항목(케이던스, 걸음 수, 걷는 시간, 걸음 신호 규칙성, 휴대폰을 둔 곳, 경고 종류, 측정 품질 정보, 나이대(10살 단위), 성별, 운영체제, 측정 날짜)에 '자동 측정' 표시를 더해요. 측정 시각·위치·이름은 받지 않아요.<br>· 목적: 자동 측정 기능 시험과 측정 정확도 개선<br>· 보관: 받은 날부터 3년 뒤 파기<br>· 동의하지 않아도 자동 측정은 똑같이 쓸 수 있어요. 결과가 이 휴대폰에만 남아요.</div>
+    <div class="pcard sub">· 항목: 수동 측정과 같은 항목(케이던스, 걸음 수, 걷는 시간, 걸음 신호 규칙성, 휴대폰을 둔 곳, 경고 종류, 측정 품질 정보, 나이대(10살 단위), 성별, 운영체제, 측정 날짜)에 '자동 측정' 표시를 더해요. 측정 시각·위치·이름은 받지 않아요.<br>· 목적: 자동 측정 기능 시험, 측정 정확도 개선, 익명 걸음 통계·연구(대학 연구진과 함께 하는 정확도 연구 포함). 연구 결과는 여러 사람을 모은 숫자로만 쓰고, 한 사람의 기록을 알아볼 수 있게 공개하지 않아요.<br>· 보관: 받은 날부터 3년 뒤 파기<br>· 동의하지 않아도 자동 측정은 똑같이 쓸 수 있어요. 결과가 이 휴대폰에만 남아요.</div>
     <label class="chk" style="justify-content:flex-start"><input type="checkbox" id="aoS2"><span><b>[선택]</b> 위 자동 측정 결과의 건강정보(민감정보) 수집·이용에 별도로 동의해요</span></label>
     <div class="pcard sub">· 걸음 측정값은 개인정보 보호법 제23조의 '건강'에 관한 정보(민감정보)에 해당할 수 있어요.<br>· 항목·목적·보관 기간은 위와 같아요. 거부해도 불이익이 없어요.</div>
     <p class="sub" style="font-size:.75rem;margin:8px 0 0">두 칸에 모두 동의해야 자동 측정 결과를 보내요. 동의하신 날부터 잰 결과만 보내고, 그 전 기록은 보내지 않아요. 만 14세 미만은 보내지 않아요.</p>
