@@ -86,8 +86,9 @@
   #dict .dayrec { background:none; margin:0; padding:12px 2px; border-radius:0; } #dict .dayrec + .dayrec { border-top:1px solid var(--line); }
   .homehead { display:flex; justify-content:space-between; align-items:center; margin:8px 2px 4px; }
   .homehead .sec { font-size:1.375rem; margin:0; }
-  #meBtn { width:26px; height:26px; margin:0; padding:0; border-radius:50%; font-size:.75rem; line-height:26px; flex:none; color:var(--card); }   /* 다크에선 밝은 바탕에 어두운 글자 */
-  #meBtn { position:relative; } #meBtn::after { content:''; position:absolute; inset:-9px; }   /* 보이는 동그라미는 26px, 누르는 곳은 44px (검수팀) */
+  #meBtn { display:inline-flex; align-items:center; gap:4px; width:auto; min-height:44px; min-width:44px; margin:0 -8px 0 0; padding:0 8px; font-size:.8125rem; flex:none; }   /* 설정 입구: 톱니 + 글자, 누르는 곳 44px (디자인 팀 2B) */
+  #meBtn svg { width:18px; height:18px; fill:none; stroke:currentColor; stroke-width:1.75; stroke-linejoin:round; }
+  #spSet { z-index:19; } #spSet a.dayrec { text-decoration:none; }
   #home .mcard, #home .card { box-shadow:none; border-radius:var(--radius); }
   .grp { grid-column:1 / -1; font-size:.875rem; font-weight:700; margin:8px 0 -2px 4px; }
   .mcard { display:block; width:100%; background:var(--card); border:0; border-radius:var(--radius); padding:14px 16px; margin:10px 0 0; box-shadow:var(--shadow); text-align:left; color:var(--ink); font-weight:400; cursor:pointer; }
@@ -416,7 +417,7 @@
   </section>
 
   <section id="home" data-tab="home">
-    <div class="homehead"><div class="sec">스텝미러</div><button id="meBtn" aria-label="내 정보 바꾸기">나</button></div>
+    <div class="homehead"><div class="sec">스텝미러</div><button id="meBtn" class="textlike" data-sub="spSet" aria-label="설정"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.9 3.3 L14.1 3.3 L14.5 5.4 L14.9 5.6 L16.7 4.3 L19.7 7.3 L18.4 9.1 L18.6 9.5 L20.7 9.9 L20.7 14.1 L18.6 14.5 L18.4 14.9 L19.7 16.7 L16.7 19.7 L14.9 18.4 L14.5 18.6 L14.1 20.7 L9.9 20.7 L9.5 18.6 L9.1 18.4 L7.3 19.7 L4.3 16.7 L5.6 14.9 L5.4 14.5 L3.3 14.1 L3.3 9.9 L5.4 9.5 L5.6 9.1 L4.3 7.3 L7.3 4.3 L9.1 5.6 L9.5 5.4Z"/><circle cx="12" cy="12" r="3"/></svg>설정</button></div>
     <div id="homeTop"></div>
     <div class="sec" style="font-size:1rem;margin:18px 2px 0">내 기록</div>
     <div id="stepsCard" hidden><div id="steps"></div></div>
@@ -466,29 +467,12 @@
       <div class="sub">연구에서 쓴 방식을 그대로 해 볼 수 있어요. 누르면 측정 화면으로 가요.</div>
       <div id="progs"></div>
     </div>
-    <div class="card" id="remindCard" hidden>
-      <h2>측정 알림</h2>
-      <div class="sub">고른 요일·시간에 이번 주 기록을 알림으로 보여 줘요.</div>
-      <div id="remindDays" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px"></div>
-      <div class="row" style="margin-top:10px;align-items:center"><input type="time" id="remindTime" value="19:00"><button id="remindSave" style="margin-top:0">저장</button></div>
-      <div class="sub" id="remindNote" style="margin-top:6px"></div>
-    </div>
+    <div class="card rows" id="remindLink" hidden><button class="dayrec" data-sub="spSet"><span>측정 알림<small>요일·시간 정하기</small></span><span class="sub">설정 ›</span></button></div>
     </div>
   </section>
 
   <section class="card" id="profile" data-tab="measure">
-    <div class="sumrow" id="profSum" hidden><span><b>내 정보</b> <span id="profSumTxt"></span></span><button class="chip" id="profOpen" aria-expanded="false" aria-controls="profEdit">바꾸기</button></div>
-    <div id="profEdit">
-    <h2>내 정보</h2>
-    <div class="sub">나이·성별에 맞는 기준값을 보여 주려고 써요. 이 휴대폰에만 저장돼요.</div>
-    <div class="sub" style="margin-top:12px">성별</div>
-    <div class="seg" id="sexBtns" role="group" aria-label="성별"><button data-sex="m">남성</button><button data-sex="f">여성</button><button data-sex="">안 함</button></div>
-    <input type="hidden" id="sex">
-    <label for="age" class="sub" style="display:block;margin-top:12px">나이</label>
-    <input id="age" class="bignum" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="3" autocomplete="off" placeholder="예: 45">
-    <button id="profSave">저장</button><div id="profMsg" class="sub" role="status" style="text-align:center;margin-top:4px"></div>
-    </div>
-    <div id="ageNote" class="sub hidden" style="margin-top:6px">만 14세 미만은 법정대리인(부모님 등) 동의가 필요해서, 동의 여부와 상관없이 결과를 운영자에게 보내지 않아요. 측정과 기록은 휴대폰 안에서 그대로 쓸 수 있어요.</div>
+    <div class="sumrow" id="profSum" hidden><span><b>내 정보</b> <span id="profSumTxt"></span></span><button class="chip" id="profOpen">바꾸기</button></div>
   </section>
 
   <section class="card" id="setup" data-tab="measure">
@@ -627,11 +611,44 @@
       운동 판의 3D 모형은 Blender Studio ‘Human Base Meshes’ v1.4.1(CC0) 마네킹을 반투명으로 바꾸고, 그 안에 BodyParts3D·Z-Anatomy의 비복근·가자미근·대퇴사두근·햄스트링·대둔근·중둔근 메시를 마네킹 크기에 맞춰 늘이고 줄이고 자세에 맞게 움직이게 붙인 뒤 색을 바꾼 것입니다. 이 3D 모형 파일(.glb)은 CC BY-SA 4.0으로 누구나 같은 조건으로 쓸 수 있습니다(<a href="assets/exercise3d/ATTRIBUTION.md">자세한 출처</a>). 3D 보기 도구: model-viewer 4.4.0 (Google, Apache-2.0). 원본 모델은 있는 그대로 제공되며, 보증에 관한 사항은 각 라이선스 원문을 따릅니다.</p></details>
     <details id="exSrc"><summary>운동 안내 근거</summary><p>준비·정리 운동의 시간과 방법: Kisner C, Colby LA, Borstad J. 운동치료총론 개정8판(Therapeutic Exercise: Foundations and Techniques, 8th ed.). 영문출판사, 2025 — 4장(가동성 향상을 위한 신장), 7장(유산소운동의 원리), 20장(엉덩관절), 22장(발목과 발) / National Academy of Sports Medicine. NASM-CPT 퍼스널트레이닝, 7장(유연성 트레이닝), 8장(심폐체력 트레이닝)<br>
       운동 그림의 사람 모형: Blender Studio ‘Human Base Meshes’ v1.4.1 (CC0, <a href="https://www.blender.org/download/demo-files/">https://www.blender.org/download/demo-files/</a>)을 바탕으로 자세와 동작을 직접 만들어 렌더링했습니다.</p></details>
-    <button id="invite" class="ghost" style="margin:6px 0 10px">친구에게 앱 알려주기</button>
-    <button id="fbBtn" class="ghost" style="margin:0 0 10px">건의하기 (익명 의견 보내기)</button>
-    <p id="appver" style="margin:4px 0;font-weight:600"></p>
-    <p><span id="consentState"></span> · <a href="#" id="cEdit">동의 변경</a> · <a href="privacy.html">개인정보 처리방침</a> · <a href="location-terms.html">위치기반서비스 이용약관</a></p>
+    <button class="textlike" data-sub="spSet" style="text-align:left;padding:12px 0">동의 변경·건의하기·앱 버전은 설정에 있어요 ›</button>
   </section>
+  <!-- 설정 (디자인 팀 시안 2B, 민원 10/29): 흩어져 있던 내 정보·헬스 커넥트·측정 알림·동의·건의를 한곳에. 어느 탭에서 열어도 보이게 main 바로 아래, 측정 탭 시작 버튼(z 19)보다 뒤에 둠 -->
+  <div class="subpage" id="spSet" hidden role="dialog" aria-label="설정"><div class="sphead"><button class="spBack" aria-label="뒤로">‹</button><h2>설정</h2></div>
+    <div class="card rows" id="setProf">
+      <button class="dayrec" id="profRow" aria-expanded="false" aria-controls="profEdit"><span>내 정보<small id="profRowTxt"></small></span><span class="sub">›</span></button>
+    <div id="profEdit" hidden>
+    <div class="sub">나이·성별에 맞는 기준값을 보여 주려고 써요. 이 휴대폰에만 저장돼요.</div>
+    <div class="sub" style="margin-top:12px">성별</div>
+    <div class="seg" id="sexBtns" role="group" aria-label="성별"><button data-sex="m">남성</button><button data-sex="f">여성</button><button data-sex="">안 함</button></div>
+    <input type="hidden" id="sex">
+    <label for="age" class="sub" style="display:block;margin-top:12px">나이 (만 나이)</label>
+    <input id="age" class="bignum" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="3" autocomplete="off" placeholder="예: 45">
+    <div class="sub" style="margin-top:4px">올해 생일이 지났으면 '올해 − 태어난 해', 안 지났으면 거기서 1을 빼요.</div>
+    <button id="profSave">저장</button><div id="profMsg" class="sub" role="status" style="text-align:center;margin-top:4px"></div>
+    </div>
+    <div id="ageNote" class="sub hidden" style="margin-top:6px">만 14세 미만은 법정대리인(부모님 등) 동의가 필요해서, 동의 여부와 상관없이 결과를 운영자에게 보내지 않아요. 측정과 기록은 휴대폰 안에서 그대로 쓸 수 있어요.</div>
+    </div>
+    <div class="card" id="setHC" hidden><h2>헬스 커넥트</h2><div id="hcSet"></div></div>
+    <div class="card" id="remindCard" hidden>
+      <h2>측정 알림</h2>
+      <div class="sub">고른 요일·시간에 이번 주 기록을 알림으로 보여 줘요.</div>
+      <div id="remindDays" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px"></div>
+      <div class="row" style="margin-top:10px;align-items:center"><input type="time" id="remindTime" value="19:00"><button id="remindSave" class="ghost" style="margin-top:0">저장</button></div>
+      <div class="sub" id="remindNote" style="margin-top:6px"></div>
+    </div>
+    <div class="card rows">
+      <div class="sub" id="consentState" style="padding:14px 0 2px"></div>
+      <button class="dayrec" id="cEdit"><span>동의 변경</span><span class="sub">›</span></button>
+      <a class="dayrec" href="privacy.html"><span>개인정보 처리방침</span><span class="sub">›</span></a>
+      <a class="dayrec" href="location-terms.html"><span>위치기반서비스 이용약관</span><span class="sub">›</span></a>
+    </div>
+    <div class="card rows">
+      <button class="dayrec" id="fbBtn"><span>건의하기<small>익명 의견 보내기</small></span><span class="sub">›</span></button>
+      <button class="dayrec" id="invite"><span>친구에게 앱 알려주기</span><span class="sub">›</span></button>
+      <div class="sub" id="appver" style="padding:14px 0"></div>
+    </div>
+  </div>
 </main>
 <nav id="tabbar" role="tablist" aria-label="화면 이동">
   <button role="tab" data-go="home"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20h14V9.5"/><path d="M10 20v-5h4v5"/></svg>홈</button>

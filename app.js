@@ -346,13 +346,15 @@ function showSetSum() {
   $('setSumTxt').textContent = [ACT[a] ?? a, POS_NAME[$('pos').value], gpsBox ? DMODE_NAME[$('dmode').value] : a === 'cooper' ? 'GPS 자동' : ''].filter(Boolean).join(' · ');
 }
 $('setOpen').addEventListener('click', () => openSet(true));
+// 내 정보 편집은 설정 화면에 (디자인 팀 2B). 측정 탭에는 요약 줄만 남기고 '바꾸기'는 설정을 열어 펼침
 function showProfSum(open) {
-  const { sex, age } = store.get('profile', {}), txt = [{ m: '남성', f: '여성' }[sex], age && `${age}세`].filter(Boolean).join(' · ');
-  $('profSumTxt').textContent = txt;
-  $('profSum').hidden = open || !txt; $('profEdit').hidden = !open && !!txt;
-  $('profOpen').setAttribute('aria-expanded', !!open);
+  const { sex, age } = store.get('profile', {}), txt = [{ m: '남성', f: '여성' }[sex], age && `만 ${age}세`].filter(Boolean).join(' · ');
+  $('profSumTxt').textContent = txt || '아직 안 넣었어요 (선택)'; $('profRowTxt').textContent = txt || '성별·나이 (선택)';
+  $('profSum').hidden = false; $('profEdit').hidden = !open && !!txt;
+  $('profRow').setAttribute('aria-expanded', !$('profEdit').hidden);
 }
-$('profOpen').addEventListener('click', () => showProfSum(true));
+$('profOpen').addEventListener('click', () => { openSub('spSet'); showProfSum(true); });
+$('profRow').addEventListener('click', () => showProfSum($('profEdit').hidden));
 showProfSum(false);
 openSet(store.get('act', null) == null);                                   // 처음 쓰는 사람은 펼친 채로
 showAct(); showSetSum();
@@ -890,7 +892,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v184';
+const APP_VERSION = 'v185';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -908,7 +910,7 @@ $('cOk').addEventListener('click', () => {
   document.body.classList.remove('needConsent');
   $('consentState').textContent = consent.share ? '익명 결과 보내기: 동의함' : '익명 결과 보내기: 동의 안 함';
 });
-$('cEdit').addEventListener('click', e => { e.preventDefault(); showConsent(); scrollTo(0, 0); });
+$('cEdit').addEventListener('click', e => { e.preventDefault(); closeAllSub(); showConsent(); scrollTo(0, 0); });   // 동의 화면은 설정 화면 뒤에 있어서 먼저 닫음
 if (!consent) showConsent();
 else $('consentState').textContent = consent.share ? '익명 결과 보내기: 동의함' : '익명 결과 보내기: 동의 안 함';
 
@@ -1643,12 +1645,11 @@ renderHistory();
 var homeReady = false;   // var: 위쪽 renderHistory가 먼저 불려도 오류 없이 false로 보임
 function setTab(name) {
   syncPicks();                                                            // 측정 이어 하기 등 코드로 바꾼 select 값을 줄에 반영
-  if (subOpen) closeSub();                                                // 탭바 '홈'을 눌러도 홈 첫 화면으로
+  closeAllSub();                                                          // 탭바 '홈'을 눌러도 홈 첫 화면으로
   document.body.dataset.tab = name;
   for (const b of document.querySelectorAll('#tabbar button')) b.setAttribute('aria-selected', b.dataset.go === name);
   if (name === 'home') renderHome();
 }
-$('meBtn').addEventListener('click', () => { setTab('measure'); showProfSum(true); $('profile').scrollIntoView({ block: 'start' }); });   // 홈 '나' → 내 정보 펼침
 document.querySelector('#tabbar').addEventListener('click', e => {
   const b = e.target.closest('button[data-go]'); if (!b) return;
   if (b.dataset.go === 'measure') $('result').classList.add('hidden');   // 측정 탭 = 측정 화면 (결과가 떠 있으면 시작 버튼이 결과 위 제자리로 가서 안 보임, 결과는 기록 탭에 있음)
@@ -2510,11 +2511,11 @@ async function loadSteps() {
 function renderSteps() {
   if (!HS) return;                                                         // 웹앱(아이폰 포함)은 카드를 숨김
   $('stepsCard').hidden = false;
-  const s = stepsState;
+  const s = stepsState; renderHcSet(s);
   if (!s) return ($('steps').innerHTML = '<div class="sub">불러오는 중…</div>');
   if (s.error) return ($('steps').innerHTML = `<div class="sub">걸음 수를 읽지 못했어요. (${s.error})</div>`);
   if (!s.available) return ($('steps').innerHTML = `<div class="sub">${s.needsUpdate ? '헬스 커넥트 앱을 플레이스토어에서 업데이트하면' : '이 휴대폰에서는 헬스 커넥트를 쓸 수 없어서'} 걸음 수를 가져올 수 없어요.</div>`);
-  const ask = `<button id="stepsOk">헬스 커넥트 연결하기</button>`;
+  const ask = `<button class="textlike" data-sub="spSet" style="text-align:left;padding:12px 0">설정에서 헬스 커넥트 연결하기 ›</button>`;   // 연결 버튼은 설정 한곳에 (디자인 팀 2B)
   if (!s.granted && !s.sleep && !s.heart) return ($('steps').innerHTML = `<div class="sub">삼성헬스(갤럭시 워치 포함) 등이 헬스 커넥트(안드로이드의 건강 데이터 창구)에 저장한 걸음 수·수면·심박수를 읽어 와요. 휴대폰 안에서만 쓰고 운영자에게 보내지 않아요.</div>${ask}`);
   const n = stepsByDay[dayKey(new Date())] ?? 0, sl = sleepByDay[dayKey(new Date())];
   const missing = [!s.granted && '걸음 수', !s.sleep && '수면', !s.heart && '심박수'].filter(Boolean);
@@ -2527,7 +2528,15 @@ function renderSteps() {
     + (s.sleep && sl ? mcard({ label: '수면', color: 'var(--c-video)', date: '지난밤', value: sl ? `${Math.floor(sl / 60)}<small>시간</small> ${sl % 60}` : null, unit: '분', sub: sl ? '워치·삼성헬스 기록 · 판정하지 않아요' : '워치를 차고 자면 기록돼요' }).replace('<button class="mcard"', '<div class="mcard static"').replace(/<\/button>$/, '</div>') : '')
     + (missing.length ? `<div class="msub" style="margin-top:8px">${missing.join('·')} 권한이 꺼져 있어요.</div>${ask}` : '');
 }
-$('steps').addEventListener('click', async e => { if (e.target.id === 'stepsOk' && await permIntro('introHC', ...INTRO_HC)) { try { await HS.request(); } catch {} loadSteps(); } });
+// 설정의 헬스 커넥트 줄: 권한별 연결 상태 + 꺼진 게 있으면 연결 버튼 (설치형 앱에서만)
+function renderHcSet(s) {
+  $('setHC').hidden = false;
+  const on = s && !s.error && s.available ? [['걸음 수', s.granted], ['수면', s.sleep], ['심박수', s.heart]] : null;
+  $('hcSet').innerHTML = !s ? '<div class="sub">불러오는 중…</div>' : s.error ? `<div class="sub">상태를 읽지 못했어요. (${s.error})</div>`
+    : !on ? `<div class="sub">${s.needsUpdate ? '헬스 커넥트 앱을 플레이스토어에서 업데이트하면 연결할 수 있어요.' : '이 휴대폰에서는 헬스 커넥트를 쓸 수 없어요.'}</div>`
+    : `<div class="sub">삼성헬스 등이 저장한 기록을 읽어 와요. 휴대폰 안에서만 쓰고 운영자에게 보내지 않아요.<br>${on.map(([n, v]) => `${n} ${v ? '연결됨' : '꺼짐'}`).join(' · ')}</div>${on.some(x => !x[1]) ? '<button id="stepsOk" class="ghost">헬스 커넥트 연결하기</button>' : ''}`;
+}
+$('hcSet').addEventListener('click', async e => { if (e.target.id === 'stepsOk' && await permIntro('introHC', ...INTRO_HC)) { try { await HS.request(); } catch {} loadSteps(); } });
 document.addEventListener('visibilitychange', () => { if (!document.hidden) { loadSteps(); scheduleReminders(); } });
 
 // ── 알아보기: 앱이 이미 쓰는 근거 문장을 주제별로 모음 (새 숫자 없음) ──
@@ -2624,7 +2633,7 @@ async function scheduleReminders() {
 }
 function renderRemind() {
   if (!LN) return;
-  $('remindCard').hidden = false;
+  $('remindCard').hidden = $('remindLink').hidden = false;
   const r = store.get('remind', { days: [], time: '19:00' });
   $('remindDays').innerHTML = [2, 3, 4, 5, 6, 7, 1].map(d => `<button class="chip" data-d="${d}" aria-pressed="${r.days.includes(d)}">${WDAYS[d - 1]}</button>`).join('');
   $('remindTime').value = r.time;
@@ -2696,21 +2705,24 @@ function renderHomeTop() {
   learnFigStart();
 }
 // 하위 화면(달력과 통계·배우기·프로그램과 알림): 오른쪽에서 밀려 들어옴, ‹·브라우저/휴대폰 뒤로 가기로 홈
-var subOpen = null;   // var: setTab·gaitBack이 먼저 불려도 오류 없이
+var subOpen = null, subStack = [];   // var: setTab·gaitBack이 먼저 불려도 오류 없이. subStack = 아래에 깔린 하위 화면 (프로그램과 알림 → 설정)
 function openSub(id) {
+  if (subOpen === id) return;
+  if (subOpen) subStack.push(subOpen);
   const el = $(id); subOpen = id; el.hidden = false; el.scrollTop = 0;
   void el.offsetWidth; el.classList.add('in');                            // 보이게 한 뒤 한 번 배치를 계산해야 밀려 들어오는 움직임이 보임
   history.pushState({ sub: id }, ''); markTerms(el); el.querySelector('.spBack').focus({ preventScroll: true });
 }
 function closeSub(back = true) {
   if (!subOpen) return;
-  const el = $(subOpen), id = subOpen; subOpen = null; el.classList.remove('in');
+  const el = $(subOpen), id = subOpen; subOpen = subStack.pop() ?? null; el.classList.remove('in');
   setTimeout(() => { if (subOpen !== id) el.hidden = true; }, matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 220);
   document.querySelector(`[data-sub="${id}"]`)?.focus({ preventScroll: true });
   if (back && history.state?.sub) history.back();                          // 열 때 넣은 기록 한 칸을 되돌림
 }
 document.addEventListener('click', e => { const s = e.target.closest('[data-sub]'), b = e.target.closest('.spBack'); if (s) openSub(s.dataset.sub); else if (b) closeSub(); });
-addEventListener('popstate', () => { if (subOpen && history.state?.sub !== subOpen) closeSub(false); });   // 새로고침 전에 남은 다른 {sub} 칸으로 돌아가도 닫히게 (검수팀)
+function closeAllSub() { const n = (subOpen ? 1 : 0) + subStack.length; while (subOpen) closeSub(false); if (n && history.state?.sub) history.go(-n); }
+addEventListener('popstate', () => { while (subOpen && history.state?.sub !== subOpen) closeSub(false); });   // 새로고침 전에 남은 다른 {sub} 칸으로 돌아가도 닫히게 (검수팀)
 if (history.state?.sub || history.state?.pickSheet) history.replaceState(null, '');   // 새로고침하면 판·하위 화면은 닫힌 채라 남은 기록 칸을 비움 (뒤로 가기가 한 번 헛돌지 않게)
 // 걸음 수업 판: 근육 그림(assets/muscle, 보행 주기 2% 간격 50장)을 캔버스로 반복 재생 + 주기에 맞는 자막·단계 막대 (디자인 팀 10/28, 법률 검토 20번)
 // 투명 WebP를 캔버스에 그려 밝은·어두운 화면 모두 바탕이 자연스럽고 사파리에서도 재생됨. 이용자 측정값과는 연결하지 않음
