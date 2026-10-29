@@ -2010,7 +2010,7 @@ function condHtml(r) {
   const cell = (x, d) => d ? `<span class="vdiff">${x}</span>` : x;
   return `<div class="metric"><div class="mhead"><div><b>이번 촬영 조건</b></div></div><table class="vcond"><tr><th></th><th>이번</th>${prev ? `<th>${new Date(pd.date).getMonth() + 1}월 ${new Date(pd.date).getDate()}일</th>` : ''}</tr>
     ${rows.map(([k, f, diff]) => { const d = prev && diff(c, prev); return `<tr><td>${k}</td><td>${cell(f(c), d)}</td>${prev ? `<td>${cell(f(prev), d)}</td>` : ''}</tr>`; }).join('')}</table>
-    <div class="sub" style="font-size:.75rem;margin-top:4px">사람 크기 = 화면 높이에 대한 머리~발 길이 · 밝기 0~100 · 분석은 초당 30장으로 해요</div>
+    <div class="sub" style="font-size:.75rem;margin-top:4px">초당 장수는 휴대폰이 재생하며 잰 값이라 실제와 다를 수 있어요 · 사람 크기 = 화면 높이에 대한 머리~발 길이 · 밝기 0~100 · 분석은 초당 30장으로 해요</div>
     <div class="sub" style="margin-top:6px">조건이 다르면 각도가 몇 도 달라질 수 있어요${c.fps && c.fps < 60 ? '<br>페리 기준 연구는 초당 60장으로 찍었어요 (『보행 분석』 365쪽)' : ''}</div>
     <div class="sub" style="font-size:.75rem">Lights, Cameras, Action, J Biomech 2026 · Pérez-de la Cruz, Sensors 2026</div></div>`;
 }
@@ -2802,7 +2802,8 @@ function openExDetail(kind, i) {
   // ponytail: model-viewer 안쪽 three.js 장면(Symbol 'scene')을 직접 만짐 → model-viewer 버전을 올리면 다시 확인
   mv.addEventListener('load', () => {
     const sc = mv[Object.getOwnPropertySymbols(mv).find(s => s.description === 'scene')], skins = [];
-    sc?.traverse(m => { if (!m.isMesh) return; if (m.material.name?.startsWith('mus_')) m.renderOrder = -2; else if (m.material.transparent) skins.push(m); });
+    sc?.traverse(m => { if (!m.isMesh || !m.material.name || m.userData.dep) return; m.userData.dep = 1;   // glTF 재질만(그림자 판 제외), 한 번만 (검수팀 10/29)
+      if (m.material.name.startsWith('mus_')) m.renderOrder = -2; else if (m.material.transparent) skins.push(m); });
     for (const m of skins) {
       const d = new m.constructor(m.geometry, m.material.clone());
       Object.assign(d.material, { colorWrite: false, transparent: false, depthWrite: true }); d.renderOrder = -1; m.add(d); m.material.depthWrite = true;
