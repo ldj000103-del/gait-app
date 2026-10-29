@@ -893,7 +893,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v195';
+const APP_VERSION = 'v196';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -2818,7 +2818,7 @@ function openFootLesson() {
       <div class="d3bar"><span>${[['in', '안쪽'], ['out', '바깥쪽'], ['sole', '발바닥']].map(([v, n]) => `<button class="chip" data-fv="${v}" aria-pressed="${v === 'in'}">${n}</button>`).join('')}</span><button class="chip" data-fx="play">${reduce ? '▶ 움직임 보기' : '❚❚ 멈춤'}</button></div></div>
     <div class="exchips" role="tablist" aria-label="단계">${['요약', '①', '②', '③', '④'].map((n, i) => `<button class="chip" role="tab" data-fi="${i}" aria-selected="${i === 0}" aria-pressed="${i === 0}">${n}</button>`).join('')}</div>
     <div class="fpcards">${FP_CARDS.map((c, i) => `<section class="card fpcard" data-card="${i}" aria-label="${i ? `${'①②③④'[i - 1]} 단계` : '요약'}">${c}</section>`).join('')}</div>
-    <p class="lfine">3D 모형: BodyParts3D · Z-Anatomy 뼈·근육(CC BY-SA)으로 만듦 · <a href="#" data-bonesrc>출처 보기 ›</a><br>근거: Perry 『Gait Analysis』 2장·4장(그림 4.18) · Neumann 『Kinesiology』 15장 · 정진우 『그림으로 보는 근골격해부학』 161쪽 · 그림은 위치를 나타낸 근사예요 · 일반적인 걸음 정보이며 진료를 대신하지 않아요</p></div>`;
+    <p class="lfine">3D 모형: Human Base Meshes(CC0) · BodyParts3D · Z-Anatomy 뼈·근육(CC BY-SA)으로 만듦 · <a href="#" data-bonesrc>출처 보기 ›</a><br>근거: Perry 『Gait Analysis』 2장·4장(그림 4.18) · Neumann 『Kinesiology』 15장 · 정진우 『그림으로 보는 근골격해부학』 161쪽 · 그림은 위치를 나타낸 근사예요 · 일반적인 걸음 정보이며 진료를 대신하지 않아요</p></div>`;
   document.body.append(o);
   for (const el of [document.querySelector('main'), $('tabbar')]) el.inert = true;
   const mv = o.querySelector('model-viewer'), cards = o.querySelector('.fpcards'), playB = o.querySelector('[data-fx=play]');
@@ -3253,7 +3253,7 @@ function openAutoSheet() {
       <li>켜져 있는 동안 휴대폰 위쪽에 알림이 떠 있어요. 알림의 [끄기]나 설정에서 언제든 끌 수 있어요.</li>
       <li>자동으로 잰 기록은 이 휴대폰에 저장되고, 기록 목록에 '자동' 표시가 붙어요.</li></ul>
     <label class="chk" style="justify-content:flex-start"><input type="checkbox" id="aoS1"><span><b>[선택]</b> 자동으로 잰 결과도 익명으로 보내는 것에 동의해요</span></label>
-    <div class="pcard sub">· 항목: 수동 측정과 같은 항목(케이던스, 걸음 수, 걷는 시간, 걸음 신호 규칙성, 휴대폰을 둔 곳, 경고 종류, 측정 품질 정보, 나이대(10살 단위), 성별, 운영체제, 측정 날짜)에 '자동 측정' 표시를 더해요. 측정 시각·위치·이름은 받지 않아요.<br>· 목적: 자동 측정 기능 시험, 측정 정확도 개선, 익명 걸음 통계·연구(대학 연구진과 함께 하는 정확도 연구 포함). 연구 결과는 여러 사람을 모은 숫자로만 쓰고, 한 사람의 기록을 알아볼 수 있게 공개하지 않아요.<br>· 보관: 받은 날부터 3년 뒤 파기<br>· 동의하지 않아도 자동 측정은 똑같이 쓸 수 있어요. 결과가 이 휴대폰에만 남아요.</div>
+    <div class="pcard sub">· 항목: 수동 측정과 같은 항목(케이던스, 걸음 수, 걷는 시간, 걸음 신호 규칙성, 휴대폰을 둔 곳, 경고 종류, 측정 품질 정보, 나이대(10살 단위), 성별, 운영체제, 측정 날짜)에 '자동 측정' 표시를 더해요. 측정 시각·위치·이름은 받지 않아요.<br>· 목적: 자동 측정 기능 시험, 측정 정확도 개선, 익명 걸음 통계·연구. 연구 결과는 여러 사람을 모은 숫자로만 쓰고, 한 사람의 기록을 알아볼 수 있게 공개하지 않아요.<br>· 보관: 받은 날부터 3년 뒤 파기<br>· 동의하지 않아도 자동 측정은 똑같이 쓸 수 있어요. 결과가 이 휴대폰에만 남아요.</div>
     <label class="chk" style="justify-content:flex-start"><input type="checkbox" id="aoS2"><span><b>[선택]</b> 위 자동 측정 결과의 건강정보(민감정보) 수집·이용에 별도로 동의해요</span></label>
     <div class="pcard sub">· 걸음 측정값은 개인정보 보호법 제23조의 '건강'에 관한 정보(민감정보)에 해당할 수 있어요.<br>· 항목·목적·보관 기간은 위와 같아요. 거부해도 불이익이 없어요.</div>
     <p class="sub" style="font-size:.75rem;margin:8px 0 0">두 칸에 모두 동의해야 자동 측정 결과를 보내요. 동의하신 날부터 잰 결과만 보내고, 그 전 기록은 보내지 않아요. 만 14세 미만은 보내지 않아요.</p>
