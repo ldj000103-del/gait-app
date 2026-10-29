@@ -42,6 +42,23 @@ const REF = {
   cooper1968: 'Cooper KH. A means of assessing maximal oxygen intake: correlation between field and treadmill testing. JAMA 1968;203(3):201-4. PMID 5694044',
   ikenaga2017: 'Ikenaga M 외. Short-interval, intermittent, low-intensity, slow-jogging program in older adults: RCT. Eur J Appl Physiol 2017. doi:10.1007/s00421-016-3493-9',
 };
+// 기준값을 누구에게서 잰 자료인지 (법률검토팀 26번, 10/29): refs/ 원문·초록에 있는 것만, 없으면 '출처에 … 정보 없음'
+const REF_WHO = {
+  perry20: 'Rancho Los Amigos 병원(미국 캘리포니아) 실험실에서 평소 빠르기로 걸은 성인 남 135명·여 158명(20~85세)',
+  murtagh: '건강한 성인이 야외에서 걸은 35개 연구 14,015명을 모은 분석 (나이·성별·나라 구성은 출처에 정보 없음)',
+  shema: '이스라엘 클리닉 환자 72명(평균 57.2세, 여 37명·남 35명), 무릎 골관절염 68%·허리 통증 17%·발목·고관절 관절염 15%',
+  cadenceAdults: '21~85세 성인(21~40세·41~60세·61~85세 연구), 트레드밀 걷기 (인원·성별·나라는 출처에 정보 없음)',
+  mcavoy2021: '21~60세 성인 (CADENCE-Adults 연구, 인원·성별·나라는 출처에 정보 없음)',
+  aguiar: '41~85세 174명이 평소 속도로 바닥을 걸은 자료 (성별·나라는 출처에 정보 없음)',
+  simonsen: '덴마크 올보르대학교 건강한 성인 30명(평균 28.2세, 여성 13.3%)',
+  mora: 'CADENCE-Adults 연구 참가자 (나이·성별·인원은 출처에 정보 없음)',
+  moeNilssen2004: '출처에 나이·성별 정보 없음',
+  jama2024: '65세 이상 지역사회에 사는 노인을 다룬 연구 리뷰 (인원·성별·나라는 출처에 정보 없음)',
+  studenski: '9개 코호트, 65세 이상 34,485명, 6~21년 추적 (성별·나라는 출처에 정보 없음)',
+  neumann15: '출처에 나이·성별 정보 없음',
+  ding2025: '57개 연구(35개 코호트): 미국 37%·영국 21%·일본 14%(한국 연구 없음), 일반 성인 56%·노인(평균 65세 이상) 44% (성별은 출처에 정보 없음)',
+};
+const refLi = r => `<li>${REF[r]}${REF_WHO[r] ? `<br><span class="sub" style="font-size:.75rem">누구 자료: ${REF_WHO[r]}</span>` : ''}</li>`;
 const ACT = { walk: '걷기', run: '러닝', slowrun: '슬로우 러닝', easyrun: '천천히 달리기', cooper: '12분 달리기', stairs: '계단 오르기', video: '영상', auto: '자동' };
 // 달리기 활동: 시작 위 '뛰기 전 몸 풀기', 결과 아래 '뛴 뒤 정리 운동' (판은 아래 openEx)
 const RUN_ACTS = ['run', 'slowrun', 'easyrun', 'cooper'];
@@ -850,7 +867,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v174';
+const APP_VERSION = 'v175';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -970,7 +987,7 @@ function metric({ title, value, unit, grade, body = '', why = [], refs = [], cmp
     <details><summary>근거 보기</summary>${cmp ? cmpCells(cmp) + fig + (cmp.fig ? '<div class="sub" style="font-size:.75rem">회색 = 페리 기준 · 초록 = 나 · 점선 = 기준선 · 흐린 위 마디는 움직이지 않는 쪽</div>' : '') : ''}
     <ul>${why.map(w => `<li>${plain(w)}</li>`).join('')}</ul>
     ${limit ? `<div class="sub" style="font-size:.8125rem">${limit}</div>` : ''}
-    <div>출처</div><ul>${refs.map(r => `<li>${REF[r]}</li>`).join('')}</ul></details></div>`;
+    <div>출처</div><ul>${refs.map(refLi).join('')}</ul></details></div>`;
 }
 
 function render(r, prev) {
@@ -1039,15 +1056,15 @@ function render(r, prev) {
       '원래 방법은 허리에 단 센서로 만든 것이라, 주머니에 넣은 휴대폰으로는 검증되지 않았어요.'],
     refs: ['moeNilssen2004'] });
   if (r.speed) {
-    // 낙상 기준(JAMA 2024)과 사망 위험(JAMA 2011)은 65세 이상 연구라 그 나이에만 경고
-    const slow = r.speed < 1.0 && +age >= 65;
+    // 낙상 기준(JAMA 2024)과 사망 위험(JAMA 2011)은 65세 이상 연구라 그 나이에만 안내. 측정값과 상관없이 늘 같은 문구(값이 낮을 때만 뜨면 위험 판정처럼 읽힘, 법률검토팀 26번)
+    const older65 = +age >= 65;
     const shortNote = short ? '<br>20m보다 짧게 걸으면 출발·멈춤 구간이 섞여 실제보다 느리게 나와요. 20m 이상을 권장해요.'
       : gps ? `<br>GPS로 잰 거리 약 ${r.distance.toFixed(0)}m · 위치 오차 약 ${Math.round(r.medAcc)}m${r.medAcc > 10 ? ' (오차가 커서 등급을 낮췄어요)' : ''}` : '';
     const how = gps ? `GPS: 출발·멈춤 2초를 뺀 꾸준히 걸은 ${Math.round(r.gpsDurS)}초 동안 이동한 거리 ÷ 시간. 위치 떨림을 줄이려 10초씩 평균 낸 위치를 이어요. 휴대폰 GPS 오차(보통 수 m) 때문에 "참고"`
       : '입력한 거리 ÷ 센서가 찾은 걷는 시간. 출발·정지 구간이 포함돼 실제보다 약간 느리게 나올 수 있어요 → "참고"';
     html += metric({
       title: '걷는 속도', value: r.speed.toFixed(2), unit: `m/s (${(r.speed * 60).toFixed(0)} m/분)`, grade: dGrade,
-      body: `<div class="sub">페리의 보행 분석 성인 평균 1.37 m/s(82 m/분)${shortNote}${slow ? `<br>참고: JAMA 2024 지침은 65세 이상에서 걷는 속도 0.8~1.0 m/s 미만을 낙상 위험을 평가하는 기준 중 하나로 써요. 이 앱은 낙상 위험을 판정하지 않아요.` : ''}</div>`,
+      body: `<div class="sub">페리의 보행 분석 성인 평균 1.37 m/s(82 m/분)${shortNote}${older65 ? `<br>참고: JAMA 2024 지침은 65세 이상에서 걷는 속도 0.8~1.0 m/s 미만을 낙상 위험을 평가하는 기준 중 하나로 써요. 이 앱은 낙상 위험을 판정하지 않아요.` : ''}</div>`,
       why: [how, '성인 평균 82 m/분 (Perry 20장)', '65세 이상 낙상 예방 지침(JAMA 2024)은 지난 1년 낙상, 낙상 걱정, 걷는 속도 0.8~1.0 m/s 미만 중 하나가 있으면 낙상 예방 중재를 고려하라고 해요 (나이를 65 이상으로 입력하면 이 안내가 보여요)', '65세 이상에서 걷는 속도 0.1 m/s 빠를 때마다 사망 위험 12% 낮음 (관찰 연구, 연관성)'],
       refs: ['perry20', 'jama2024', 'studenski'], cmp: { unit: 'm/s', dp: 2, rows: [{ ref: 1.37, mine: r.speed }] },
     });
@@ -1076,7 +1093,7 @@ function recCard({ title, calc = [], facts = [], limit = '', grade = 'y', refs =
     ${calc.length ? `<div class="calc">${calc.join('<br>')}</div>` : ''}
     <ul class="facts">${facts.map(f => `<li>${f}</li>`).join('')}</ul>
     ${limit ? `<div class="sub">한계: ${limit}</div>` : ''}
-    <details><summary>출처 전체</summary><ul>${refs.map(r => `<li>${REF[r]}</li>`).join('')}</ul></details></div>`;
+    <details><summary>출처 전체</summary><ul>${refs.map(refLi).join('')}</ul></details></div>`;
 }
 const recSection = (cards, title = '근거로 본 추천') => cards.length ? `<details class="recs"><summary>${title} <span class="sub">(눌러서 보기)</span></summary><div class="sub" style="margin-top:8px">책·연구의 기준값과 이번 값, 계산식만 옮겼어요. 원인 판단과 내 몸에 맞는지는 전문가와 상의하세요.</div>${cards.join('')}</details>` : '';
 
@@ -1536,7 +1553,7 @@ const GLOSS = {
   '발바닥굽힘': '발끝이 아래로 내려가는 발목 움직임이에요(까치발 방향).',
   '골반 내려감': '한 발로 디딜 때 반대쪽 골반이 아래로 처지는 정도예요.',
   '무릎 안쪽 모임': '앞이나 뒤에서 볼 때 무릎이 엉덩이-발목을 잇는 선보다 몸 안쪽으로 들어간 정도예요.',
-  '자세 인식': '영상 속 사람의 어깨·엉덩이·무릎·발목 위치를 AI가 찾아내는 기술이에요.',
+  '자세 인식': '영상 속 사람의 어깨·엉덩이·무릎·발목 위치를 AI가 찾아내는 기술이에요. 이 앱은 Google MediaPipe를 써요. 학습 자료: <a href="https://storage.googleapis.com/mediapipe-assets/Model%20Card%20BlazePose%20GHUM%203D.pdf" target="_blank" rel="noopener">Google 모델 카드</a>',
   '정확도 등급': '이 앱이 보여 주는 값이 얼마나 믿을 만한지 연구를 바탕으로 4단계로 나눈 표시예요.',
 };
 const GLOSS_KEYS = Object.keys(GLOSS).sort((a, b) => b.length - a.length);   // 긴 용어부터 (무릎넙다리관절 > 무릎넙다리)
