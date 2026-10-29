@@ -131,10 +131,11 @@ public class AutoService extends Service implements SensorEventListener {
     }
 
     private void write(double cut) {
-        File f = new File(dir(this), recWall + ".bin");
+        File f = new File(dir(this), recWall + ".tmp");                      // 다 쓴 뒤 .bin으로 이름을 바꿈 → 앱이 반쯤 쓴 파일을 가져가지 않게 (list는 .bin만 봄)
         try (DataOutputStream o = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(f)))) {
             for (double[] r : buf) { if (r[0] > cut) break; for (double v : r) o.writeDouble(v); }
         } catch (IOException e) { f.delete(); return; }
+        if (!f.renameTo(new File(dir(this), recWall + ".bin"))) { f.delete(); return; }
         File[] all = dir(this).listFiles();
         if (all == null) return;
         Arrays.sort(all, (a, b) -> a.getName().compareTo(b.getName()));

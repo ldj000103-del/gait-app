@@ -556,7 +556,7 @@ const BATTERY_TIP = '삼성 휴대폰은 설정 → 배터리 → 백그라운�
 function sendEnd(tags, act, position, diag) {
   if (!consent?.share || !ENDPOINT) return null;
   const today = new Date().toLocaleDateString('sv-SE');
-  const practice = act === 'walk' && !store.get('history', []).some(h => (h.activity ?? 'walk') === 'walk' && new Date(h.date).toLocaleDateString('sv-SE') === today);
+  const practice = act === 'walk' && !store.get('history', []).some(h => !h.autoRec && (h.activity ?? 'walk') === 'walk' && new Date(h.date).toLocaleDateString('sv-SE') === today);
   try { return send({ date: new Date().toISOString(), activity: act, position, practice, warnings: tags, diag }); } catch { return null; }
 }
 const sentNote = rc => rc ? `<div class="sub">걸음 숫자 없이 측정 정보만 익명으로 보냈어요. 접수번호 <b>${rc}</b> · 지우고 싶으면 이 번호를 ldj000103@gmail.com으로 보내 주세요(이 화면을 벗어나면 다시 볼 수 없으니 적어 두세요).</div>` : '';
@@ -645,7 +645,7 @@ function finish(data, demo = false, gps = [], press = []) {
   }
   const today = new Date().toLocaleDateString('sv-SE');                  // 휴대폰 시간대 기준 YYYY-MM-DD
   const hist = store.get('history', []);
-  const practice = act === 'walk' && !hist.some(h => (h.activity ?? 'walk') === 'walk' && new Date(h.date).toLocaleDateString('sv-SE') === today);   // 그날 첫 걷기 측정 = 연습 (Perry 20장)
+  const practice = act === 'walk' && !hist.some(h => !h.autoRec && (h.activity ?? 'walk') === 'walk' && new Date(h.date).toLocaleDateString('sv-SE') === today);   // 그날 첫 걷기 측정 = 연습 (Perry 20장)
   const dist = mode === 'manual' ? parseFloat($('dist').value) || null : null;
   const d = mode === 'gps' ? (gpsDenied && !demo ? { gpsError: 'denied' } : gpsSpeed(res, gps)) : withDistance(res, dist);
   const rec = { date: new Date().toISOString(), start: Date.now() - durS * 1000, activity: act, position, auto, practice, route: packRoute(gps), ...res, distance: dist, ...d, distSource: d.speed ? mode : null, diag, diagHtml };
@@ -892,7 +892,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v191';
+const APP_VERSION = 'v192';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -2699,8 +2699,7 @@ function renderHomeTop() {
       <div class="sub" style="margin-top:6px">한 달에 한 번, 옆모습 영상으로 내 걸음을 비춰 봐요${last ? ` · 마지막 ${last.d.getMonth() + 1}월 ${last.d.getDate()}일` : ''}</div>
       ${pair ? `<a href="#" class="textlike" style="text-align:left;padding:8px 0 0;text-decoration:none" data-pair="${prev.i},${last.i}">${pair} 나란히 보기 ›</a>` : ''}</div>
 `;
-  $('lessonCard').innerHTML = `<button class="mcard" data-lesson><div class="mtop"><span class="mlab">걸음 수업 · 30초</span><span class="mdate">›</span></div><div style="font-weight:700;margin-top:6px">발이 굴러가는 흔들의자 3개</div><div class="msub">근육 그림으로 보는 한 걸음</div></button>
-    <button class="mcard" data-foot style="margin-top:8px"><div class="mtop"><span class="mlab">걸음 수업</span><span class="mdate">›</span></div><div style="font-weight:700;margin-top:6px">걸을 때 발바닥 체중 이동</div><div class="msub">뒤꿈치에서 엄지발가락까지 6곳</div></button>`;   // 그림과 같은 주제로 고정 (디자인 팀 10/28, 날마다 바뀌던 사전 항목은 뺌)
+  $('lessonCard').innerHTML = `<button class="mcard" data-lesson><div class="mtop"><span class="mlab">걸음 수업 · 30초</span><span class="mdate">›</span></div><div style="font-weight:700;margin-top:6px">발이 굴러가는 흔들의자 3개</div><div class="msub">근육 그림으로 보는 한 걸음</div></button>`;   // 그림과 같은 주제로 고정 (디자인 팀 10/28, 날마다 바뀌던 사전 항목은 뺌)
   // 이번 주 카드: 월~일 그날 활동 색 점 + 측정 횟수 · 걷기 케이던스 평균 (달력과 같은 점 색)
   const mon0 = monOf(today), hist = store.get('history', []), tk = dayKey(today), cur = weekSummary(hist).cur;
   $('wkDots').innerHTML = ['월', '화', '수', '목', '금', '토', '일'].map((wd, k) => { const dk = dayKey(plusDays(mon0, k)), acts = [...new Set(hist.filter(h => dayKey(h.date) === dk).map(h => { const a = h.activity ?? 'walk'; return a === 'cooper' || a === 'easyrun' ? 'run' : a === 'stairs' ? 'walk' : a; }))];
@@ -2772,55 +2771,6 @@ function openLesson() {
 }
 $('lessonCard').addEventListener('click', e => { if (e.target.closest('[data-lesson]')) openLesson(); });
 
-// 걸음 수업 2: 걸을 때 발바닥 체중 이동 (사용자 아이디어, 디자인 팀 10/30 최종 지시). 오른발 발바닥을 아래에서 본 그림(엄지가 왼쪽)
-// 압력 중심 6점과 문장: Perry 『Gait Analysis』 4장 82~84쪽(그림 4.28). 무지외전근 위치·기시·정지·작용: 정진우 『그림으로 보는 근골격해부학』 161쪽(발의 제1근육층)
-// 효과·질환 표현 없음(법률 검토), 아치를 받친다는 기능 설명은 근거를 찾기 전까지 넣지 않음
-const FOOT_PTS = [[122, 268], [110, 243], [144, 176], [146, 101], [97, 90], [62, 50]];
-const FOOT_TXT = [
-  ['뒤꿈치 바깥 뒤쪽', '처음 닿는 곳이에요. 좁은 곳에 몸무게가 한꺼번에 실려 발바닥이 받는 압력이 가장 커요.'],
-  ['뒤꿈치 가운데', '곧 뒤꿈치 가운데로 굴러가요. 압력은 처음의 약 1/3이에요.'],
-  ['발 바깥쪽 가운데', '이곳이 바닥에 닿는 사람이 흔하지만, 압력은 약해요.'],
-  ['새끼발가락 쪽 중족골두(발허리뼈 머리)', '앞발이 닿을 때 열에 일곱(71%)은 여기부터 닿아요. 곧 엄지 쪽까지 모든 중족골두가 닿아요.'],
-  ['둘째·셋째 중족골두', '앞발에서 압력이 가장 큰 곳이에요.'],
-  ['엄지발가락', '발가락 중 압력이 가장 크고, 대개 마지막에 바닥에서 떨어져요.']];
-function openFootLesson() {
-  const P = FOOT_PTS, seg = i => `M${P[i - 1][0]} ${P[i - 1][1]} L${P[i][0]} ${P[i][1]}`;
-  const o = document.createElement('div');
-  o.id = 'lessonOv'; o.setAttribute('role', 'dialog'); o.setAttribute('aria-modal', 'true'); o.setAttribute('aria-label', '걸을 때 발바닥 체중 이동');
-  o.innerHTML = `<div class="dsheet lesson"><div class="lhead"><div><div class="sub" style="font-size:.75rem">걸음 수업</div><h3>걸을 때 발바닥 체중 이동</h3></div><button class="lx" data-lx="close" aria-label="닫기">✕</button></div>
-    <div class="footfig"><svg viewBox="0 0 200 300" role="img" aria-label="오른발 발바닥을 아래에서 본 그림. 뒤꿈치 바깥 뒤쪽에서 엄지발가락까지 체중이 옮겨 가는 길과 무지외전근">
-      <defs><marker id="fArr" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#2b3bd6"/></marker></defs>
-      <path d="M110 288 C82 288 78 262 80 236 C82 206 76 182 70 152 C64 126 48 112 51 92 C54 72 80 66 105 68 C130 70 153 78 157 98 C161 126 149 160 147 200 C145 236 141 288 110 288 Z" fill="#f7f8f8" stroke="#c9cfcc" stroke-width="2"/>
-      ${[[62, 44, 15, 19], [92, 37, 8, 10], [113, 41, 7, 9], [131, 50, 6, 8], [146, 63, 6, 7]].map(([x, y, rx, ry]) => `<ellipse cx="${x}" cy="${y - 4}" rx="${rx}" ry="${ry}" fill="#f7f8f8" stroke="#c9cfcc" stroke-width="2"/>`).join('')}
-      <path class="fmus" d="M96 266 C88 238 86 206 81 170 C76 138 66 114 64 84" fill="none" stroke="#a8323e" stroke-opacity=".45" stroke-width="10" stroke-linecap="round"/>
-      <circle cx="${P[4][0]}" cy="${P[4][1]}" r="24" fill="#2b3bd6" fill-opacity=".12"/>
-      ${[1, 2, 3, 4, 5].map(i => `<path class="fseg" data-i="${i}" d="${seg(i)}" fill="none" stroke="#2b3bd6" stroke-width="2.5" stroke-dasharray="5 4"${i === 2 ? ' stroke-opacity=".45"' : ''}${i === 5 ? ' marker-end="url(#fArr)"' : ''}/>`).join('')}
-      ${P.map(([x, y], i) => `<g class="fpt" data-i="${i}"${i === 2 ? ' opacity=".45"' : ''}><circle cx="${x}" cy="${y}" r="9" fill="#fff" stroke="#2b3bd6" stroke-width="2"/><text x="${x}" y="${y + 4}" text-anchor="middle" font-size="11" font-weight="700" fill="#2b3bd6">${i + 1}</text></g>`).join('')}
-    </svg></div>
-    <div class="exchips" role="group" aria-label="체중이 옮겨 가는 순서">${FOOT_TXT.map(([n], i) => `<button class="chip" data-fi="${i}" aria-pressed="false">${'①②③④⑤⑥'[i]} ${n.replace(/\(.*\)/, '')}</button>`).join('')}</div>
-    <p class="lsub" id="footTxt">번호를 누르면 그 구간만 진하게 보여요. 뒤꿈치 바깥 뒤쪽에서 시작해 엄지발가락에서 끝나요.</p>
-    <p class="sub" style="margin:4px 0 0">사람마다 앞발이 닿는 순서가 달라요: 새끼발가락 쪽부터 71%, 앞발 전체가 한꺼번에 22%, 엄지 쪽부터 8%.</p>
-    <div class="card" style="margin-top:10px"><h3><span class="exleg" style="margin:0"><i aria-hidden="true"></i></span>무지외전근</h3>
-      <p style="margin:4px 0">발바닥 근육 중 가장 얕은 층(제1근육층)에서, 발 안쪽 가장자리를 따라 가는 근육이에요. 종골(발뒤꿈치뼈)에서 시작해 엄지 첫마디뼈(기절골)의 몸쪽 끝에 붙어요.</p>
-      <p class="sub" style="margin:0">하는 일: 엄지발가락 뿌리 관절(중족지절관절)을 굽히고 바깥으로 벌려요 · 겉에서 만져 볼 수는 없어요</p></div>
-    <p class="lfine">체중 이동: Perry 『Gait Analysis』 4장 82~84쪽 · 근육: 정진우 『그림으로 보는 근골격해부학』 161쪽 · 그림은 위치를 나타낸 근사예요 · 일반적인 걸음 정보이며 진료를 대신하지 않아요</p></div>`;
-  document.body.append(o);
-  for (const el of [document.querySelector('main'), $('tabbar')]) el.inert = true;
-  const close = () => { for (const el of [document.querySelector('main'), $('tabbar')]) el.inert = false; o.remove(); $('lessonCard').querySelector('[data-foot]')?.focus(); };
-  const pick = i => {                                                       // i번 점까지 오는 구간과 그 점만 진하게 (①은 점만)
-    o.querySelectorAll('.fseg').forEach(p => p.style.opacity = +p.dataset.i === i ? 1 : .2);
-    o.querySelectorAll('.fpt').forEach(p => p.style.opacity = +p.dataset.i === i ? 1 : .3);
-    o.querySelectorAll('[data-fi]').forEach(c => c.setAttribute('aria-pressed', +c.dataset.fi === i));
-    $('footTxt').textContent = `${'①②③④⑤⑥'[i]} ${FOOT_TXT[i][0]} · ${FOOT_TXT[i][1]}`;
-  };
-  o.addEventListener('click', e => {
-    const f = e.target.closest('[data-fi]'); if (f) return pick(+f.dataset.fi);
-    if (e.target === o || e.target.closest('[data-lx=close]')) close();
-  });
-  o.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
-  o.querySelector('[data-lx=close]').focus();
-}
-$('lessonCard').addEventListener('click', e => { if (e.target.closest('[data-foot]')) openFootLesson(); });
 
 // ── 뛰기 전 몸 풀기 · 뛴 뒤 정리 운동 판 (디자인 팀 10/29, 법률 검토 22번 통과) ──
 // 시간·방법: Kisner 『운동치료총론』 개정8판 4장 113쪽(정적 신장 30초)·7장 298~299쪽(준비·정리 5~10분), NASM-CPT 7장 146~147쪽·8장 166~168쪽
@@ -3190,7 +3140,8 @@ async function renderAuto() {
   try { st = await AR.status(); } catch {}
   if (st.on && !st.running) try { await AR.enable(); } catch {}            // 휴대폰을 껐다 켜면 서비스가 없음 → 앱을 열 때 다시 켬
   $('autoOn').checked = st.on; $('autoOn').disabled = !st.supported;
-  $('autoState').textContent = !st.supported ? '이 휴대폰에는 걷기를 알아채는 센서가 없어 쓸 수 없어요.' : st.on ? '켜져 있어요. 휴대폰 위쪽 알림의 [끄기]로도 끌 수 있어요.' : '걸으면 저절로 재요. 위치는 쓰지 않아요.';
+  let np = {}; if (st.on) try { np = await Native.checkPermissions(); } catch {}
+  $('autoState').textContent = !st.supported ? '이 휴대폰에는 걷기를 알아채는 센서가 없어 쓸 수 없어요.' : st.on && np.notifications && np.notifications !== 'granted' ? '켜져 있어요. 알림이 꺼져 있어 휴대폰 위쪽 알림이 보이지 않아요. 끌 때는 여기서 꺼 주세요.' : st.on ? '켜져 있어요. 휴대폰 위쪽 알림의 [끄기]로도 끌 수 있어요.' : '걸으면 저절로 재요. 위치는 쓰지 않아요.';   // 나중에 알림을 끈 경우 (검수팀)
   $('autoShareBox').hidden = !st.on;
   $('autoRowTxt').textContent = !st.supported ? '이 휴대폰은 지원 안 함' : st.on ? '켜짐' : '꺼짐';
   $('autoS1').checked = $('autoS2').checked = !!consent?.autoShare;
@@ -3219,7 +3170,8 @@ function openAutoSheet() {
   o.addEventListener('click', async e => {
     const b = e.target.closest('[data-a]'); if (!b) return;
     if (b.dataset.a === 'cancel') return close();
-    try { await Native.requestPermissions({ permissions: ['notifications'] }); } catch {}   // 켜져 있다는 알림을 보이려고 (거절해도 측정은 됨)
+    let np = {}; try { np = await Native.requestPermissions({ permissions: ['notifications'] }); } catch {}
+    if (np.notifications && np.notifications !== 'granted') { $('aoMsg').textContent = '알림을 허용해야 켤 수 있어요. 켜져 있는 동안 휴대폰 위쪽 알림의 [끄기]로 언제든 끌 수 있게 하려는 거예요.'; return; }   // 안내·처리방침의 '알림이 표시되며 끌 수 있다'를 지키려고 (검수팀)
     try { await AR.enable(); } catch { $('aoMsg').textContent = '이 휴대폰에는 걷기를 알아채는 센서가 없어 자동 측정을 쓸 수 없어요.'; return; }
     setAutoShare($('aoS1').checked && $('aoS2').checked);
     close(); renderAuto();
