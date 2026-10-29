@@ -896,7 +896,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v188';
+const APP_VERSION = 'v189';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -2829,7 +2829,8 @@ const exCache = urls => caches?.open('ex3d').then(c => Promise.all(urls.map(u =>
 const EX_TIMER = { brisk: [[120, '']], jog: [[120, '']], slowwalk: [[180, '']],
   calf: [[30, '한쪽 · 무릎 펴서'], [30, '한쪽 · 무릎 살짝 굽혀서'], [30, '반대쪽 · 무릎 펴서'], [30, '반대쪽 · 무릎 살짝 굽혀서']],
   quad: [[30, '한쪽'], [30, '반대쪽']], ham: [[30, '한쪽'], [30, '반대쪽']], glute: [[30, '한쪽'], [30, '반대쪽']] };
-let exRun = 0;
+let exRun = 0, exLock = null;
+const exUnlock = () => { exLock?.release().catch(() => {}); exLock = null; };   // 타이머 동안만 화면 켜짐 (검수팀: 화면이 꺼지면 '반대쪽' 진동이 안 옴)
 const MUS_LIN = [0.392, 0.032, 0.048], MUS_PALE = [0.89, 0.60, 0.56];   // 근육 빨강 #a8323e(선형) · 조건 전 피부에 가까운 연분홍 #f2cbc5(불투명 35%, 디자인 팀 10/29)
 function openExDetail(kind, i, autoRun = false) {
   const list = EX[kind].items, [k, name] = list[i], [dose, pose, steps, area, extra, theta] = EXD[k], cool = kind === 'cool' && k !== 'slowwalk';
@@ -2837,7 +2838,7 @@ function openExDetail(kind, i, autoRun = false) {
   mvReady ??= import('./vendor/model-viewer-4.4.0.min.js').catch(e => { mvReady = null; throw e; });
   const stages = EX_STAGES[k], glb0 = stages ? stages[0].glb : k;
   exCache(['vendor/model-viewer-4.4.0.min.js', 'assets/exercise3d/timeline.json', `assets/exercise3d/${glb0}.glb`, ...(EX_CMP[k] ? ['assets/exercise/ham-good.webp', 'assets/exercise/ham-bad.webp'] : [])]);
-  clearInterval(exTick); clearInterval(exRun); exRun = 0; $('exDet')?.remove();
+  clearInterval(exTick); clearInterval(exRun); exRun = 0; exUnlock(); $('exDet')?.remove();
   const o = document.createElement('div');
   o.id = 'exDet'; o.setAttribute('role', 'dialog'); o.setAttribute('aria-modal', 'true'); o.setAttribute('aria-label', name);
   const VIEW3 = { side: -90, back: 180, front: 0 };
@@ -2894,7 +2895,7 @@ function openExDetail(kind, i, autoRun = false) {
     if (name === 'calf' && !userCam) { const side = f >= 80 && f < 155; if (side !== (mv.dataset.side === '1')) { mv.dataset.side = side ? '1' : ''; mv.cameraOrbit = `${side ? -140 : theta}deg 80deg auto`; } }   // 무릎 굽힘과 종아리 뒤가 보이게 뒤쪽 옆에서
   };
   if (['calf', 'quad', 'ham', 'glute'].includes(k)) exTimeline().then(TL => { if (o.isConnected) exTick = setInterval(tlTick(TL), 100); });
-  const close = () => { clearInterval(exTick); clearInterval(exRun); exRun = 0; o.remove(); if ($('exOv')) { $('exOv').inert = false; $('exOv').querySelectorAll('.exlist li')[i]?.querySelector('button, [tabindex]')?.focus(); } };
+  const close = () => { clearInterval(exTick); clearInterval(exRun); exRun = 0; exUnlock(); o.remove(); if ($('exOv')) { $('exOv').inert = false; $('exOv').querySelectorAll('.exlist li')[i]?.querySelector('button, [tabindex]')?.focus(); } };
   o.addEventListener('click', e => {
     const b = e.target.closest('[data-exd], [data-view], [data-stage]');
     if (!b) return;
@@ -2924,12 +2925,13 @@ function openExDetail(kind, i, autoRun = false) {
   }
   function run() {
     const btn = tb.querySelector('[data-exd=run]');
-    if (exRun) { clearInterval(exRun); exRun = 0; btn.textContent = '▶ 계속하기'; return; }
+    if (exRun) { clearInterval(exRun); exRun = 0; exUnlock(); btn.textContent = '▶ 계속하기'; return; }
+    navigator.wakeLock?.request('screen').then(w => { if (exRun) exLock = w; else w.release(); }, () => {});
     endAt = Date.now() + left * 1000; btn.textContent = '❚❚ 잠시 멈춤';
     exRun = setInterval(() => {
       left = Math.max(0, (endAt - Date.now()) / 1000); show();
       if (left > 0) return;
-      clearInterval(exRun); exRun = 0; navigator.vibrate?.([200, 100, 200]);
+      clearInterval(exRun); exRun = 0; exUnlock(); navigator.vibrate?.([200, 100, 200]);
       tb.querySelector('.exseg').textContent = '다 했어요';
       btn.outerHTML = i < list.length - 1 ? `<button data-exd="next2">다음 동작: ${list[i + 1][1]} ›</button>` : '<button data-exd="back">다 했어요 · 목록으로</button>';
       tb.querySelector('button').focus();
