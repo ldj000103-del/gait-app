@@ -893,7 +893,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v196';
+const APP_VERSION = 'v197';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -2785,11 +2785,13 @@ const FP_CARDS = [
    <p><b>왜 알아 두면 좋아요</b><br>배워 보기의 '발이 굴러가는 흔들의자 3개'가 발바닥에서는 이렇게 보여요. ①은 뒤꿈치 흔들의자, ②는 발목 흔들의자, ③은 앞발 흔들의자예요. 내 걸음 비춰 보기 영상에서 '뒤꿈치가 들리는 때'를 볼 때, 그 순간 발바닥과 근육에서 무슨 일이 일어나는지 함께 떠올릴 수 있어요.</p>
    <div class="footfig"><svg viewBox="0 0 200 300" role="img" aria-label="오른발 발바닥을 아래에서 본 그림. 파란 점선은 뒤꿈치에서 엄지발가락까지 체중이 실리는 자리가 옮겨 가는 길, 빨간 띠는 엄지발가락벌림근">
      <defs><marker id="fArr" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#2b3bd6"/></marker></defs>
+     <g transform="matrix(-1 0 0 1 200 0)">   <!-- 좌우 뒤집기: 발바닥 쪽에서 본 오른발은 엄지가 오른쪽 (3D 발바닥 보기와 같은 방향, 디자인 팀) -->
      <path d="M110 288 C82 288 78 262 80 236 C82 206 76 182 70 152 C64 126 48 112 51 92 C54 72 80 66 105 68 C130 70 153 78 157 98 C161 126 149 160 147 200 C145 236 141 288 110 288 Z" fill="#f7f8f8" stroke="#c9cfcc" stroke-width="2"/>
      ${[[62, 40, 15, 19], [92, 33, 8, 10], [113, 37, 7, 9], [131, 46, 6, 8], [146, 59, 6, 7]].map(([x, y, rx, ry]) => `<ellipse cx="${x}" cy="${y}" rx="${rx}" ry="${ry}" fill="#f7f8f8" stroke="#c9cfcc" stroke-width="2"/>`).join('')}
      <path d="M96 266 C88 238 86 206 81 170 C76 138 66 114 64 84" fill="none" stroke="#a8323e" stroke-opacity=".45" stroke-width="10" stroke-linecap="round"/>
      <path d="M121 258 L146 178 L84 92 L62 46" fill="none" stroke="#2b3bd6" stroke-width="2.5" stroke-dasharray="5 4" marker-end="url(#fArr)"/>
-     ${[[121, 258], [146, 178], [84, 92], [62, 46]].map(([x, y], i) => `<circle cx="${x}" cy="${y}" r="9" fill="#fff" stroke="#2b3bd6" stroke-width="2"/><text x="${x}" y="${y + 4}" text-anchor="middle" font-size="11" font-weight="700" fill="#2b3bd6">${i + 1}</text>`).join('')}
+     </g>
+     ${[[121, 258], [146, 178], [84, 92], [62, 46]].map(([x0, y], i, _, x = 200 - x0) => `<circle cx="${x}" cy="${y}" r="9" fill="#fff" stroke="#2b3bd6" stroke-width="2"/><text x="${x}" y="${y + 4}" text-anchor="middle" font-size="11" font-weight="700" fill="#2b3bd6">${i + 1}</text>`).join('')}
      <text x="4" y="296" font-size="11" fill="#69736f">오른발 · 발바닥 쪽에서 본 모습</text></svg></div>
    <div class="fpleg"><span class="fpsw fpdash" aria-hidden="true"></span><b>파란 점선 = 체중이 실리는 자리가 옮겨 가는 길</b></div>
    <p class="sub fpsm">한 발로 디디는 동안 발바닥에 실린 무게의 중심이 번호 순서대로 옮겨 가요(전문 용어로 압력 중심).</p>
