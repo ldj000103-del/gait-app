@@ -146,8 +146,7 @@ $('locOk').addEventListener('change', () => {
 });
 // 약관·처리방침이 바뀌면 이미 동의한 사람에게 앱을 열 때 한 번 안내 (재동의 아님). '보기'나 '닫기'를 누르면 다시 안 뜸
 function changeNote(id, seenKey, date, text, href, view) {
-  document.querySelector('main > .sub').insertAdjacentHTML('afterend', `<div class="card sub" id="${id}" role="status">${text}
-    <div style="display:flex;gap:6px;margin-top:10px"><button class="chip" data-n="view">${view}</button><button class="chip" data-n="close">닫기</button></div></div>`);
+  document.querySelector('main > .sub').insertAdjacentHTML('afterend', `<div class="noteBar" id="${id}" data-tab="home" role="status"><span title="${text}">${text}</span><button data-n="view" aria-label="${view}">보기 ›</button><button data-n="close" aria-label="알림 닫기">✕</button></div>`);   // 홈 맨 위 한 줄 띠 (디자인 팀 B안 10/30), 알릴 의무가 있어 없애지 않음
   $(id).addEventListener('click', e => {
     const b = e.target.closest('[data-n]'); if (!b) return;
     store.set(seenKey, date); $(id).remove();
@@ -234,7 +233,7 @@ window.gaitBack = () => {
   if (!$('pickSheet').hidden) { closePick(); return true; }
   if (!$('stopSheet').hidden) { closeStopSheet(); $('stop').focus(); return true; }   // 측정 종료 확인 창 = '계속 측정'
   if ($('exDet')) { $('exDet').querySelector('[data-exd=back]').click(); return true; }   // 운동 상세 → 목록
-  const btn = document.querySelector('#permOv [data-p=later], #fbOv [data-f=close], #dictOv [data-dx=skip], #lessonOv [data-lx=close], #exOv [data-ex=close], #autoOv [data-a=cancel]');   // 권한 안내 = '나중에', 건의하기 = '닫기'(Esc와 같음), 지표 사전 = '건너뛰기'(닫기)
+  const btn = document.querySelector('#permOv [data-p=later], #fbOv [data-f=close], #dictOv [data-dx=skip], #lessonOv [data-lx=close], #srcOv [data-s=close], #exOv [data-ex=close], #autoOv [data-a=cancel]');   // 권한 안내 = '나중에', 건의하기 = '닫기'(Esc와 같음), 지표 사전 = '건너뛰기'(닫기)
   if (btn) { btn.click(); return true; }
   if (!$('tip').classList.contains('hidden')) { $('tip').classList.add('hidden'); return true; }   // 용어 풀이 팝업
   if (subOpen) { closeSub(); return true; }                                 // 홈 하위 화면 → 홈
@@ -266,7 +265,7 @@ function openDelete(date) {
 }
 const rawDel = async key => { const db = await rawDb(); db.transaction('raw', 'readwrite').objectStore('raw').delete(key); };
 let toastT = 0;
-function toast(msg) { const t = $('toast'); t.textContent = msg; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => { t.hidden = true; }, 2000); }
+function toast(msg) { const t = $('toast'); t.textContent = msg; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => { t.hidden = true; }, Math.max(2000, msg.length * 70)); }   // 긴 글은 읽을 만큼 오래
 // 익명 결과 삭제 요청: 접수번호만 보냄(다른 정보 없음). no-cors라 응답은 못 읽고, 보내기 자체가 실패(오프라인 등)하면 false
 const askDelete = receipt => fetch(ENDPOINT, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ kind: 'delete', receipt }) }).then(() => true, () => false);
 async function deleteRec(date) {
@@ -286,7 +285,7 @@ async function deleteRec(date) {
   closePick();
   if (shownDate === date) { shownDate = null; route = null; $('result').classList.add('hidden'); $('vresult').classList.add('hidden'); }   // 지운 기록 화면은 닫음
   if (!hist.length) $('histBody').innerHTML = '아직 기록이 없어요.';
-  renderHistory(); setTab('records'); scrollTo(0, 0); toast(ask ? '지웠어요 · 익명 결과 삭제도 요청했어요' : '지웠어요');   // 홈 요약·달력·통계·그래프·한 달 점검·영상 비교값은 기록에서 다시 계산됨
+  renderHistory(); toast(ask ? '지웠어요 · 익명 결과 삭제도 요청했어요' : '지웠어요');   // 홈 요약·달력·통계·그래프·한 달 점검·영상 비교값은 기록에서 다시 계산됨
 }
 document.addEventListener('click', e => { const d = e.target.closest('[data-delrec]'); if (d) openDelete(d.dataset.delrec); });
 // 지난 기록 줄 길게 누르기(0.6초) = 지우기 판
@@ -351,15 +350,13 @@ function showSetSum() {
   $('setSumTxt').textContent = [ACT[a] ?? a, POS_NAME[$('pos').value], gpsBox ? DMODE_NAME[$('dmode').value] : a === 'cooper' ? 'GPS 자동' : ''].filter(Boolean).join(' · ');
 }
 $('setOpen').addEventListener('click', () => openSet(true));
-// 내 정보 편집은 설정 화면에 (디자인 팀 2B). 측정 탭에는 요약 줄만 남기고 '바꾸기'는 설정을 열어 펼침
-function showProfSum(open) {
+// 내 정보 편집은 설정 → 내 정보 하위 화면에 (디자인 팀 B안). 측정 탭 요약 줄의 '바꾸기'는 그 화면을 바로 엶
+function showProfSum() {
   const { sex, age } = store.get('profile', {}), txt = [{ m: '남성', f: '여성' }[sex], age && `만 ${age}세`].filter(Boolean).join(' · ');
   $('profSumTxt').textContent = txt || '아직 안 넣었어요 (선택)'; $('profRowTxt').textContent = txt || '성별·나이 (선택)';
-  $('profSum').hidden = false; $('profEdit').hidden = !open && !!txt;
-  $('profRow').setAttribute('aria-expanded', !$('profEdit').hidden);
+  $('profSum').hidden = false;
 }
-$('profOpen').addEventListener('click', () => { openSub('spSet'); showProfSum(true); });
-$('profRow').addEventListener('click', () => showProfSum($('profEdit').hidden));
+$('profOpen').addEventListener('click', () => openSub('spSetProf'));
 showProfSum(false);
 openSet(store.get('act', null) == null);                                   // 처음 쓰는 사람은 펼친 채로
 showAct(); showSetSum();
@@ -425,16 +422,16 @@ const INTRO_HC = ['걸음 수를 가져올까요?', [['가져오는 것', '삼�
 $('start').addEventListener('click', async () => {
   const act = $('act').value;
   const useGps = usesGps(act);
-  if (useGps && !store.get('locConsent', null)) { openSet(true); $('locBox').scrollIntoView({ block: 'center' }); $('locOk').focus({ preventScroll: true }); return alert('GPS로 거리·경로를 재려면 위치기반서비스 이용약관에 동의해 주세요(시작 버튼 위 체크). 동의하지 않으려면 거리 재는 방법을 "재지 않음"으로 바꿔 주세요.'); }
+  if (useGps && !store.get('locConsent', null)) { openSet(true); $('locBox').scrollIntoView({ block: 'center' }); $('locOk').focus({ preventScroll: true }); return toast('GPS로 거리·경로를 재려면 위치기반서비스 이용약관에 동의해 주세요(시작 버튼 위 체크). 동의하지 않으려면 거리 재는 방법을 "재지 않음"으로 바꿔 주세요.'); }
   if (Native) {
     if (!await permIntro(useGps ? 'introLoc' : 'introNoti', ...(useGps ? INTRO_LOC : INTRO_NOTI))) return;   // 나중에 → 측정 시작 안 함
     const st = await Native.requestPermissions({ permissions: useGps ? ['location', 'notifications'] : ['notifications'] }).catch(() => ({}));
     gpsDenied = useGps && st.location !== 'granted';
   } else {
-  if (typeof DeviceMotionEvent === 'undefined') return alert('이 기기·브라우저는 움직임 센서를 지원하지 않아요.');
+  if (typeof DeviceMotionEvent === 'undefined') return toast('이 기기·브라우저는 움직임 센서를 지원하지 않아요.');
   if (typeof DeviceMotionEvent.requestPermission === 'function') {          // 아이폰은 허락이 필요
-    try { if (await DeviceMotionEvent.requestPermission() !== 'granted') return alert('움직임 센서 사용을 허락해야 측정할 수 있어요.'); }
-    catch { return alert('움직임 센서 권한을 받지 못했어요.'); }
+    try { if (await DeviceMotionEvent.requestPermission() !== 'granted') return toast('움직임 센서 사용을 허락해야 측정할 수 있어요.'); }
+    catch { return toast('움직임 센서 권한을 받지 못했어요.'); }
   }
   if (useGps) startGps(); else gpsPts = [];                                 // 위치 권한 창은 여기서 뜸 (카운트다운 동안 GPS가 잡힘)
   try { wakeLock = await navigator.wakeLock?.request('screen'); } catch { wakeLock = null; }
@@ -563,9 +560,6 @@ function sendEnd(tags, act, position, diag) {
   try { return send({ date: new Date().toISOString(), activity: act, position, practice, warnings: tags, diag }); } catch { return null; }
 }
 const sentNote = rc => rc ? `<div class="sub">걸음 숫자 없이 측정 정보만 익명으로 보냈어요. 접수번호 <b>${rc}</b> · 지우고 싶으면 이 번호를 ldj000103@gmail.com으로 보내 주세요(이 화면을 벗어나면 다시 볼 수 없으니 적어 두세요).</div>` : '';
-const sentText = rc => rc ? `
-
-측정 정보만 익명으로 보냈어요. 접수번호 ${rc} (지우려면 이 번호를 ldj000103@gmail.com으로 보내 주세요)` : '';
 const noDiag = () => ({ src: Native ? 'app' : 'web', durS: 0, hz: 0, gapS: 0, gpsGood: 0 });   // 센서 값이 거의 없어 측정 정보를 못 만든 경우
 async function stopRec(killed = false, reason = null) {
   killed = killed === true;                                                // 혹시 클릭 이벤트가 넘어와도 진짜 true일 때만
@@ -581,7 +575,7 @@ async function stopRec(killed = false, reason = null) {
     $('rec').classList.add('hidden'); $('setup').classList.remove('hidden');
     if (!ran) return;
     let r;
-    try { r = await Native.stop(); } catch { return alert('측정을 끝내지 못했어요. 앱을 껐다 켜고 다시 해 주세요.'); }
+    try { r = await Native.stop(); } catch { return toast('측정을 끝내지 못했어요. 앱을 껐다 켜고 다시 해 주세요.'); }
     const cut = (r.samples[0]?.t ?? 0) + lead * 1000;                       // 주머니에 넣던 처음 3초는 뺌 (센서·GPS 시각은 같은 시계)
     const lim = reason === 'maxEnd' ? cut + MAX_REC_S * 1000 : Infinity;   // 3시간에 끝난 측정은 앞 3시간만 (그 뒤는 화면이 꺼져 CPU가 잠들며 값이 듬성듬성할 수 있음)
     const s = r.samples.filter(p => p.t >= cut && p.t <= lim), g = r.gps.filter(p => p.t >= cut && p.t <= lim), pr = (r.press ?? []).filter(p => p.t >= cut && p.t <= lim);   // press: 0.16 이하 앱엔 없음
@@ -590,7 +584,7 @@ async function stopRec(killed = false, reason = null) {
       const act = rec?.act ?? $('act').value;
       if (killed || longRun) return showHtml(`<h2>측정이 멈췄어요</h2><div class="warn">휴대폰이 앱을 정리해서 측정이 멈췄고, 저장된 측정값이 없어요. 다시 측정해 주세요.<br>${BATTERY_TIP}</div>${sentNote(sendEnd(['end:killed'], act, $('pos').value, noDiag()))}`);
       const rc = sendEnd([endTag], act, $('pos').value, noDiag());
-      return alert('측정 시간이 너무 짧아요. 시작 후 3초 동안은 주머니에 넣는 시간이라 빼고, 그 뒤부터 재요. 걷고 나서 측정 종료를 눌러 주세요.' + sentText(rc));
+      return showHtml(`<h2>측정 시간이 너무 짧아요</h2><div class="warn">시작 후 3초 동안은 주머니에 넣는 시간이라 빼고, 그 뒤부터 재요. 걷고 나서 측정 종료를 눌러 주세요.</div>${sentNote(rc)}`);   // 막는 창 대신 결과 자리에 (접수번호도 남게)
     }
     pendingEnd = reason; finish(s, false, g, pr); endNote(reason);
     if (killed || r.fromFile) $('result').insertAdjacentHTML('afterbegin', `<div class="warn">측정 중에 휴대폰이 앱을 정리해서 측정이 중간에 멈췄어요. 멈추기 전까지 저장된 기록으로 분석했어요(걸음 수·시간이 실제보다 적을 수 있어요).<br>${BATTERY_TIP}</div>`);
@@ -600,7 +594,7 @@ async function stopRec(killed = false, reason = null) {
   window.removeEventListener('devicemotion', onMotion);
   stopGps();
   $('rec').classList.add('hidden'); $('setup').classList.remove('hidden');
-  if (samples.length < 20) { const rc = sendEnd([endTag], $('act').value, $('pos').value, noDiag()); if (endTag === 'end:cancel') return; return alert('센서 값이 거의 들어오지 않았어요. 다시 시도해 주세요.' + sentText(rc)); }
+  if (samples.length < 20) { const rc = sendEnd([endTag], $('act').value, $('pos').value, noDiag()); if (endTag === 'end:cancel') return; return showHtml(`<h2>센서 값이 거의 들어오지 않았어요</h2><div class="warn">다시 시도해 주세요.</div>${sentNote(rc)}`); }
   pendingEnd = reason; finish(samples, false, gpsPts); endNote(reason);
 }
 // 슬로우 러닝·12분 테스트 결과는 경고 목록을 따로 안 그려서 자동 종료 이유를 맨 위에 한 번 더 보여 줌 (걷기·러닝은 warnHtml이 보여 줌)
@@ -898,7 +892,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v190';
+const APP_VERSION = 'v191';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -1398,7 +1392,7 @@ $('invite').addEventListener('click', async () => {
     if (P?.Share) return await P.Share.share({ title: '스텝미러', text });     // 링크는 text 안에 있음 (url도 넘기면 카톡에 두 번 붙음)
     if (navigator.share) return await navigator.share({ title: '스텝미러', text });
   } catch (e) { if (e?.name === 'AbortError' || /cancel/i.test(e?.message || '')) return; }
-  try { await navigator.clipboard.writeText(text); alert('설치 안내 링크를 복사했어요. 카톡에 붙여 넣어 보내세요.'); }
+  try { await navigator.clipboard.writeText(text); toast('설치 안내 링크를 복사했어요. 카톡에 붙여 넣어 보내세요.'); }
   catch { prompt('이 링크를 복사해 보내세요', url); }
 });
 const shareBtn = date => `<button class="ghost sharebtn" data-date="${date}" style="margin:4px 0 10px">결과 카드 공유하기</button><div class="sub" style="font-size:.75rem;margin:-4px 0 10px">카드에는 걸음·건강 숫자가 담겨요. 공유하면 받는 사람이 그 숫자를 보게 돼요.</div>`;   // 민감정보가 남에게 보일 수 있음을 공유 전에 알림 (개인정보 보호법 제23조 3항 취지)
@@ -1487,7 +1481,7 @@ $('recMapBtn').addEventListener('click', async () => {
 $('result').addEventListener('click', async e => {
   const b = e.target.closest('[data-raw]'); if (!b) return;
   const rows = await rawGet(b.dataset.raw).catch(() => null);
-  if (!rows?.length) return alert(`이 측정은 센서 원본이 없어요. 원본은 v82 이후 측정 중 최근 ${RAW_KEEP}개만 이 휴대폰에 보관해요.`);
+  if (!rows?.length) return toast(`이 측정은 센서 원본이 없어요. 원본은 v82 이후 측정 중 최근 ${RAW_KEEP}개만 이 휴대폰에 보관해요.`);
   const csv = 't_ms,ax,ay,az\n' + rows.map(r => r.join(',')).join('\n') + '\n';
   const name = `gait-raw-${new Date(b.dataset.raw).toLocaleString('sv-SE').slice(0, 16).replace(/[- :]/g, '')}.csv`;   // 휴대폰 시간 기준 YYYYMMDDHHMM
   // ponytail: 문자열을 base64로 한 번에 만듦. 3시간(약 16MB) 측정은 저사양 폰에서 느릴 수 있음 → 필요하면 Blob + Filesystem utf8 쓰기로
@@ -1820,7 +1814,7 @@ async function shareSummary(kind) {
     while (e.getDay() !== 1) e.setDate(e.getDate() + 1);                  // 마지막 주는 일요일까지
     label = `${y}년 ${mo + 1}월`; rows = sumRows(statOf(inRange(hist, a, b)), true); chart = calChart(monOf(a), e, mo);
   }
-  if (!rows.length) return alert('아직 기록이 없어요.');
+  if (!rows.length) return toast('아직 기록이 없어요.');
   const max = !chart ? 5 : chart.h > 300 ? 3 : 4;                          // 달력이 크면 줄 수를 줄여 글자가 겹치지 않게
   shareCanvas(await drawCard(title, label, rows.slice(0, max), chart), `스텝미러로 잰 내 기록 · https://${APP_URL}/`);
 }
@@ -1964,7 +1958,7 @@ function showRecord(i) {
   shownDate = h.date; route = h.route ?? null;
   // 지난 영상 기록엔 영상이 없어 사진도 숨김 (다른 영상 사진이 남지 않게)
   const del = `<button class="textlike delRec" data-delrec="${h.date}">이 기록 지우기</button>`;   // 기록 탭에서 연 결과에만 (디자인 팀 10/28)
-  if (act === 'video') { setTab('video'); $('vcanvas').classList.add('hidden'); renderVideo(h.r); $('vresult').insertAdjacentHTML('afterbegin', banner); $('vresult').insertAdjacentHTML('beforeend', del); return; }
+  if (act === 'video') { openSub('spVideo'); $('vcanvas').classList.add('hidden'); renderVideo(h.r); $('vresult').insertAdjacentHTML('afterbegin', banner); $('vresult').insertAdjacentHTML('beforeend', del); return; }
   setTab('measure');
   const prev = hist.slice(i + 1).find(x => !x.practice && !x.autoRec && (x.activity ?? 'walk') === act);
   if (act === 'slowrun') renderSlow(h, hist); else if (act === 'cooper') renderCooper(h); else if (act === 'stairs') renderStairs(h); else if (act === 'walk') render(h, prev); else renderRun(h, prev);
@@ -2299,7 +2293,7 @@ document.addEventListener('input', e => {                                // 막�
 });
 document.addEventListener('click', e => {
   if (e.target.closest('[data-bonesrc]')) {                                // 출처 보기 → 홈 '이 앱의 근거' 카드의 뼈 그림 출처 펼침
-    e.preventDefault(); setTab('home'); const d = $('boneSrc'); d.open = true; d.scrollIntoView({ block: 'center' }); return;
+    e.preventDefault(); showSrc('boneSrc'); return;
   }
   const b = e.target.closest('.cmp [data-view], .cmp [data-ph], .cmp [data-cplay]');
   if (!b) return;
@@ -2522,7 +2516,7 @@ function renderSteps() {
   if (!s) return ($('steps').innerHTML = '<div class="sub">불러오는 중…</div>');
   if (s.error) return ($('steps').innerHTML = `<div class="sub">걸음 수를 읽지 못했어요. (${s.error})</div>`);
   if (!s.available) return ($('steps').innerHTML = `<div class="sub">${s.needsUpdate ? '헬스 커넥트 앱을 플레이스토어에서 업데이트하면' : '이 휴대폰에서는 헬스 커넥트를 쓸 수 없어서'} 걸음 수를 가져올 수 없어요.</div>`);
-  const ask = `<button class="textlike" data-sub="spSet" style="text-align:left;padding:12px 0">설정에서 헬스 커넥트 연결하기 ›</button>`;   // 연결 버튼은 설정 한곳에 (디자인 팀 2B)
+  const ask = `<button class="textlike" data-sub="spSetHC" style="text-align:left;padding:12px 0">설정에서 헬스 커넥트 연결하기 ›</button>`;   // 연결 버튼은 설정 한곳에 (디자인 팀 2B)
   if (!s.granted && !s.sleep && !s.heart) return ($('steps').innerHTML = `<div class="sub">삼성헬스(갤럭시 워치 포함) 등이 헬스 커넥트(안드로이드의 건강 데이터 창구)에 저장한 걸음 수·수면·심박수를 읽어 와요. 휴대폰 안에서만 쓰고 운영자에게 보내지 않아요.</div>${ask}`);
   const n = stepsByDay[dayKey(new Date())] ?? 0, sl = sleepByDay[dayKey(new Date())];
   const missing = [!s.granted && '걸음 수', !s.sleep && '수면', !s.heart && '심박수'].filter(Boolean);
@@ -2537,7 +2531,9 @@ function renderSteps() {
 }
 // 설정의 헬스 커넥트 줄: 권한별 연결 상태 + 꺼진 게 있으면 연결 버튼 (설치형 앱에서만)
 function renderHcSet(s) {
-  $('setHC').hidden = false;
+  $('hcRow').hidden = false;
+  const ok = s?.available && [s.granted && '걸음 수', s.sleep && '수면', s.heart && '심박수'].filter(Boolean);
+  $('hcRowTxt').textContent = !ok ? '' : ok.length ? `${ok.join('·')} 연결됨` : '연결 안 됨';
   const on = s && !s.error && s.available ? [['걸음 수', s.granted], ['수면', s.sleep], ['심박수', s.heart]] : null;
   $('hcSet').innerHTML = !s ? '<div class="sub">불러오는 중…</div>' : s.error ? `<div class="sub">상태를 읽지 못했어요. (${s.error})</div>`
     : !on ? `<div class="sub">${s.needsUpdate ? '헬스 커넥트 앱을 플레이스토어에서 업데이트하면 연결할 수 있어요.' : '이 휴대폰에서는 헬스 커넥트를 쓸 수 없어요.'}</div>`
@@ -2589,7 +2585,7 @@ $('progs').innerHTML = PROGS.map((p, i) => `<button class="dayrec" data-pi="${i}
 $('progs').addEventListener('click', e => {
   const b = e.target.closest('[data-pi]'); if (!b) return;
   const { act } = PROGS[+b.dataset.pi];
-  if (act === 'video') return (setTab('video'), scrollTo(0, 0));
+  if (act === 'video') return openSub('spVideo');
   $('act').value = act; store.set('act', act); showAct(); showSetSum(); setTab('measure'); $('start').scrollIntoView({ block: 'center' });
 });
 function openDict(start) {
@@ -2640,16 +2636,17 @@ async function scheduleReminders() {
 }
 function renderRemind() {
   if (!LN) return;
-  $('remindCard').hidden = $('remindLink').hidden = false;
+  $('remRow').hidden = $('remindLink').hidden = false;
   const r = store.get('remind', { days: [], time: '19:00' });
   $('remindDays').innerHTML = [2, 3, 4, 5, 6, 7, 1].map(d => `<button class="chip" data-d="${d}" aria-pressed="${r.days.includes(d)}">${WDAYS[d - 1]}</button>`).join('');
   $('remindTime').value = r.time;
+  $('remRowTxt').textContent = r.days.length ? `${[2, 3, 4, 5, 6, 7, 1].filter(d => r.days.includes(d)).map(d => WDAYS[d - 1]).join('·')} ${r.time}` : '꺼짐';
   $('remindNote').textContent = r.days.length ? `${[2, 3, 4, 5, 6, 7, 1].filter(d => r.days.includes(d)).map(d => WDAYS[d - 1]).join('·')}요일 ${r.time}에 알려 줘요.` : '알림이 꺼져 있어요. 요일을 고르고 저장하세요.';
 }
 $('remindDays').addEventListener('click', e => { const b = e.target.closest('.chip'); if (b) b.setAttribute('aria-pressed', b.getAttribute('aria-pressed') !== 'true'); });
 $('remindSave').addEventListener('click', async () => {
   const days = [...$('remindDays').querySelectorAll('.chip[aria-pressed="true"]')].map(b => +b.dataset.d);
-  if (days.length) { const p = await LN.requestPermissions().catch(() => ({})); if (p.display !== 'granted') return alert('알림 권한을 허용해야 알림을 보낼 수 있어요.'); }
+  if (days.length) { const p = await LN.requestPermissions().catch(() => ({})); if (p.display !== 'granted') return ($('remindNote').textContent = '알림 권한을 허용해야 알림을 보낼 수 있어요.'); }   // 저장 버튼 바로 아래 글로
   store.set('remind', { days, time: $('remindTime').value || '19:00' });
   renderRemind(); scheduleReminders();
 });
@@ -2659,12 +2656,12 @@ loadSteps();
 const SHOOT_NOTE = { perry: '옆에서 평소처럼 걷는 모습을 찍어요. 결과에서 페리의 보행 분석 기준 뼈대와 나란히 보여요.',
   shoes: '신기 전과 신은 뒤 한 번씩 찍어요. 같은 곳에서 같은 거리를 걸으면 비교하기 쉬워요.',
   run: '옆에서 천천히 달리는 모습을 찍어요. 페리의 보행 분석 기준은 걷기 기준이라 달리기 값은 내 기록끼리 비교해요.' };
-function goShoot(note, open) {                                             // 걸음걸이 탭 촬영 화면, 옆모습으로
+function goShoot(note, open) {                                             // 내 걸음 비춰 보기(하위 화면) 촬영 칸, 옆모습으로
   $('vview').value = 'side'; store.set('vview', 'side'); showVGuide(); syncPicks();
   if (note) $('vguide').insertAdjacentHTML('afterbegin', `<li><b>${SHOOT_NOTE[note]}</b></li>`);
-  setTab('video');
+  openSub('spVideo');
   const d = open && $(open); if (d) d.open = true;
-  (d || $('vsetup')).scrollIntoView({ block: 'start' });
+  d?.scrollIntoView({ block: 'start' });                                 // 하위 화면은 맨 위(제목)부터, '폰 세우는 법' 등을 눌렀을 때만 그 칸으로
 }
 const vids = () => store.get('history', []).map((h, i) => ({ h, i, d: new Date(h.date) })).filter(x => x.h.activity === 'video' && !Number.isNaN(+x.d));
 let mirrorCurves = null;                                                   // 홈 그림의 내 옆 곡선 (renderHomeTop에서 한 번만 읽음 — 매 프레임 기록 전체를 읽지 않게, 검수팀)
@@ -2695,14 +2692,15 @@ function renderHomeTop() {
       <div id="mirrorFig">${mirrorSvg(mirrorQ || phaseMid(1))}</div>
       <div class="mlabs"><span>페리의 보행 분석 기준</span><span>나</span></div>
       <button data-shoot="" class="mshoot"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="6" width="13" height="12" rx="2.5"/><path d="M15.5 10.5 21 7.5v9l-5.5-3"/></svg>내 걸음 비춰 보기</button>
-      <div class="mrows"><button data-shoot="perry">페리 기준과 비교<span>›</span></button><button data-shoot="shoes">새 신발 전후<span>›</span></button><button data-shoot="run">달릴 때 무릎<span>›</span></button></div>
+      <div class="mrows"><button data-shoot="perry"><span class="mn">페리 기준 걸음과 나란히 보기<small>옆모습 영상 → 기준 뼈대 옆에 내 걸음</small></span><span>›</span></button><button data-shoot="shoes"><span class="mn">신발 바꾸기 전·후 비교<small>영상 2개를 찍어 나란히</small></span><span>›</span></button><button data-shoot="run"><span class="mn">달릴 때 무릎 각도 보기<small>천천히 달리는 옆모습 영상</small></span><span>›</span></button></div>
       <div class="mfoot"><span class="sub">혼자 찍기 어렵다면</span><span><a href="#" data-open="vSolo">폰 세우는 법</a> · <a href="#" data-open="vHelper">가족이 찍어 주기</a></span></div></div>
     <div class="card"><div class="chk"><div class="mdots" aria-label="최근 4개월 영상 점검">${mon.map(m => `<div><i class="${v.some(x => sameM(x.d, m)) ? 'on' : ''}"></i>${m.getMonth() + 1}월</div>`).join('')}</div>
       <div class="chkLeft">${!last ? '첫 점검을 해 보세요' : left > 0 ? `${left}일 남음` : '점검할 때예요'}</div></div>
       <div class="sub" style="margin-top:6px">한 달에 한 번, 옆모습 영상으로 내 걸음을 비춰 봐요${last ? ` · 마지막 ${last.d.getMonth() + 1}월 ${last.d.getDate()}일` : ''}</div>
       ${pair ? `<a href="#" class="textlike" style="text-align:left;padding:8px 0 0;text-decoration:none" data-pair="${prev.i},${last.i}">${pair} 나란히 보기 ›</a>` : ''}</div>
 `;
-  $('lessonCard').innerHTML = `<button class="mcard" data-lesson><div class="mtop"><span class="mlab">걸음 수업 · 30초</span><span class="mdate">›</span></div><div style="font-weight:700;margin-top:6px">발이 굴러가는 흔들의자 3개</div><div class="msub">근육 그림으로 보는 한 걸음</div></button>`;   // 그림과 같은 주제로 고정 (디자인 팀 10/28, 날마다 바뀌던 사전 항목은 뺌)
+  $('lessonCard').innerHTML = `<button class="mcard" data-lesson><div class="mtop"><span class="mlab">걸음 수업 · 30초</span><span class="mdate">›</span></div><div style="font-weight:700;margin-top:6px">발이 굴러가는 흔들의자 3개</div><div class="msub">근육 그림으로 보는 한 걸음</div></button>
+    <button class="mcard" data-foot style="margin-top:8px"><div class="mtop"><span class="mlab">걸음 수업</span><span class="mdate">›</span></div><div style="font-weight:700;margin-top:6px">걸을 때 발바닥 체중 이동</div><div class="msub">뒤꿈치에서 엄지발가락까지 6곳</div></button>`;   // 그림과 같은 주제로 고정 (디자인 팀 10/28, 날마다 바뀌던 사전 항목은 뺌)
   // 이번 주 카드: 월~일 그날 활동 색 점 + 측정 횟수 · 걷기 케이던스 평균 (달력과 같은 점 색)
   const mon0 = monOf(today), hist = store.get('history', []), tk = dayKey(today), cur = weekSummary(hist).cur;
   $('wkDots').innerHTML = ['월', '화', '수', '목', '금', '토', '일'].map((wd, k) => { const dk = dayKey(plusDays(mon0, k)), acts = [...new Set(hist.filter(h => dayKey(h.date) === dk).map(h => { const a = h.activity ?? 'walk'; return a === 'cooper' || a === 'easyrun' ? 'run' : a === 'stairs' ? 'walk' : a; }))];
@@ -2774,6 +2772,56 @@ function openLesson() {
 }
 $('lessonCard').addEventListener('click', e => { if (e.target.closest('[data-lesson]')) openLesson(); });
 
+// 걸음 수업 2: 걸을 때 발바닥 체중 이동 (사용자 아이디어, 디자인 팀 10/30 최종 지시). 오른발 발바닥을 아래에서 본 그림(엄지가 왼쪽)
+// 압력 중심 6점과 문장: Perry 『Gait Analysis』 4장 82~84쪽(그림 4.28). 무지외전근 위치·기시·정지·작용: 정진우 『그림으로 보는 근골격해부학』 161쪽(발의 제1근육층)
+// 효과·질환 표현 없음(법률 검토), 아치를 받친다는 기능 설명은 근거를 찾기 전까지 넣지 않음
+const FOOT_PTS = [[122, 268], [110, 243], [144, 176], [146, 101], [97, 90], [62, 50]];
+const FOOT_TXT = [
+  ['뒤꿈치 바깥 뒤쪽', '처음 닿는 곳이에요. 좁은 곳에 몸무게가 한꺼번에 실려 발바닥이 받는 압력이 가장 커요.'],
+  ['뒤꿈치 가운데', '곧 뒤꿈치 가운데로 굴러가요. 압력은 처음의 약 1/3이에요.'],
+  ['발 바깥쪽 가운데', '이곳이 바닥에 닿는 사람이 흔하지만, 압력은 약해요.'],
+  ['새끼발가락 쪽 중족골두(발허리뼈 머리)', '앞발이 닿을 때 열에 일곱(71%)은 여기부터 닿아요. 곧 엄지 쪽까지 모든 중족골두가 닿아요.'],
+  ['둘째·셋째 중족골두', '앞발에서 압력이 가장 큰 곳이에요.'],
+  ['엄지발가락', '발가락 중 압력이 가장 크고, 대개 마지막에 바닥에서 떨어져요.']];
+function openFootLesson() {
+  const P = FOOT_PTS, seg = i => `M${P[i - 1][0]} ${P[i - 1][1]} L${P[i][0]} ${P[i][1]}`;
+  const o = document.createElement('div');
+  o.id = 'lessonOv'; o.setAttribute('role', 'dialog'); o.setAttribute('aria-modal', 'true'); o.setAttribute('aria-label', '걸을 때 발바닥 체중 이동');
+  o.innerHTML = `<div class="dsheet lesson"><div class="lhead"><div><div class="sub" style="font-size:.75rem">걸음 수업</div><h3>걸을 때 발바닥 체중 이동</h3></div><button class="lx" data-lx="close" aria-label="닫기">✕</button></div>
+    <div class="footfig"><svg viewBox="0 0 200 300" role="img" aria-label="오른발 발바닥을 아래에서 본 그림. 뒤꿈치 바깥 뒤쪽에서 엄지발가락까지 체중이 옮겨 가는 길과 무지외전근">
+      <defs><marker id="fArr" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#2b3bd6"/></marker></defs>
+      <path d="M110 288 C82 288 78 262 80 236 C82 206 76 182 70 152 C64 126 48 112 51 92 C54 72 80 66 105 68 C130 70 153 78 157 98 C161 126 149 160 147 200 C145 236 141 288 110 288 Z" fill="#f7f8f8" stroke="#c9cfcc" stroke-width="2"/>
+      ${[[62, 44, 15, 19], [92, 37, 8, 10], [113, 41, 7, 9], [131, 50, 6, 8], [146, 63, 6, 7]].map(([x, y, rx, ry]) => `<ellipse cx="${x}" cy="${y - 4}" rx="${rx}" ry="${ry}" fill="#f7f8f8" stroke="#c9cfcc" stroke-width="2"/>`).join('')}
+      <path class="fmus" d="M96 266 C88 238 86 206 81 170 C76 138 66 114 64 84" fill="none" stroke="#a8323e" stroke-opacity=".45" stroke-width="10" stroke-linecap="round"/>
+      <circle cx="${P[4][0]}" cy="${P[4][1]}" r="24" fill="#2b3bd6" fill-opacity=".12"/>
+      ${[1, 2, 3, 4, 5].map(i => `<path class="fseg" data-i="${i}" d="${seg(i)}" fill="none" stroke="#2b3bd6" stroke-width="2.5" stroke-dasharray="5 4"${i === 2 ? ' stroke-opacity=".45"' : ''}${i === 5 ? ' marker-end="url(#fArr)"' : ''}/>`).join('')}
+      ${P.map(([x, y], i) => `<g class="fpt" data-i="${i}"${i === 2 ? ' opacity=".45"' : ''}><circle cx="${x}" cy="${y}" r="9" fill="#fff" stroke="#2b3bd6" stroke-width="2"/><text x="${x}" y="${y + 4}" text-anchor="middle" font-size="11" font-weight="700" fill="#2b3bd6">${i + 1}</text></g>`).join('')}
+    </svg></div>
+    <div class="exchips" role="group" aria-label="체중이 옮겨 가는 순서">${FOOT_TXT.map(([n], i) => `<button class="chip" data-fi="${i}" aria-pressed="false">${'①②③④⑤⑥'[i]} ${n.replace(/\(.*\)/, '')}</button>`).join('')}</div>
+    <p class="lsub" id="footTxt">번호를 누르면 그 구간만 진하게 보여요. 뒤꿈치 바깥 뒤쪽에서 시작해 엄지발가락에서 끝나요.</p>
+    <p class="sub" style="margin:4px 0 0">사람마다 앞발이 닿는 순서가 달라요: 새끼발가락 쪽부터 71%, 앞발 전체가 한꺼번에 22%, 엄지 쪽부터 8%.</p>
+    <div class="card" style="margin-top:10px"><h3><span class="exleg" style="margin:0"><i aria-hidden="true"></i></span>무지외전근</h3>
+      <p style="margin:4px 0">발바닥 근육 중 가장 얕은 층(제1근육층)에서, 발 안쪽 가장자리를 따라 가는 근육이에요. 종골(발뒤꿈치뼈)에서 시작해 엄지 첫마디뼈(기절골)의 몸쪽 끝에 붙어요.</p>
+      <p class="sub" style="margin:0">하는 일: 엄지발가락 뿌리 관절(중족지절관절)을 굽히고 바깥으로 벌려요 · 겉에서 만져 볼 수는 없어요</p></div>
+    <p class="lfine">체중 이동: Perry 『Gait Analysis』 4장 82~84쪽 · 근육: 정진우 『그림으로 보는 근골격해부학』 161쪽 · 그림은 위치를 나타낸 근사예요 · 일반적인 걸음 정보이며 진료를 대신하지 않아요</p></div>`;
+  document.body.append(o);
+  for (const el of [document.querySelector('main'), $('tabbar')]) el.inert = true;
+  const close = () => { for (const el of [document.querySelector('main'), $('tabbar')]) el.inert = false; o.remove(); $('lessonCard').querySelector('[data-foot]')?.focus(); };
+  const pick = i => {                                                       // i번 점까지 오는 구간과 그 점만 진하게 (①은 점만)
+    o.querySelectorAll('.fseg').forEach(p => p.style.opacity = +p.dataset.i === i ? 1 : .2);
+    o.querySelectorAll('.fpt').forEach(p => p.style.opacity = +p.dataset.i === i ? 1 : .3);
+    o.querySelectorAll('[data-fi]').forEach(c => c.setAttribute('aria-pressed', +c.dataset.fi === i));
+    $('footTxt').textContent = `${'①②③④⑤⑥'[i]} ${FOOT_TXT[i][0]} · ${FOOT_TXT[i][1]}`;
+  };
+  o.addEventListener('click', e => {
+    const f = e.target.closest('[data-fi]'); if (f) return pick(+f.dataset.fi);
+    if (e.target === o || e.target.closest('[data-lx=close]')) close();
+  });
+  o.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
+  o.querySelector('[data-lx=close]').focus();
+}
+$('lessonCard').addEventListener('click', e => { if (e.target.closest('[data-foot]')) openFootLesson(); });
+
 // ── 뛰기 전 몸 풀기 · 뛴 뒤 정리 운동 판 (디자인 팀 10/29, 법률 검토 22번 통과) ──
 // 시간·방법: Kisner 『운동치료총론』 개정8판 4장 113쪽(정적 신장 30초)·7장 298~299쪽(준비·정리 5~10분), NASM-CPT 7장 146~147쪽·8장 166~168쪽
 // 그림: assets/exercise/<이름>.webp = 투명 움직이는 WebP(5초 고리), <이름>-still.webp = 멈춘 그림(움직임 줄이기 설정). Human Base Meshes(CC0)로 직접 자세를 만들어 렌더 (scratchpad bl_scripts/render_ex2.py)
@@ -2828,6 +2876,14 @@ const EX_CMP = { ham: '<div class="card"><div class="excmp"><figure><img src="as
   + '<figure><img src="assets/exercise/ham-bad.webp" alt="틀린 자세: 발끝을 잡으려 등을 둥글게 만 모습" width="150" height="175"><figcaption><span class="exno">× 발끝 잡으려 등 말기</span></figcaption></figure></div>'
   + '<p class="sub" style="margin:6px 0 0">숙이는 정도는 사람마다 달라요. 당기는 느낌까지만 해요.</p></div>' };   // 움직임 줄이기면 이 순간(초)에 멈춰 보여 줌
 const exCache = urls => caches?.open('ex3d').then(c => Promise.all(urls.map(u => c.match(u).then(h => h || c.add(u))))).catch(() => {});
+// 쓰는 근육 (디자인 팀 B안 10/30): [구용어 이름, 쉬운 위치]. 이름·위치는 정진우 『그림으로 보는 근골격해부학』 하지 운동기능별 근육(167~172쪽),
+// 걷기·달리기는 Perry(걸음 주기에서 일하는 근육), 무릎 들기·다리 흔들기는 엉덩관절 굽힘·폄근(책 167쪽), 발목은 발등·발바닥굽힘근(172쪽), 늘이기는 Kisner 20·22장
+const M = { gmax: ['대둔근', '엉덩이의 가장 큰 근육'], gmed: ['중둔근', '엉덩이 옆 위쪽 근육'], quad: ['대퇴사두근', '허벅지 앞의 큰 근육'], rf: ['대퇴직근', '허벅지 앞 가운데, 골반에서 무릎뼈까지'],
+  ham: ['햄스트링', '허벅지 뒤 근육(대퇴이두근·반건양근·반막양근)'], ilio: ['장요근', '골반 안쪽에서 허벅지뼈로 가는 깊은 근육'], gas: ['비복근', '종아리 겉의 볼록한 근육'],
+  sol: ['가자미근', '비복근 아래 깊은 곳의 넓적한 근육'], ta: ['전경골근', '정강이뼈 바깥 앞쪽 근육'], per: ['장·단비골근', '종아리 바깥쪽 근육'] };
+const EX_MUS = { brisk: ['gmax', 'quad', 'ham', 'gas', 'ta'], jog: ['gmax', 'quad', 'ham', 'gas', 'ta'], slowwalk: ['gmax', 'quad', 'ham', 'gas', 'ta'],
+  march: ['ilio', 'rf'], swing: ['ilio', 'rf', 'gmax', 'ham'], ankle: ['ta', 'per', 'gas', 'sol'], heel: ['gas', 'sol'],
+  calf: ['gas', 'sol'], quad: ['rf'], ham: ['ham'], glute: ['gmax', 'gmed'] };
 // 따라 하기 타이머 (민원 10/30): 시간이 정해진 동작만. [초, 지금 할 쪽·자세] 구간이 바뀔 때 진동. 시간은 위 EXD(Kisner 기준)와 같음, 횟수로 하는 동작은 타이머 없음
 const EX_TIMER = { brisk: [[120, '']], jog: [[120, '']], slowwalk: [[180, '']],
   calf: [[30, '한쪽 · 무릎 펴서'], [30, '한쪽 · 무릎 살짝 굽혀서'], [30, '반대쪽 · 무릎 펴서'], [30, '반대쪽 · 무릎 살짝 굽혀서']],
@@ -2847,13 +2903,14 @@ function openExDetail(kind, i, autoRun = false) {
   const VIEW3 = { side: -90, back: 180, front: 0 };
   o.innerHTML = `<div class="sphead"><button class="spBack" data-exd="back" aria-label="목록으로">‹</button><h2>${name}</h2></div>
     <div class="d3">${['calf', 'quad', 'ham', 'glute'].includes(k) ? `<div class="d3stage${stages ? ' low' : ''}" hidden></div><div class="d3hold" hidden><svg viewBox="0 0 22 22" aria-hidden="true"><circle cx="11" cy="11" r="9"/><circle cx="11" cy="11" r="9"/></svg>멈춘 채로 30초 <small>(그림은 6초로 줄였어요)</small></div>` : ''}${stages ? `<div class="d3chips">${stages.map((s, j) => `<button class="chip" data-stage="${j}" aria-pressed="${j === 0}">${s.label}</button>`).join('')}</div>` : ''}<model-viewer src="assets/exercise3d/${glb0}.glb" alt="${name} 3D 모형, 손가락으로 밀어 돌려 볼 수 있어요" camera-controls touch-action="pan-y" disable-pan interaction-prompt="none"
-      camera-orbit="${theta}deg 80deg auto" shadow-intensity="1" shadow-softness="0.3" environment-image="neutral" exposure="1.05" ${reduce ? '' : 'autoplay'}></model-viewer>
+      camera-orbit="${theta}deg 80deg auto" field-of-view="22deg" min-field-of-view="10deg" shadow-intensity="1" shadow-softness="0.3" environment-image="neutral" exposure="1.05" ${reduce ? '' : 'autoplay'}></model-viewer>
       <div class="d3bar"><span>${['side', 'back', 'front'].map(v => `<button class="chip" data-view="${v}">${{ side: '옆', back: '뒤', front: '앞' }[v]}</button>`).join('')}</span><button class="chip" data-exd="play">${reduce ? '▶ 동작 보기' : '❚❚ 동작 멈춤'}</button></div></div>
+    <div class="exchips" role="group" aria-label="단계" hidden></div>
     <p class="lfine" style="margin-top:4px">3D 모형: Human Base Meshes(CC0)${mus ? ' · BodyParts3D · Z-Anatomy 근육(CC BY-SA)' : ''}으로 만듦 · <a href="#" data-exd="src">출처 보기 ›</a></p>
     ${EX_TIMER[k] ? `<div class="card extimer"><div class="extrow"><b class="exclock">${clock(EX_TIMER[k].reduce((s, [t]) => s + t, 0))}</b><span class="sub exseg">${EX_TIMER[k][0][1]}</span></div><div class="bar2"><i style="width:0"></i></div><button class="ghost" data-exd="run">▶ 따라 하기 시작</button></div>` : ''}
     <div class="card"><h3>시간·횟수·자세</h3><p>${dose} · ${pose}</p></div>
     <div class="card"><h3>이렇게 해요</h3><ol class="exsteps">${(stages ? stages[0].steps : steps).map(s => `<li>${s}</li>`).join('')}</ol></div>${EX_CMP[k] ?? ''}
-    <div class="card"><h3>${cool ? '<span class="exleg" style="margin:0"><i aria-hidden="true"></i></span>늘어나는 곳' : '주로 움직이는 곳'}</h3><p>${area}</p></div>
+    <div class="card"><h3>${cool ? '늘어나는 근육' : '쓰는 근육'}</h3><ul class="exmus">${EX_MUS[k].map(m => `<li><i aria-hidden="true"></i><span><b>${M[m][0]}</b> · ${M[m][1]}</span></li>`).join('')}</ul><p class="sub" style="margin:0">${area}</p></div>
     ${(c => `<div class="card"><h3>${cool ? '스트레칭 포인트' : '운동 포인트'}</h3><ul class="exsteps">${[...c.tip, ...extra, ...c.safe].map(s => `<li>${s}</li>`).join('')}</ul></div>`)(EX_CAU[cool ? 'cool' : kind === 'warm' ? 'warm' : 'walk'])}
     <p class="lfine">${EX_FINE}</p>
     <div class="exnav">${i > 0 ? `<button class="ghost" data-exd="prev">‹ ${list[i - 1][1]}</button>` : '<span></span>'}${i < list.length - 1 ? `<button class="ghost" data-exd="next">${list[i + 1][1]} ›</button>` : ''}</div>`;
@@ -2895,18 +2952,27 @@ function openExDetail(kind, i, autoRun = false) {
     if (lab && lab.textContent !== txt) { lab.textContent = txt; lab.hidden = !txt; }
     const h = tl.holds.find(([a, b]) => f >= a && f < b), hb = o.querySelector('.d3hold');
     if (hb) { hb.hidden = !h; if (h) hb.querySelector('circle:last-child').style.strokeDashoffset = (56.5 * (1 - (f - h[0]) / (h[1] - h[0]))).toFixed(1); }
+    o.querySelectorAll('.exchips .chip').forEach(c => c.setAttribute('aria-pressed', f >= +c.dataset.f && f < +c.dataset.e));   // 지금 단계 칩
     if (name === 'calf' && !userCam) { const side = f >= 80 && f < 155; if (side !== (mv.dataset.side === '1')) { mv.dataset.side = side ? '1' : ''; mv.cameraOrbit = `${side ? -140 : theta}deg 80deg auto`; } }   // 무릎 굽힘과 종아리 뒤가 보이게 뒤쪽 옆에서
   };
-  if (['calf', 'quad', 'ham', 'glute'].includes(k)) exTimeline().then(TL => { if (o.isConnected) exTick = setInterval(tlTick(TL), 100); });
+  if (['calf', 'quad', 'ham', 'glute'].includes(k)) exTimeline().then(TL => { if (o.isConnected) { exTick = setInterval(tlTick(TL), 100); makeChips(TL); } });
+  // 단계 칩 (디자인 팀 B안): timeline.json 단계 글을 짧은 이름으로('→ …이 늘어나요'·번호 뺌, 같은 글은 하나로). 누르면 그 단계 시작으로, 멈춘 상태면 그 장면에서 멈춤
+  function makeChips(TL) {
+    const tl = TL[mv.getAttribute('src').match(/(\w+)\.glb$/)?.[1]], box = o.querySelector('.exchips'); if (!tl || !box) return;
+    const st = []; for (const [a, b, t] of tl.labels) { const n = t.split(' → ')[0].replace(/^[①-⑳]\s*/, ''); if (st.at(-1)?.n === n) st.at(-1).e = b; else st.push({ n, f: a, e: b }); }
+    box.innerHTML = st.map((s, j) => `<button class="chip" data-seek="${s.f}" data-f="${s.f}" data-e="${s.e}" aria-pressed="false">${j + 1} ${s.n}</button>`).join(''); box.hidden = false;
+  }
   const close = () => { clearInterval(exTick); clearInterval(exRun); exRun = 0; exUnlock(); o.remove(); if ($('exOv')) { $('exOv').inert = false; $('exOv').querySelectorAll('.exlist li')[i]?.querySelector('button, [tabindex]')?.focus(); } };
   o.addEventListener('click', e => {
+    const sk = e.target.closest('[data-seek]');
+    if (sk) { const t = +sk.dataset.seek / 10, was = mv.paused; mv.currentTime = t; if (was) { mv.play(); setTimeout(() => { mv.currentTime = t; setTimeout(() => mv.pause(), 120); }, 60); } return; }   // 멈춘 채로 시간만 옮기면 안 그려져서 잠깐 재생 후 멈춤 (움직임 줄이기와 같은 방법)
     const b = e.target.closest('[data-exd], [data-view], [data-stage]');
     if (!b) return;
     if (b.dataset.view) return setView(b.dataset.view);
     if (b.dataset.stage) {                                                 // 단계 바꾸기: 3D와 '이렇게 해요'만 바뀜
       const st = stages[+b.dataset.stage]; mv.src = `assets/exercise3d/${st.glb}.glb`; exCache([mv.src.replace(location.origin + '/', '')]);
       o.querySelector('.exsteps').innerHTML = st.steps.map(s => `<li>${s}</li>`).join('');
-      o.querySelectorAll('[data-stage]').forEach(c => c.setAttribute('aria-pressed', c === b)); return;
+      o.querySelectorAll('[data-stage]').forEach(c => c.setAttribute('aria-pressed', c === b)); exTimeline().then(makeChips); return;
     }
     const a = b.dataset.exd;
     if (a === 'back') close();
@@ -2914,7 +2980,7 @@ function openExDetail(kind, i, autoRun = false) {
     else if (a === 'run') run();
     else if (a === 'next2') openExDetail(kind, i + 1, true);               // 타이머를 다 마치고 넘어가면 다음 동작도 바로 시작
     else if (a === 'prev' || a === 'next') openExDetail(kind, i + (a === 'next' ? 1 : -1));
-    else if (a === 'src') { e.preventDefault(); close(); $('exOv')?.querySelector('[data-ex=close]')?.click(); setTab('home'); const s = $('boneSrc'); s.open = true; s.scrollIntoView({ block: 'center' }); }
+    else if (a === 'src') { e.preventDefault(); showSrc('boneSrc'); }
   });
   // 따라 하기: 시작 ↔ 잠시 멈춤, 끝나면 '다음 동작' 버튼. 시계로 남은 시간을 재서 화면이 늦게 그려져도 밀리지 않음
   const segs = EX_TIMER[k], total = segs?.reduce((s, [t]) => s + t, 0), tb = o.querySelector('.extimer');
@@ -2929,7 +2995,7 @@ function openExDetail(kind, i, autoRun = false) {
   function run() {
     const btn = tb.querySelector('[data-exd=run]');
     if (exRun) { clearInterval(exRun); exRun = 0; exUnlock(); btn.textContent = '▶ 계속하기'; return; }
-    navigator.wakeLock?.request('screen').then(w => { if (exRun) exLock = w; else w.release(); }, () => {});
+    navigator.wakeLock?.request('screen').then(w => { if (exRun && !exLock) exLock = w; else w.release(); }, () => {});
     endAt = Date.now() + left * 1000; btn.textContent = '❚❚ 잠시 멈춤';
     exRun = setInterval(() => {
       left = Math.max(0, (endAt - Date.now()) / 1000); show();
@@ -2966,7 +3032,7 @@ function openEx(kind, fromHome = false) {
     const b = e.target.closest('[data-ex]');
     if (e.target === o || b?.dataset.ex === 'close') { close(); back?.focus?.(); }
     else if (b?.dataset.ex === 'start') { close(); $('start').click(); }   // 몸 풀기 뒤 바로 측정 (평소 시작 버튼과 같은 흐름)
-    else if (b?.dataset.ex === 'src') { e.preventDefault(); close(); setTab('home'); const s = $('exSrc'); s.open = true; s.scrollIntoView({ block: 'center' }); }
+    else if (b?.dataset.ex === 'src') { e.preventDefault(); showSrc('exSrc'); }
   });
   o.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('exDet')) { close(); back?.focus?.(); } });
   o.querySelector('[data-ex=close]').focus();
@@ -3074,6 +3140,7 @@ if ('serviceWorker' in navigator) {
 }
 // 웹인지 설치형인지 + 버전 (검수팀 제안 c). 앱 버전은 0.14부터 네이티브가 알려 줌, 그 전 앱은 버전 없이
 $('appver').textContent = Native ? `설치형 앱 · 화면 ${APP_VERSION}` : `웹(브라우저) · 화면 ${APP_VERSION}`;
+$('appRowTxt').textContent = APP_VERSION;
 $('recMode').textContent = Native ? '설치형 앱 · 화면 꺼도 돼요' : '웹 · 화면을 켜 두세요';   // 웹인지 설치형인지 스스로 구분 (아버님 민원, v86)
 $('recMode').classList.toggle('web', !Native);
 if (Native) (async () => { try { const { version } = await Native.info(); if (version) $('appver').textContent = `설치형 앱 ${version} · 화면 ${APP_VERSION}`; } catch {} })();
@@ -3118,13 +3185,14 @@ function autoShareNote() {
 }
 async function renderAuto() {
   if (!AR) return;
-  $('setAuto').hidden = false;
+  $('autoRow').hidden = false;
   let st = { on: false, running: false, supported: true };
   try { st = await AR.status(); } catch {}
   if (st.on && !st.running) try { await AR.enable(); } catch {}            // 휴대폰을 껐다 켜면 서비스가 없음 → 앱을 열 때 다시 켬
   $('autoOn').checked = st.on; $('autoOn').disabled = !st.supported;
   $('autoState').textContent = !st.supported ? '이 휴대폰에는 걷기를 알아채는 센서가 없어 쓸 수 없어요.' : st.on ? '켜져 있어요. 휴대폰 위쪽 알림의 [끄기]로도 끌 수 있어요.' : '걸으면 저절로 재요. 위치는 쓰지 않아요.';
   $('autoShareBox').hidden = !st.on;
+  $('autoRowTxt').textContent = !st.supported ? '이 휴대폰은 지원 안 함' : st.on ? '켜짐' : '꺼짐';
   $('autoS1').checked = $('autoS2').checked = !!consent?.autoShare;
   autoShareNote();
 }
@@ -3176,3 +3244,14 @@ $('autoClear').addEventListener('click', async () => {
   renderHistory(); toast('자동 측정 기록을 모두 지웠어요');
 });
 if (AR) { importAuto(); renderAuto(); document.addEventListener('visibilitychange', () => { if (!document.hidden) { importAuto(); renderAuto(); } }); }
+// 출처 보기 (디자인 팀 B안 10/30): 홈 맨 아래로 끌고 가지 않고 그 자리에서 아래 판으로. 내용은 홈 '이 앱의 근거'의 같은 칸을 그대로 씀
+function showSrc(id) {
+  const d = $(id), back = document.activeElement, o = document.createElement('div');
+  o.id = 'srcOv'; o.setAttribute('role', 'dialog'); o.setAttribute('aria-modal', 'true'); o.setAttribute('aria-label', d.querySelector('summary').textContent);
+  o.innerHTML = `<div class="dsheet" style="padding-left:20px;padding-right:20px"><h3 style="margin:0 0 6px">${d.querySelector('summary').textContent}</h3><div class="sub">${d.querySelector('p').innerHTML}</div><button class="ghost" data-s="close">닫기</button></div>`;
+  document.body.append(o);
+  const close = () => { o.remove(); back?.focus?.(); };
+  o.addEventListener('click', e => { if (e.target === o || e.target.closest('[data-s=close]')) close(); });
+  o.addEventListener('keydown', e => { if (e.key === 'Escape') { e.stopPropagation(); close(); } });
+  o.querySelector('[data-s=close]').focus();
+}
