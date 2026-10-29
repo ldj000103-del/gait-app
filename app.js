@@ -850,7 +850,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v169';
+const APP_VERSION = 'v170';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -2744,18 +2744,22 @@ const EXD = {
   heel: ['10번', '선 자세(필요하면 벽 짚기)', ['발을 어깨너비로 벌리고 서요.', '발끝으로 천천히 올라섰다가', '천천히 내려와요. 10번 해요.'], '종아리(비복근·가자미근)', [], -60],
   jog: ['2분', '선 자세', ['걷는 속도로 가볍게 뛰기 시작해요.', '조금씩 속도를 올려요.', '2분 뒤 측정을 시작해요.'], '다리 전체와 팔', [], -60],
   slowwalk: ['3분', '선 자세', ['달리기를 멈추고 천천히 걸어요.', '숨이 고를 때까지 3분 동안 걸어요.'], '다리 전체 (늘어나는 곳 없음)', [], -60],
-  calf: ['좌우 각 30초씩 두 자세(무릎 펴서 / 살짝 굽혀서)', '벽 짚기', ['벽을 마주 보고 서서 두 손을 벽에 대요.', '한 발을 앞으로 내딛고, 뒤 발의 뒤꿈치를 바닥에 평평하게 붙여요. 뒤 발끝은 살짝 안쪽을 향하게 해요.', '뒤 무릎을 편 채, 종아리가 당길 때까지 몸을 벽 쪽으로 천천히 기울여 30초 있어요.', '이번엔 뒤 무릎을 살짝 굽혀 30초 더 있어요. 반대쪽도 같게 해요.'], '뒤 다리의 종아리 — 무릎 펴면 비복근, 살짝 굽히면 가자미근', [], -120],
-  quad: ['좌우 각 30초', '벽이나 의자 짚기', ['벽 옆에 서서 한 손으로 벽을 짚어요.', '벽에서 먼 쪽 무릎을 굽혀 같은 쪽 손으로 발목을 잡아요.', '엉덩이를 살짝 앞으로 밀어 골반을 뒤로 말고, 허벅지를 몸 뒤쪽으로 살짝 보내 허벅지 앞이 당길 때까지 있어요.', '멈춘 채로 30초 있다가 천천히 내려놓아요. 반대쪽도 같게 해요.'], '잡은 다리의 허벅지 앞(대퇴사두근)', ['허리를 뒤로 젖히지 않아요'], -60],
-  ham: ['좌우 각 30초', '1단계 의자 2개 · 2단계 낮은 계단', ['낮은 계단이나 의자 앞에 서서 한쪽 발뒤꿈치를 올려요.', '올린 다리의 무릎은 편 채, 등을 곧게 펴요.', '허리를 말지 말고 엉덩이에서 몸통을 앞으로 숙여 허벅지 뒤가 당길 때까지 있어요.', '멈춘 채로 30초 있다가 천천히 일어나요. 반대쪽도 같게 해요.'], '올린 다리의 허벅지 뒤(햄스트링)', ['발끝에 손을 대려고 등을 둥글게 말지 않아요'], -120],
-  glute: ['좌우 각 30초', '의자에 앉기', ['의자에 앉아 두 발을 바닥에 대요.', '한 발목을 반대쪽 무릎 위에 올려 다리로 4자를 만들어요.', '허리를 편 채 상체를 앞으로 숙여 엉덩이 뒤쪽이 당길 때까지 있어요.', '멈춘 채로 30초 있다가 천천히 일어나 앉아요. 반대쪽도 같게 해요.'], '올린 다리의 엉덩이 뒤쪽(대둔근·중둔근)', [], -130],
+  calf: ['좌우 각 30초씩 두 자세(무릎 펴서 / 살짝 굽혀서)', '벽 짚기', ['벽을 마주 보고 서서 두 손을 벽에 대요.', '한 발을 앞으로 내딛고, 뒤 발의 뒤꿈치를 바닥에 평평하게 붙여요. 뒤 발끝은 살짝 안쪽을 향하게 해요.', '뒤 무릎을 편 채, 종아리가 당길 때까지 몸을 벽 쪽으로 천천히 기울여 30초 있어요.', '이번엔 뒤 무릎을 살짝 굽혀 30초 더 있어요. 반대쪽도 같게 해요.'], '무릎을 펴면 비복근, 살짝 굽히면 가자미근 (비복근은 무릎과 발목 두 관절을 지나서 무릎을 펴야 늘어나요)', [], -120],
+  quad: ['좌우 각 30초', '벽이나 의자 짚기', ['벽 옆에 서서 한 손으로 벽을 짚어요.', '벽에서 먼 쪽 무릎을 굽혀 같은 쪽 손으로 발목을 잡아요.', '엉덩이를 살짝 앞으로 밀어 골반을 뒤로 말고, 허벅지를 몸 뒤쪽으로 살짝 보내 허벅지 앞이 당길 때까지 있어요.', '멈춘 채로 30초 있다가 천천히 내려놓아요. 반대쪽도 같게 해요.'], '무릎을 굽힌 채 허벅지를 몸 뒤로 보낼 때 대퇴직근 (무릎과 엉덩관절 두 관절을 지나요)', ['허리를 뒤로 젖히지 않아요'], -60],
+  ham: ['좌우 각 30초', '1단계 의자 2개 · 2단계 낮은 계단', ['낮은 계단이나 의자 앞에 서서 한쪽 발뒤꿈치를 올려요.', '올린 다리의 무릎은 편 채, 등을 곧게 펴요.', '허리를 말지 말고 엉덩이에서 몸통을 앞으로 숙여 허벅지 뒤가 당길 때까지 있어요.', '멈춘 채로 30초 있다가 천천히 일어나요. 반대쪽도 같게 해요.'], '무릎을 편 채 엉덩이부터 숙일 때 햄스트링 (무릎과 엉덩관절 두 관절을 지나요)', ['발끝에 손을 대려고 등을 둥글게 말지 않아요'], -120],
+  glute: ['좌우 각 30초', '의자에 앉기', ['의자에 앉아 두 발을 바닥에 대요.', '한 발목을 반대쪽 무릎 위에 올려 다리로 4자를 만들어요.', '허리를 편 채 상체를 앞으로 숙여 엉덩이 뒤쪽이 당길 때까지 있어요.', '멈춘 채로 30초 있다가 천천히 일어나 앉아요. 반대쪽도 같게 해요.'], '4자를 만든 채 허리 펴고 숙일 때 엉덩이 뒤쪽(대둔근·중둔근)', [], -130],
 };
-const EX_CAU = { warm: ['천천히 시작해서 조금씩 빠르게 해요', '숨이 너무 차면 속도를 줄여요', '통증이 있거나 어지러우면 멈춰요'],
-  cool: ['튕기지 말고 멈춘 채로 늘여요', '당기는 느낌까지만, 아프지 않은 범위에서 해요', '숨을 참지 말고 편하게 쉬어요', '통증이 있거나 어지러우면 멈춰요',
-    '관절을 억지로 꺾지 않아요', '붓거나 다친 곳은 늘이지 않아요', '다음 날까지 아프면 다음엔 더 약하게 해요'] };   // 뒤 3줄: Kisner 4장 125쪽
+// 포인트 카드 (디자인 팀 10/29): 자세 요령(tip)을 위에, 안전 문구(safe)를 아래에. 정리 운동 = '스트레칭 포인트', 준비 운동·천천히 걷기 = '운동 포인트'
+const EX_CAU = { warm: { tip: ['천천히 시작해서 조금씩 빠르게 해요', '숨이 너무 차면 속도를 줄여요'], safe: ['통증이 있거나 어지러우면 멈춰요'] },
+  cool: { tip: ['튕기지 말고 멈춘 채로 늘여요', '당기는 느낌까지만, 아프지 않은 범위에서 해요', '숨을 참지 말고 편하게 쉬어요'],
+    safe: ['통증이 있거나 어지러우면 멈춰요', '관절을 억지로 꺾지 않아요', '붓거나 다친 곳은 늘이지 않아요', '다음 날까지 아프면 다음엔 더 약하게 해요'] },   // 뒤 3줄: Kisner 4장 125쪽
+  walk: { tip: [], safe: ['통증이 있거나 어지러우면 멈춰요'] } };
 const EX_FINE = '일반적인 운동 안내이며 치료·재활을 대신하지 않아요. 통증이 있거나 어지러우면 멈추고 전문가와 상담하세요.<br>참고한 자료: 운동치료총론 개정8판 4·7·20·22장, NASM-CPT 7·8장';
 // 보기 도구 model-viewer 4.4.0(Apache-2.0, vendor/)은 처음 상세를 열 때만 불러옴. 본 3D 파일·보기 도구는 'ex3d' 저장소에 넣어 오프라인에서도 열리게 (sw.js가 지우지 않음)
-let mvReady = null, exTick = 0;                                          // exTick: 종아리 색·단계 타이머 (이전/다음으로 넘어가도 하나만 남게)
-const EX_HOLD = { brisk: 0.4, march: 1.2, swing: 0.6, ankle: 1.2, heel: 1.2, jog: 0.4, slowwalk: 0.2, calf: 1.5, quad: 2.5, ham: 2.5, ham1: 2.5, glute: 2.5 };
+let mvReady = null, exTick = 0, exTL = null;
+const exTimeline = () => exTL ??= fetch('assets/exercise3d/timeline.json').then(r => r.json()).catch(() => { exTL = null; return {}; });
+const pwl = (pts, f) => { if (f <= pts[0][0]) return pts[0][1]; for (let i = 1; i < pts.length; i++) if (f <= pts[i][0]) { const [f0, v0] = pts[i - 1], [f1, v1] = pts[i]; return v0 + (v1 - v0) * (f - f0) / (f1 - f0); } return pts[pts.length - 1][1]; };   // 꺾은선                                          // exTick: 종아리 색·단계 타이머 (이전/다음으로 넘어가도 하나만 남게)
+const EX_HOLD = { brisk: 0.4, march: 1.2, swing: 0.6, ankle: 1.2, heel: 1.2, jog: 0.4, slowwalk: 0.2, calf: 5.0, quad: 6.0, ham: 5.5, ham1: 5.5, glute: 5.5 };   // 정리 운동은 멈춤 시작 3초 뒤(조건이 다 갖춰진 장면)
 // 단계가 있는 동작 (디자인 팀 10/29, Kisner 879~880쪽·그림 4.10B·20.18): 3D 위 칩을 눌러 바꿈(자동으로 넘어가지 않음), 처음엔 1단계
 const EX_STAGES = { ham: [
   { label: '1 앉아서', glb: 'ham1', steps: ['의자 끝에 앉아 한 다리를 앞 의자에 뻗고, 반대 발은 바닥에 둬요.', '허리를 편 채 엉덩이에서 몸통을 앞으로 숙여 허벅지 뒤가 당길 때까지 30초 있어요.'] },
@@ -2771,20 +2775,20 @@ function openExDetail(kind, i) {
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches, mus = ['calf', 'quad', 'ham', 'glute'].includes(k);
   mvReady ??= import('./vendor/model-viewer-4.4.0.min.js').catch(e => { mvReady = null; throw e; });
   const stages = EX_STAGES[k], glb0 = stages ? stages[0].glb : k;
-  exCache(['vendor/model-viewer-4.4.0.min.js', `assets/exercise3d/${glb0}.glb`, ...(EX_CMP[k] ? ['assets/exercise/ham-good.webp', 'assets/exercise/ham-bad.webp'] : [])]);
+  exCache(['vendor/model-viewer-4.4.0.min.js', 'assets/exercise3d/timeline.json', `assets/exercise3d/${glb0}.glb`, ...(EX_CMP[k] ? ['assets/exercise/ham-good.webp', 'assets/exercise/ham-bad.webp'] : [])]);
   clearInterval(exTick); $('exDet')?.remove();
   const o = document.createElement('div');
   o.id = 'exDet'; o.setAttribute('role', 'dialog'); o.setAttribute('aria-modal', 'true'); o.setAttribute('aria-label', name);
   const VIEW3 = { side: -90, back: 180, front: 0 };
   o.innerHTML = `<div class="sphead"><button class="spBack" data-exd="back" aria-label="목록으로">‹</button><h2>${name}</h2></div>
-    <div class="d3">${k === 'calf' ? '<div class="d3stage" hidden></div>' : ''}${stages ? `<div class="d3chips">${stages.map((s, j) => `<button class="chip" data-stage="${j}" aria-pressed="${j === 0}">${s.label}</button>`).join('')}</div>` : ''}<model-viewer src="assets/exercise3d/${glb0}.glb" alt="${name} 3D 모형, 손가락으로 밀어 돌려 볼 수 있어요" camera-controls touch-action="pan-y" disable-pan interaction-prompt="none"
+    <div class="d3">${['calf', 'quad', 'ham', 'glute'].includes(k) ? `<div class="d3stage${stages ? ' low' : ''}" hidden></div><div class="d3hold" hidden><svg viewBox="0 0 22 22" aria-hidden="true"><circle cx="11" cy="11" r="9"/><circle cx="11" cy="11" r="9"/></svg>멈춘 채로 30초 <small>(실제로는 30초)</small></div>` : ''}${stages ? `<div class="d3chips">${stages.map((s, j) => `<button class="chip" data-stage="${j}" aria-pressed="${j === 0}">${s.label}</button>`).join('')}</div>` : ''}<model-viewer src="assets/exercise3d/${glb0}.glb" alt="${name} 3D 모형, 손가락으로 밀어 돌려 볼 수 있어요" camera-controls touch-action="pan-y" disable-pan interaction-prompt="none"
       camera-orbit="${theta}deg 80deg auto" shadow-intensity="1" shadow-softness="0.3" environment-image="neutral" exposure="1.05" ${reduce ? '' : 'autoplay'}></model-viewer>
       <div class="d3bar"><span>${['side', 'back', 'front'].map(v => `<button class="chip" data-view="${v}">${{ side: '옆', back: '뒤', front: '앞' }[v]}</button>`).join('')}</span><button class="chip" data-exd="play">${reduce ? '▶ 동작 보기' : '❚❚ 동작 멈춤'}</button></div></div>
     <p class="lfine" style="margin-top:4px">3D 모형: Human Base Meshes(CC0)${mus ? ' · BodyParts3D · Z-Anatomy 근육(CC BY-SA)' : ''}으로 만듦 · <a href="#" data-exd="src">출처 보기 ›</a></p>
     <div class="card"><h3>시간·횟수·자세</h3><p>${dose} · ${pose}</p></div>
     <div class="card"><h3>이렇게 해요</h3><ol class="exsteps">${(stages ? stages[0].steps : steps).map(s => `<li>${s}</li>`).join('')}</ol></div>${EX_CMP[k] ?? ''}
     <div class="card"><h3>${cool ? '<span class="exleg" style="margin:0"><i aria-hidden="true"></i></span>늘어나는 곳' : '주로 움직이는 곳'}</h3><p>${area}</p></div>
-    <div class="card"><h3>주의할 점</h3><ul class="exsteps">${[...(cool ? EX_CAU.cool : kind === 'warm' ? EX_CAU.warm : ['통증이 있거나 어지러우면 멈춰요']), ...extra].map(s => `<li>${s}</li>`).join('')}</ul></div>
+    ${(c => `<div class="card"><h3>${cool ? '스트레칭 포인트' : '운동 포인트'}</h3><ul class="exsteps">${[...c.tip, ...extra, ...c.safe].map(s => `<li>${s}</li>`).join('')}</ul></div>`)(EX_CAU[cool ? 'cool' : kind === 'warm' ? 'warm' : 'walk'])}
     <p class="lfine">${EX_FINE}</p>
     <div class="exnav">${i > 0 ? `<button class="ghost" data-exd="prev">‹ ${list[i - 1][1]}</button>` : '<span></span>'}${i < list.length - 1 ? `<button class="ghost" data-exd="next">${list[i + 1][1]} ›</button>` : ''}</div>`;
   document.body.append(o);
@@ -2810,17 +2814,22 @@ function openExDetail(kind, i) {
     }
     if (reduce) { mv.play(); setTimeout(() => { mv.currentTime = EX_HOLD[mv.src.match(/(\w+)\.glb$/)?.[1]] ?? EX_HOLD[k]; setTimeout(() => mv.pause(), 120); }, 60); }   // 움직임 줄이기: 선 자세 대신 늘이는(움직이는) 순간을 멈춰 보여 줌 (멈춘 채로 시간만 옮기면 안 그려져서 0.1초만 재생 후 멈춤)
   });
-  if (k === 'calf') {                                                    // 종아리: 첫 멈춤(무릎 폄)에 비복근, 두 번째 멈춤(살짝 굽힘)에 가자미근을 진하게 (render_ex2.py와 같은 구간, 10fps)
-    const ramp = (f, a, c) => f < a || f >= c + 3 ? 0 : f < a + 3 ? (f - a) / 3 : f < c ? 1 : (c + 3 - f) / 3;
-    const paint = () => { const f = (mv.currentTime || 0) * 10, mats = mv.model?.materials ?? [];
-      for (const [nm, s] of [['mus_gas', ramp(f, 8, 22)], ['mus_sol', ramp(f, 27, 38)]]) { const m = mats.find(x => x.name === nm), t = 0.45 + 0.55 * s;
-        m?.pbrMetallicRoughness.setBaseColorFactor([...MUS_PALE.map((p, j) => p + (MUS_LIN[j] - p) * t), 1]); }
-      // 단계 표시 (디자인 팀 10/29): 멈춤마다 3D 위에 한 줄, 2단계는 무릎 굽힘이 보이게 옆에서
-      const st = f >= 8 && f < 25 ? 1 : f >= 27 && f < 41 ? 2 : 0, lab = o.querySelector('.d3stage');
-      if (lab && String(st) !== lab.dataset.st) { lab.dataset.st = st; lab.hidden = !st; lab.textContent = st === 1 ? '1 무릎 펴고 · 비복근' : st === 2 ? '2 무릎 살짝 굽혀 · 가자미근' : '';
-        if (!userCam) mv.cameraOrbit = `${st === 2 ? -90 : theta}deg 80deg auto`; } };
-    exTick = setInterval(paint, 100);
-  }
+  // 정리 운동 시간표 (assets/exercise3d/timeline.json, Blender 렌더와 같은 값): 단계 글, 조건이 갖춰질 때만 진해지는 근육 색, 멈춤 표시(6초 동안 차는 고리 = 실제 30초)
+  // 근거: Kisner 114·116·124쪽(천천히 들어가 멈춘 채 유지), 877~880·1042쪽(두 관절근은 두 관절 조건이 다 맞을 때 늘어남) — 디자인 팀 10/29
+  const tlTick = TL => () => {
+    const name = mv.src.match(/(\w+)\.glb$/)?.[1], tl = TL[name]; if (!tl) return;
+    const f = (mv.currentTime || 0) * 10, mats = mv.model?.materials ?? [];
+    for (const [nm, pts] of Object.entries(tl.mus)) {
+      const m = mats.find(x => x.name === 'mus_' + nm), t = 0.1 + 0.9 * pwl(pts, f);
+      m?.pbrMetallicRoughness.setBaseColorFactor([...MUS_PALE.map((p, j) => p + (MUS_LIN[j] - p) * t), 1]);
+    }
+    const lab = o.querySelector('.d3stage'), txt = tl.labels.find(([a, b]) => f >= a && f < b)?.[2] ?? '';
+    if (lab && lab.textContent !== txt) { lab.textContent = txt; lab.hidden = !txt; }
+    const h = tl.holds.find(([a, b]) => f >= a && f < b), hb = o.querySelector('.d3hold');
+    if (hb) { hb.hidden = !h; if (h) hb.querySelector('circle:last-child').style.strokeDashoffset = (56.5 * (1 - (f - h[0]) / (h[1] - h[0]))).toFixed(1); }
+    if (name === 'calf' && !userCam) { const side = f >= 80 && f < 155; if (side !== (mv.dataset.side === '1')) { mv.dataset.side = side ? '1' : ''; mv.cameraOrbit = `${side ? -90 : theta}deg 80deg auto`; } }   // 무릎 굽힘이 보이게 옆에서
+  };
+  if (['calf', 'quad', 'ham', 'glute'].includes(k)) exTimeline().then(TL => { if (o.isConnected) exTick = setInterval(tlTick(TL), 100); });
   const close = () => { clearInterval(exTick); o.remove(); if ($('exOv')) { $('exOv').inert = false; $('exOv').querySelectorAll('.exlist li')[i]?.querySelector('button, [tabindex]')?.focus(); } };
   o.addEventListener('click', e => {
     const b = e.target.closest('[data-exd], [data-view], [data-stage]');
