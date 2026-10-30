@@ -222,10 +222,6 @@
   .dsheet.lesson { padding-left:20px; padding-right:20px; max-height:92vh; overflow-y:auto; }
   .lhead { display:flex; align-items:center; justify-content:space-between; } .lhead h3 { margin:0; font-size:1rem; }
   .lx { width:44px; height:44px; margin:0 -10px 0 0; padding:0; background:none; color:var(--sub); font-size:1.375rem; }
-  .lfig { position:relative; margin-top:4px; } .lfig canvas { display:block; width:100%; height:auto; max-height:46vh; object-fit:contain; }
-  .lfig .lplay { position:absolute; right:0; bottom:0; }
-  .lsub { min-height:2.9em; margin:8px 0 6px; font-size:.9375rem; line-height:1.45; }
-  .lesson .gc .chip { cursor:default; }
   /* 몸 풀기·정리 운동 판 (디자인 팀 10/29): 그림 왼쪽, 이름·횟수·방법 오른쪽. 늘어나는 곳 색 = 근육 빨강 #a8323e (경고색 --o와 다른 색) */
   .exlist { list-style:none; padding:0; margin:12px 0; } .exlist li { display:grid; grid-template-columns:128px 1fr; gap:12px; align-items:center; padding:8px 0; border-top:1px solid var(--line); }
   .exlist img { display:block; width:128px; height:149px; object-fit:contain; } .exlist p { margin:2px 0 0; font-size:.875rem; color:var(--sub); word-break:keep-all; }
@@ -260,7 +256,7 @@
   .fpbox { background:#eceeed; border-radius:var(--r-md); padding:0 0 6px; } .fpbox model-viewer { display:block; width:100%; height:min(52vh, 420px); --poster-color:transparent; } .fpbox .d3bar { padding:0 8px; } .fpbox .chip { background:#fff; color:#121816; border-color:#e6eae8; } .fpbox .chip[aria-pressed="true"] { background:#1d6b5c; color:#fff; border-color:#1d6b5c; }   /* 발바닥 수업 3D: 다크에서도 밝은 판 (판 위 칩도 라이트 색) */
   .fpcards { display:flex; overflow-x:auto; scroll-snap-type:x mandatory; gap:10px; margin-top:8px; scrollbar-width:none; } .fpcards::-webkit-scrollbar { display:none; } .fpcard { flex:0 0 100%; scroll-snap-align:start; box-sizing:border-box; margin:0; } .fpcard h3 { font-size:.9375rem; margin:0 0 6px; } .fpcard h3 .sub { font-size:.75rem; font-weight:400; }   /* 옆으로 넘기는 단계 카드 */
   .footfig { background:#fff; border-radius:var(--r-md); padding:8px; margin:8px 0; } .footfig svg { display:block; width:100%; max-width:220px; height:auto; margin:0 auto; }
-  .fpleg { display:flex; align-items:center; gap:8px; font-size:.8125rem; } .fpsw { flex:none; width:28px; } .fpdash { border-top:2.5px dashed #2b3bd6; } .fpband { height:8px; border-radius:999px; background:rgba(168,50,62,.45); } .fpsm { font-size:.75rem; margin:4px 0 6px; } .fpol { padding-left:18px; } .fphr { border:0; border-top:1px solid var(--line); margin:10px 0; }   /* 범례: 제목 13px 굵게, 나머지 12px */
+  .fpleg { display:flex; align-items:center; gap:8px; font-size:.8125rem; } .fpsw { flex:none; width:28px; } .fpdash { border-top:2.5px dashed #2b3bd6; } .fpsm { font-size:.75rem; margin:4px 0 6px; } .fpol { padding-left:18px; } .fplink { display:block; text-align:left; padding:6px 0 0; font-size:.875rem; } .fpbox model-viewer { --min-hotspot-opacity:1; } .fpax { width:52px; height:52px; pointer-events:none; } .fpax svg { transform:scaleX(-1); } .fpax[hidden] { display:none; }   /* 흔들의자 축: 원 + 회전 화살표(안쪽 보기에서 발끝이 왼쪽이라 앞으로 구르는 반시계 방향), 판 위라 진한 회색 고정, 뼈에 가려도 진하게 */   /* 범례: 제목 13px 굵게, 나머지 12px */
   .exmus { list-style:none; padding:0; margin:4px 0 6px; } .exmus li { display:flex; gap:8px; align-items:baseline; padding:3px 0; } .exmus i { flex:none; width:10px; height:10px; border-radius:50%; background:#a8323e; }   /* 쓰는 근육: 3D 근육과 같은 색 점 */
   .d3bar { display:flex; justify-content:space-between; align-items:center; gap:8px; margin-top:4px; } .d3bar .chip { margin:0 6px 0 0; }
   #exDet .card h3 { margin:0 0 6px; font-size:1rem; } #exDet .card p { margin:0; } .exsteps { margin:0; padding-left:20px; } .exsteps li { margin:2px 0; word-break:keep-all; }
@@ -434,7 +430,7 @@
     <div class="msub" style="margin:6px 2px 0">항목별 <b>가장 최근 측정</b>이에요 · 누르면 그 기록을 다시 봐요</div>
     <div id="tiles"></div>
     <button class="card wkcard" data-sub="spStats"><div class="mtop"><span class="mlab">이번 주</span><span class="mdate">달력과 통계 ›</span></div><div id="wkDots"></div><div class="msub" id="wkLine"></div></button>
-    <button class="card learncard" data-sub="spLearn"><canvas id="learnFig" width="192" height="232" aria-hidden="true"></canvas><span class="lcText"><b><svg class="lcIc" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5.5c3-1 6-.8 9 1.2 3-2 6-2.2 9-1.2V19c-3-1-6-.8-9 1.2-3-2-6-2.2-9-1.2z"/><path d="M12 6.7v13.5"/></svg>배워 보기</b><em>걸음 수업 · 30초</em><span class="sub">발이 굴러가는 흔들의자&nbsp;3개</span><small class="sub">걸음 수업 · 지표 사전 · 운동&nbsp;›</small></span></button>
+    <button class="card learncard" data-sub="spLearn"><canvas id="learnFig" width="192" height="232" aria-hidden="true"></canvas><span class="lcText"><b><svg class="lcIc" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5.5c3-1 6-.8 9 1.2 3-2 6-2.2 9-1.2V19c-3-1-6-.8-9 1.2-3-2-6-2.2-9-1.2z"/><path d="M12 6.7v13.5"/></svg>배워 보기</b><em>걸음 수업 · 3D</em><span class="sub">발이 굴러가는 흔들의자&nbsp;3개</span><small class="sub">걸음 수업 · 지표 사전 · 운동&nbsp;›</small></span></button>
     <div class="card rows"><button class="dayrec" data-sub="spProg"><span>프로그램과 알림</span><span class="sub">›</span></button></div>
     <div class="subpage" id="spStats" hidden role="dialog" aria-label="달력과 통계"><div class="sphead"><button class="spBack" aria-label="홈으로">‹</button><h2>달력과 통계</h2></div>
     <div class="card">

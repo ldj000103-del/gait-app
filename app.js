@@ -893,7 +893,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v201';
+const APP_VERSION = 'v202';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -2700,8 +2700,8 @@ function renderHomeTop() {
       <div class="sub" style="margin-top:6px">한 달에 한 번, 옆모습 영상으로 내 걸음을 비춰 봐요${last ? ` · 마지막 ${last.d.getMonth() + 1}월 ${last.d.getDate()}일` : ''}</div>
       ${pair ? `<a href="#" class="textlike" style="text-align:left;padding:8px 0 0;text-decoration:none" data-pair="${prev.i},${last.i}">${pair} 나란히 보기 ›</a>` : ''}</div>
 `;
-  $('lessonCard').innerHTML = `<button class="mcard" data-lesson><div class="mtop"><span class="mlab">걸음 수업 · 30초</span><span class="mdate">›</span></div><div style="font-weight:700;margin-top:6px">발이 굴러가는 흔들의자 3개</div><div class="msub">근육 그림으로 보는 한 걸음</div></button>
-    <button class="mcard" data-foot style="margin-top:8px"><div class="mtop"><span class="mlab">걸음 수업 · 3D</span><span class="mdate">›</span></div><div style="font-weight:700;margin-top:6px">걸을 때 발바닥에서 일어나는 일</div><div class="msub">체중이 옮겨 가는 길과 차례로 일하는 근육</div></button>`;   // 그림과 같은 주제로 고정 (디자인 팀 10/28, 날마다 바뀌던 사전 항목은 뺌)
+  $('lessonCard').innerHTML = `<button class="mcard" data-foot="rock"><div class="mtop"><span class="mlab">걸음 수업 · 3D</span><span class="mdate">›</span></div><div style="font-weight:700;margin-top:6px">발이 굴러가는 흔들의자 3개</div><div class="msub">뒤꿈치·발목·앞발을 축으로 굴러가는 한 걸음</div></button>
+    <button class="mcard" data-foot="foot" style="margin-top:8px"><div class="mtop"><span class="mlab">걸음 수업 · 3D</span><span class="mdate">›</span></div><div style="font-weight:700;margin-top:6px">걸을 때 발바닥에서 일어나는 일</div><div class="msub">체중이 옮겨 가는 길과 차례로 일하는 근육</div></button>`;   // 그림과 같은 주제로 고정 (디자인 팀 10/28, 날마다 바뀌던 사전 항목은 뺌)
   // 이번 주 카드: 월~일 그날 활동 색 점 + 측정 횟수 · 걷기 케이던스 평균 (달력과 같은 점 색)
   const mon0 = monOf(today), hist = store.get('history', []), tk = dayKey(today), cur = weekSummary(hist).cur;
   $('wkDots').innerHTML = ['월', '화', '수', '목', '금', '토', '일'].map((wd, k) => { const dk = dayKey(plusDays(mon0, k)), acts = [...new Set(hist.filter(h => dayKey(h.date) === dk).map(h => { const a = h.activity ?? 'walk'; return a === 'cooper' || a === 'easyrun' ? 'run' : a === 'stairs' ? 'walk' : a; }))];
@@ -2730,76 +2730,34 @@ document.addEventListener('click', e => { const s = e.target.closest('[data-sub]
 function closeAllSub() { const n = (subOpen ? 1 : 0) + subStack.length; while (subOpen) closeSub(false); if (n && history.state?.sub) history.go(-n); }
 addEventListener('popstate', () => { while (subOpen && history.state?.sub !== subOpen) closeSub(false); });   // 새로고침 전에 남은 다른 {sub} 칸으로 돌아가도 닫히게 (검수팀)
 if (history.state?.sub || history.state?.pickSheet) history.replaceState(null, '');   // 새로고침하면 판·하위 화면은 닫힌 채라 남은 기록 칸을 비움 (뒤로 가기가 한 번 헛돌지 않게)
-// 걸음 수업 판: 근육 그림(assets/muscle, 보행 주기 2% 간격 50장)을 캔버스로 반복 재생 + 주기에 맞는 자막·단계 막대 (디자인 팀 10/28, 법률 검토 20번)
-// 투명 WebP를 캔버스에 그려 밝은·어두운 화면 모두 바탕이 자연스럽고 사파리에서도 재생됨. 이용자 측정값과는 연결하지 않음
+// 근육 그림(assets/muscle, 보행 주기 2% 간격 50장): 홈 '배워 보기' 카드 그림이 씀
 const LESSON_N = 50, LESSON_MS = 111;                                      // 한 걸음 약 5.6초 (근육 영상 시안과 같은 빠르기)
-const LESSON_SUB = [[0, '① 뒤꿈치 흔들의자 · 정강이 앞 근육이 발이 ‘탁’ 떨어지지 않게 천천히 내려놓아요'],
-  [12, '② 발목 흔들의자 · 가자미근이 정강이가 너무 빨리 넘어가지 않게 붙잡아요'],
-  [31, '③ 앞발 흔들의자 · 뒤꿈치가 들리며 몸이 앞으로 떨어져요(걸음에서 가장 강한 추진력). 종아리 근육은 정강이가 너무 빨리 넘어가지 않게 늦춰요'],   // Perry 3장: 추진력은 몸무게가 받침 밖으로 떨어지며 생김, 근육은 늦춤
-  [50, '④ 유각 전 · 체중이 반대 발로 넘어가고, 발가락 관절을 축으로 발목이 펴지며 무릎이 굽어요'],
-  [62, '흔들기 · 발이 바닥에서 떨어져 앞으로 가요']];
-function openLesson() {
-  const o = document.createElement('div');
-  o.id = 'lessonOv'; o.setAttribute('role', 'dialog'); o.setAttribute('aria-modal', 'true'); o.setAttribute('aria-label', '걸음 수업');
-  o.innerHTML = `<div class="dsheet lesson"><div class="lhead"><div><div class="sub" style="font-size:.75rem">걸음 수업 · 30초</div><h3>발이 굴러가는 흔들의자 3개</h3></div><button class="lx" data-lx="close" aria-label="닫기">✕</button></div>
-    <div class="lfig"><canvas width="480" height="403" role="img" aria-label="페리의 보행 분석 기준 걸음에서 정강이·발 근육의 길이가 바뀌는 그림"></canvas><button class="chip lplay" data-lx="play"></button></div>
-    <p class="lsub"></p>
-    <div class="gc" aria-label="보행 주기 단계"><span>입각기 <small>0~62%</small></span><span>유각기 <small>62~100%</small></span>${OLD_PH.map(n => `<b class="chip">${n}</b>`).join('')}</div>
-    <button class="textlike" data-lx="more" style="text-align:left;padding-left:0">더 알아보기 ›</button>
-    <p class="lfine">근육 그림: BodyParts3D·Z-Anatomy 모델로 만듦 (CC BY-SA) · <a href="#" data-bonesrc>출처 보기 ›</a><br>페리의 보행 분석 기준: Perry 『Gait Analysis』 3장·4장·9장 · 근육 모양은 각도에 맞춘 근사예요 · 일반적인 걸음 정보이며 진료를 대신하지 않아요</p></div>`;
-  document.body.append(o);
-  for (const el of [document.querySelector('main'), $('tabbar')]) el.inert = true;
-  const cv = o.querySelector('canvas'), g = cv.getContext('2d'), imgs = [], btn = o.querySelector('[data-lx=play]');
-  let k = 0, playing = !matchMedia('(prefers-reduced-motion: reduce)').matches, timer = 0, shownSub = -1, shownPh = -1;
-  for (let i = 0; i < LESSON_N; i++) { const im = new Image(); im.src = `assets/muscle/m${String(i).padStart(2, '0')}.webp`; if (i === 0) im.onload = () => draw(); imgs.push(im); }
-  const draw = () => {
-    const im = imgs[k]; if (im.complete && im.naturalWidth) { g.clearRect(0, 0, cv.width, cv.height); g.drawImage(im, 0, 0, cv.width, cv.height); }
-    const q = k * 2, s = LESSON_SUB.reduce((a, x, j) => q >= x[0] ? j : a, 0), ph = phaseIdx(q);
-    if (s !== shownSub) { shownSub = s; o.querySelector('.lsub').textContent = LESSON_SUB[s][1]; }
-    if (ph !== shownPh) { shownPh = ph; o.querySelectorAll('.gc > .chip').forEach((c, j) => c.setAttribute('aria-pressed', j === ph)); o.querySelectorAll('.gc > span').forEach((c, j) => c.classList.toggle('on', j === (ph < 5 ? 0 : 1))); }
-  };
-  const tick = () => { if (playing) { k = (k + 1) % LESSON_N; draw(); } };
-  const setBtn = () => { btn.textContent = playing ? '❚❚ 일시정지' : '▶ 재생'; };
-  const close = () => { clearInterval(timer); for (const el of [document.querySelector('main'), $('tabbar')]) el.inert = false; o.remove(); $('lessonCard').querySelector('[data-lesson]')?.focus(); };
-  setBtn(); draw(); timer = setInterval(tick, LESSON_MS);
-  o.addEventListener('click', e => {
-    const b = e.target.closest('[data-lx]');
-    if (e.target === o || b?.dataset.lx === 'close' || e.target.closest('[data-bonesrc]')) return close();   // 출처 보기는 판을 닫고 홈 '이 앱의 근거'로 (아래 공용 처리)
-    if (b?.dataset.lx === 'play') { playing = !playing; setBtn(); }
-    else if (b?.dataset.lx === 'more') { close(); const d = [...$('learn').querySelectorAll('details')].find(x => x.querySelector('summary').textContent === '발이 굴러가는 흔들의자 3개'); if (d) { d.open = true; d.scrollIntoView({ block: 'start', behavior: 'smooth' }); } }   // '알아보기'의 같은 글
-  });
-  o.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
-  o.querySelector('[data-lx=close]').focus();
-}
-$('lessonCard').addEventListener('click', e => { if (e.target.closest('[data-lesson]')) openLesson(); });
 
 // ── 걸음 수업 2: 걸을 때 발바닥에서 일어나는 일 (사용자 아이디어, 디자인 팀 10/30 최종) ──
 // 3D(assets/exercise3d/footpress.glb): Z-Anatomy 오른쪽 무릎 아래 뼈·근육 + 반투명 피부, 입각기(보행 주기 0~60%) 6초 고리. 근육 색은 timeline.json 'footpress'(Perry 4장 근육 시점)
-// 압력 중심 4점: Neumann 15장 그림 15.32 + 엄지발가락은 Perry 4장 84쪽. 엄지발가락벌림근: 근골격해부학 161쪽, 일하는 때 Perry 4장 그림 4.18(40%부터), Neumann 15장
+// 압력 중심 4점: Neumann 15장 그림 15.32 + 엄지발가락은 Perry 4장 84쪽. 근육이 일하는 때: Perry 4장 그림 4.18, Neumann 15장. 엄지발가락벌림근은 ③ 카드 글에만 (요약 그림의 빨간 띠는 뺌, 디자인 팀 10/30)
 // 진단·효과 표현 없음. 근육 이름은 구용어, 엄지발가락벌림근만 예외(사용자 결정)
 const FP_SEEK = [null, 4, 28, 46, 57];                                    // 카드 ①~④ = 보행 주기 % (= 프레임): 점이 그 번호 자리에 거의 닿은 순간, ③은 뒤꿈치가 눈에 띄게 들린 때 (디자인 팀)
+const FOOT_FIG = (pts, aria) => `<div class="footfig"><svg viewBox="0 0 200 300" role="img" aria-label="${aria}">
+     <defs><marker id="fArr" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#2b3bd6"/></marker></defs>
+     <g transform="matrix(-1 0 0 1 200 0)">   <!-- 좌우 뒤집기: 발바닥 쪽에서 본 오른발은 엄지가 오른쪽 (3D 발바닥 보기와 같은 방향, 디자인 팀) -->
+     <path d="M110 288 C82 288 78 262 80 236 C82 206 76 182 70 152 C64 126 48 112 51 92 C54 72 80 66 105 68 C130 70 153 78 157 98 C161 126 149 160 147 200 C145 236 141 288 110 288 Z" fill="#f7f8f8" stroke="#c9cfcc" stroke-width="2"/>
+     ${[[62, 40, 15, 19], [92, 33, 8, 10], [113, 37, 7, 9], [131, 46, 6, 8], [146, 59, 6, 7]].map(([x, y, rx, ry]) => `<ellipse cx="${x}" cy="${y}" rx="${rx}" ry="${ry}" fill="#f7f8f8" stroke="#c9cfcc" stroke-width="2"/>`).join('')}
+     <path d="M121 258 L146 178 L84 92 L62 46" fill="none" stroke="#2b3bd6" stroke-width="2.5" stroke-dasharray="5 4" marker-end="url(#fArr)"/>
+     </g>
+     ${pts.map(([x0, y], i, _, x = 200 - x0) => `<circle cx="${x}" cy="${y}" r="9" fill="#fff" stroke="#2b3bd6" stroke-width="2"/><text x="${x}" y="${y + 4}" text-anchor="middle" font-size="11" font-weight="700" fill="#2b3bd6">${i + 1}</text>`).join('')}
+     <text x="4" y="296" font-size="11" fill="#69736f">오른발 · 발바닥 쪽에서 본 모습</text></svg></div>`;   // 발 교육자료는 모두 이 그림 + footpress.glb로 (디자인 팀 10/30). pts = 번호 점(뒤집기 전 좌표)
 const FP_MUS = (n, w, does) => `<li><i aria-hidden="true"></i><span><b>${n}</b> · ${w}<br><span class="sub">${does}</span></span></li>`;
 const FP_CARDS = [
   `<h3>걸을 때 발바닥에서 일어나는 일</h3>
    <p><b>이게 뭐예요</b><br>한 발이 바닥을 디디는 약 0.6초 동안, 몸무게가 실리는 자리가 뒤꿈치에서 엄지발가락까지 옮겨 가요. 그 순간마다 다른 근육이 차례로 일해요.</p>
    <p><b>왜 알아 두면 좋아요</b><br>배워 보기의 '발이 굴러가는 흔들의자 3개'가 발바닥에서는 이렇게 보여요. ①은 뒤꿈치 흔들의자, ②는 발목 흔들의자, ③은 앞발 흔들의자예요. 내 걸음 비춰 보기 영상에서 '뒤꿈치가 들리는 때'를 볼 때, 그 순간 발바닥과 근육에서 무슨 일이 일어나는지 함께 떠올릴 수 있어요.</p>
-   <div class="footfig"><svg viewBox="0 0 200 300" role="img" aria-label="오른발 발바닥을 아래에서 본 그림. 파란 점선은 뒤꿈치에서 엄지발가락까지 체중이 실리는 자리가 옮겨 가는 길, 빨간 띠는 엄지발가락벌림근">
-     <defs><marker id="fArr" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#2b3bd6"/></marker></defs>
-     <g transform="matrix(-1 0 0 1 200 0)">   <!-- 좌우 뒤집기: 발바닥 쪽에서 본 오른발은 엄지가 오른쪽 (3D 발바닥 보기와 같은 방향, 디자인 팀) -->
-     <path d="M110 288 C82 288 78 262 80 236 C82 206 76 182 70 152 C64 126 48 112 51 92 C54 72 80 66 105 68 C130 70 153 78 157 98 C161 126 149 160 147 200 C145 236 141 288 110 288 Z" fill="#f7f8f8" stroke="#c9cfcc" stroke-width="2"/>
-     ${[[62, 40, 15, 19], [92, 33, 8, 10], [113, 37, 7, 9], [131, 46, 6, 8], [146, 59, 6, 7]].map(([x, y, rx, ry]) => `<ellipse cx="${x}" cy="${y}" rx="${rx}" ry="${ry}" fill="#f7f8f8" stroke="#c9cfcc" stroke-width="2"/>`).join('')}
-     <path d="M96 266 C88 238 86 206 81 170 C76 138 66 114 64 84" fill="none" stroke="#a8323e" stroke-opacity=".45" stroke-width="10" stroke-linecap="round"/>
-     <path d="M121 258 L146 178 L84 92 L62 46" fill="none" stroke="#2b3bd6" stroke-width="2.5" stroke-dasharray="5 4" marker-end="url(#fArr)"/>
-     </g>
-     ${[[121, 258], [146, 178], [84, 92], [62, 46]].map(([x0, y], i, _, x = 200 - x0) => `<circle cx="${x}" cy="${y}" r="9" fill="#fff" stroke="#2b3bd6" stroke-width="2"/><text x="${x}" y="${y + 4}" text-anchor="middle" font-size="11" font-weight="700" fill="#2b3bd6">${i + 1}</text>`).join('')}
-     <text x="4" y="296" font-size="11" fill="#69736f">오른발 · 발바닥 쪽에서 본 모습</text></svg></div>
+   ${FOOT_FIG([[121, 258], [146, 178], [84, 92], [62, 46]], '오른발 발바닥을 아래에서 본 그림. 파란 점선은 뒤꿈치에서 엄지발가락까지 체중이 실리는 자리가 옮겨 가는 길')}
    <div class="fpleg"><span class="fpsw fpdash" aria-hidden="true"></span><b>파란 점선 = 체중이 실리는 자리가 옮겨 가는 길</b></div>
    <p class="sub fpsm">한 발로 디디는 동안 발바닥에 실린 무게의 중심이 번호 순서대로 옮겨 가요(전문 용어로 압력 중심).</p>
    <ol class="sub fpsm fpol"><li>발이 닿을 때: 뒤꿈치 가운데 바로 바깥쪽</li><li>발바닥 전체로 설 때: 발 중간 바깥쪽</li><li>뒤꿈치가 들릴 때: 앞발 안쪽 (엄지·둘째 발가락 뿌리 아래)</li><li>발이 떨어질 때: 엄지발가락</li></ol>
    <p class="sub fpsm">사람마다 앞발이 닿는 순서는 달라요: 새끼발가락 쪽부터 71%, 앞발 전체가 한꺼번에 22%, 엄지 쪽부터 8%(반올림).</p>
-   <hr class="fphr">
-   <div class="fpleg"><span class="fpsw fpband" aria-hidden="true"></span><b>빨간 띠 = 엄지발가락벌림근</b></div>
-   <p class="sub fpsm">발뒤꿈치뼈에서 시작해 발 안쪽 가장자리를 따라 엄지발가락 뿌리에 붙는 근육이에요. 뒤꿈치가 들리며 체중이 앞발 안쪽(③)으로 옮겨 갈 때부터 일하기 시작해, 앞발을 받쳐 줘요.</p>`,
+   <button class="textlike fplink" data-flink="rock">발이 굴러가는 흔들의자 3개 함께 보기 ›</button>`,
   `<h3>① 발이 닿을 때 <span class="sub">· 뒤꿈치 가운데 바로 바깥쪽 · 보행 주기 0~12%</span></h3><ul class="exmus">
    ${FP_MUS('전경골근', '정강이 앞 근육', '발이 ‘탁’ 떨어지지 않게 천천히 내려놓아요.')}${FP_MUS('후경골근', '종아리 안쪽 깊은 곳', '발이 닿을 때부터 일하기 시작해요.')}</ul>`,
   `<h3>② 발바닥 전체로 설 때 <span class="sub">· 발 중간 바깥쪽 · 12~31%</span></h3><ul class="exmus">
@@ -2808,29 +2766,52 @@ const FP_CARDS = [
    ${FP_MUS('비복근·가자미근', '종아리', '이때 가장 세게 일해요.')}${FP_MUS('후경골근·장지굴근·장무지굴근', '종아리 깊은 곳', '발 중간을 단단하게 잠가요.')}${FP_MUS('엄지발가락벌림근 등 발 속 근육', '발바닥 안', '앞발을 받쳐요. 발 속 근육은 이 무렵 앞발을 안정시키고 안쪽 세로 아치를 높여요.')}</ul>`,
   `<h3>④ 발이 떨어질 때 <span class="sub">· 엄지발가락 · 50~60%</span></h3><ul class="exmus">
    ${FP_MUS('종아리 근육', '비복근·가자미근 등', '힘을 빼요. 다리는 앞으로 넘어가며 다음 걸음을 준비해요.')}</ul>`];
-function openFootLesson() {
+// 흔들의자 수업: 같은 footpress.glb 안쪽 보기 + 카드마다 그 흔들의자의 축(원 + 회전 화살표). 축 위치 = 그 순간 모형의 종골 바닥·발목 관절·중족골두 (glTF 좌표, m)
+const RK_SEEK = [null, 5, 20, 45], RK_AX = [null, '-0.070 0.014 -0.078', '-0.073 0.073 -0.039', '-0.100 0.020 0.067'];
+const RK_CARDS = [
+  `<h3>발이 굴러가는 흔들의자 3개</h3>
+   <p><b>이게 뭐예요</b><br>한 발이 땅을 딛는 동안 몸이 굴러가는 축이 3번 바뀌어요. 흔들의자 다리처럼 둥근 곳을 축으로 몸이 앞으로 굴러가서 덜컹거리지 않고 부드럽게 나아가요.</p>
+   ${FOOT_FIG([[124, 248], [138, 205], [86, 95]], '오른발 발바닥을 아래에서 본 그림. 파란 점선은 체중이 실리는 자리가 옮겨 가는 길, 번호 1~3은 흔들의자 3개의 순간에 체중이 실리는 자리')}
+   <div class="fpleg"><span class="fpsw fpdash" aria-hidden="true"></span><b>파란 점선 = 체중이 실리는 자리가 옮겨 가는 길</b></div>
+   <p class="sub fpsm">번호는 흔들의자 번호예요. 점은 그 순간 체중이 실리는 자리예요.</p>
+   <ol class="sub fpsm fpol"><li>뒤꿈치 흔들의자: 체중 받기(약 5%)</li><li>발목 흔들의자: 중간 입각(약 20%)</li><li>앞발 흔들의자: 말기 입각(약 45%)</li></ol>
+   <p class="sub fpsm">영상의 발목 각도는 정확도가 낮아서 흔들의자를 직접 재지는 않아요.</p>
+   <button class="textlike fplink" data-flink="foot">걸을 때 발바닥에서 일어나는 일 함께 보기 ›</button>`,
+  `<h3>① 뒤꿈치 흔들의자 <span class="sub">· 체중 받기 · 약 5%</span></h3><p class="sub fpsm">축: 뒤꿈치 둥근 바닥. 뒤꿈치를 축으로 발바닥이 내려와요.</p><ul class="exmus">
+   ${FP_MUS('전경골근', '정강이 앞 근육', '발이 ‘탁’ 떨어지지 않게 천천히 내려놓아요.')}</ul>`,
+  `<h3>② 발목 흔들의자 <span class="sub">· 중간 입각 · 약 20%</span></h3><p class="sub fpsm">축: 발목 관절. 발은 바닥에 붙은 채 정강이가 앞으로 기울어요.</p><ul class="exmus">
+   ${FP_MUS('가자미근', '비복근 아래 깊은 곳의 넓적한 근육', '정강이가 너무 빨리 넘어가지 않게 속도를 조절해요.')}</ul>`,
+  `<h3>③ 앞발 흔들의자 <span class="sub">· 말기 입각 · 약 45%</span></h3><p class="sub fpsm">축: 중족골두(발가락 뿌리). 발가락 뿌리를 축으로 뒤꿈치가 들려요. 몸이 받침 밖으로 앞으로 떨어지며 걸음에서 가장 강한 추진력이 생겨요.</p><ul class="exmus">
+   ${FP_MUS('비복근·가자미근', '종아리', '정강이가 너무 빨리 넘어가지 않게 늦춰요.')}</ul>`];
+const FP_LESSONS = {
+  foot: { t: '걸을 때 발바닥에서 일어나는 일', cards: FP_CARDS, seek: FP_SEEK, def: 3, views: true, chips: ['요약', '①', '②', '③', '④'],
+    fine: '근거: Perry 『Gait Analysis』 2장·4장(그림 4.18) · Neumann 『Kinesiology』 15장' },
+  rock: { t: '발이 굴러가는 흔들의자 3개', cards: RK_CARDS, seek: RK_SEEK, def: 1, ax: RK_AX, chips: ['요약', '①', '②', '③'],
+    fine: '근거: Perry 『Gait Analysis』 3장·4장(발목·발: 3개의 흔들의자)' } };
+function openFootLesson(kind = 'foot') {
+  const L = FP_LESSONS[kind];
   mvReady ??= import('./vendor/model-viewer-4.4.0.min.js').catch(e => { mvReady = null; throw e; });
   exCache(['vendor/model-viewer-4.4.0.min.js', 'assets/exercise3d/timeline.json', 'assets/exercise3d/footpress.glb', 'assets/exercise3d/footsole.glb']);
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches, o = document.createElement('div');
-  o.id = 'lessonOv'; o.setAttribute('role', 'dialog'); o.setAttribute('aria-modal', 'true'); o.setAttribute('aria-label', '걸을 때 발바닥에서 일어나는 일');
+  o.id = 'lessonOv'; o.setAttribute('role', 'dialog'); o.setAttribute('aria-modal', 'true'); o.setAttribute('aria-label', L.t);
   const VIEW = { in: '90deg 100deg auto', out: '-90deg 95deg auto', sole: '-12deg 180deg auto' };   // 발바닥: 바로 아래에서 위로, 발 길이 방향이 세로(뒤꿈치 아래·엄지 오른쪽, 2D 요약 그림과 같은 방향)
-  o.innerHTML = `<div class="dsheet lesson"><div class="lhead"><div><div class="sub" style="font-size:.75rem">걸음 수업</div><h3>걸을 때 발바닥에서 일어나는 일</h3></div><button class="lx" data-lx="close" aria-label="닫기">✕</button></div>
+  o.innerHTML = `<div class="dsheet lesson"><div class="lhead"><div><div class="sub" style="font-size:.75rem">걸음 수업</div><h3>${L.t}</h3></div><button class="lx" data-lx="close" aria-label="닫기">✕</button></div>
     <div class="fpbox"><model-viewer src="assets/exercise3d/footpress.glb" alt="오른쪽 무릎 아래 뼈와 근육 3D 모형. 한 발로 디디는 동안 일하는 근육이 진해지고, 바닥의 파란 점이 체중이 실리는 자리를 따라가요" camera-controls touch-action="pan-y" disable-pan interaction-prompt="none"
-      camera-orbit="${VIEW.in}" max-camera-orbit="auto 180deg auto" field-of-view="26deg" min-field-of-view="10deg" exposure="1.05" environment-image="neutral" ${reduce ? '' : 'autoplay'}></model-viewer>
-      <div class="d3bar"><span>${[['in', '안쪽'], ['out', '바깥쪽'], ['sole', '발바닥']].map(([v, n]) => `<button class="chip" data-fv="${v}" aria-pressed="${v === 'in'}">${n}</button>`).join('')}</span><button class="chip" data-fx="play">${reduce ? '▶ 움직임 보기' : '❚❚ 멈춤'}</button></div></div>
-    <div class="exchips" role="tablist" aria-label="단계">${['요약', '①', '②', '③', '④'].map((n, i) => `<button class="chip" role="tab" data-fi="${i}" aria-selected="${i === 0}" aria-pressed="${i === 0}">${n}</button>`).join('')}</div>
-    <div class="fpcards">${FP_CARDS.map((c, i) => `<section class="card fpcard" data-card="${i}" aria-label="${i ? `${'①②③④'[i - 1]} 단계` : '요약'}">${c}</section>`).join('')}</div>
-    <p class="lfine">3D 모형: Human Base Meshes(CC0) · BodyParts3D · Z-Anatomy 뼈·근육(CC BY-SA)으로 만듦 · <a href="#" data-bonesrc>출처 보기 ›</a><br>근거: Perry 『Gait Analysis』 2장·4장(그림 4.18) · Neumann 『Kinesiology』 15장 · 정진우 『그림으로 보는 근골격해부학』 161쪽 · 그림은 위치를 나타낸 근사예요 · 일반적인 걸음 정보이며 진료를 대신하지 않아요</p></div>`;
+      camera-orbit="${VIEW.in}" max-camera-orbit="auto 180deg auto" field-of-view="26deg" min-field-of-view="10deg" exposure="1.05" environment-image="neutral" ${reduce ? '' : 'autoplay'}>${L.ax ? `<div slot="hotspot-ax" class="fpax" data-position="${L.ax[1]}" hidden><svg viewBox="0 0 44 44" aria-hidden="true"><circle cx="22" cy="22" r="4.5" fill="none" stroke="#444" stroke-width="3"/><path d="M8 28 A15 15 0 1 1 30 35" fill="none" stroke="#444" stroke-width="3" stroke-linecap="round"/><path d="M25 38 L32 35 L28 29" fill="none" stroke="#444" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div>` : ''}</model-viewer>
+      <div class="d3bar"><span>${L.views ? [['in', '안쪽'], ['out', '바깥쪽'], ['sole', '발바닥']].map(([v, n]) => `<button class="chip" data-fv="${v}" aria-pressed="${v === 'in'}">${n}</button>`).join('') : ''}</span><button class="chip" data-fx="play">${reduce ? '▶ 움직임 보기' : '❚❚ 멈춤'}</button></div></div>
+    <div class="exchips" role="tablist" aria-label="단계">${L.chips.map((n, i) => `<button class="chip" role="tab" data-fi="${i}" aria-selected="${i === 0}" aria-pressed="${i === 0}">${n}</button>`).join('')}</div>
+    <div class="fpcards">${L.cards.map((c, i) => `<section class="card fpcard" data-card="${i}" aria-label="${i ? `${'①②③④'[i - 1]} 단계` : '요약'}">${c}</section>`).join('')}</div>
+    <p class="lfine">3D 모형: Human Base Meshes(CC0) · BodyParts3D · Z-Anatomy 뼈·근육(CC BY-SA)으로 만듦 · <a href="#" data-bonesrc>출처 보기 ›</a><br>${L.fine} · 그림은 위치를 나타낸 근사예요 · 일반적인 걸음 정보이며 진료를 대신하지 않아요</p></div>`;
   document.body.append(o);
   for (const el of [document.querySelector('main'), $('tabbar')]) el.inert = true;
-  const mv = o.querySelector('model-viewer'), cards = o.querySelector('.fpcards'), playB = o.querySelector('[data-fx=play]');
+  const mv = o.querySelector('model-viewer'), cards = o.querySelector('.fpcards'), playB = o.querySelector('[data-fx=play]'), ax = o.querySelector('.fpax');
   let musM = {}, tick = 0, cur = 0, resume = null;
   // 발바닥 보기는 발만 든 따로 파일(footsole.glb: 발은 보행 주기 20%로 고정, 점·점선만 움직임, 바닥 판 없음, 디자인 팀). 바꿀 때 지금 순간과 재생 상태를 이어 감
   mv.addEventListener('load', async () => { musM = exFixMats(mv);
     if (resume) { const r = resume; resume = null; seek(r.fr);
       const co = mv.cameraOrbit; mv.cameraOrbit = '0deg 90deg auto'; await mv.updateComplete; mv.cameraOrbit = co; await mv.updateComplete; mv.jumpCameraToGoal();   // 새 파일을 불러오면 카메라가 처음 각도로 돌아가는데 같은 값은 다시 넣어도 안 바뀌어서 한 번 다른 값을 거쳐 넣음
       if (!r.paused) setTimeout(() => mv.play(), 250); }
-    else if (reduce || cur) seek(FP_SEEK[cur || 3]); });   // 다 불러오기 전에 고른 카드도 그 순간으로
+    else if (reduce || cur) seek(L.seek[cur || L.def]); });   // 다 불러오기 전에 고른 카드도 그 순간으로
   mvReady.catch(() => { o.querySelector('.fpbox').innerHTML = '<p class="sub" style="text-align:center;padding:24px 8px">인터넷에 연결되면 3D로 볼 수 있어요</p>'; });
   exTimeline().then(TL => {                                                 // 근육 색: 그 순간 일하는 근육만 진하게 (운동 상세와 같은 색)
     const tl = TL.footpress; if (!tl || !o.isConnected) return;
@@ -2848,24 +2829,26 @@ function openFootLesson() {
     cur = i;
     o.querySelectorAll('[data-fi]').forEach(c => { c.setAttribute('aria-pressed', +c.dataset.fi === i); c.setAttribute('aria-selected', +c.dataset.fi === i); });
     if (!fromScroll) cards.scrollTo({ left: cards.children[i].offsetLeft - cards.offsetLeft, behavior: reduce ? 'auto' : 'smooth' });
-    if (FP_SEEK[i] != null) { mv.pause(); playB.textContent = '▶ 이어서 보기'; seek(FP_SEEK[i]); }
+    if (L.seek[i] != null) { mv.pause(); playB.textContent = '▶ 이어서 보기'; seek(L.seek[i]); }
+    if (ax) { ax.hidden = !L.ax[i]; if (L.ax[i]) mv.updateHotspot({ name: 'hotspot-ax', position: L.ax[i] }); }   // 축은 그 순간에 멈춘 동안만
   }
   let st = 0;
   cards.addEventListener('scroll', () => { clearTimeout(st); st = setTimeout(() => { const i = Math.round(cards.scrollLeft / cards.clientWidth); if (i !== cur) pick(i, true); }, 120); });
-  const close = () => { clearInterval(tick); for (const el of [document.querySelector('main'), $('tabbar')]) el.inert = false; o.remove(); $('lessonCard').querySelector('[data-foot]')?.focus(); };
+  const close = () => { clearInterval(tick); for (const el of [document.querySelector('main'), $('tabbar')]) el.inert = false; o.remove(); $('lessonCard').querySelector(`[data-foot="${kind}"]`)?.focus(); };
   o.addEventListener('click', e => {
     const fi = e.target.closest('[data-fi]'); if (fi) return pick(+fi.dataset.fi);
     const fv = e.target.closest('[data-fv]');
     if (fv) { const src = `assets/exercise3d/${fv.dataset.fv === 'sole' ? 'footsole' : 'footpress'}.glb`;
       if (!mv.getAttribute('src').endsWith(src.split('/').pop())) { resume = { fr: Math.round((mv.currentTime || 0) * 10), paused: mv.paused }; mv.setAttribute('src', src); }   // 속성으로 바꿔야 getAttribute도 따라 바뀜
       mv.setAttribute('camera-orbit', VIEW[fv.dataset.fv]); mv.cameraOrbit = VIEW[fv.dataset.fv]; o.querySelectorAll('[data-fv]').forEach(c => c.setAttribute('aria-pressed', c === fv)); return; }
-    if (e.target.closest('[data-fx=play]')) { if (mv.paused) { mv.play(); playB.textContent = '❚❚ 멈춤'; } else { mv.pause(); playB.textContent = '▶ 이어서 보기'; } return; }
+    const fl = e.target.closest('[data-flink]'); if (fl) { close(); return openFootLesson(fl.dataset.flink); }   // 두 수업 '함께 보기'
+    if (e.target.closest('[data-fx=play]')) { if (mv.paused) { mv.play(); playB.textContent = '❚❚ 멈춤'; if (ax) ax.hidden = true; } else { mv.pause(); playB.textContent = '▶ 이어서 보기'; } return; }
     if (e.target === o || e.target.closest('[data-lx=close]')) close();
   });
   o.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
   o.querySelector('[data-lx=close]').focus();
 }
-$('lessonCard').addEventListener('click', e => { if (e.target.closest('[data-foot]')) openFootLesson(); });
+$('lessonCard').addEventListener('click', e => { const b = e.target.closest('[data-foot]'); if (b) openFootLesson(b.dataset.foot); });
 
 
 // ── 뛰기 전 몸 풀기 · 뛴 뒤 정리 운동 판 (디자인 팀 10/29, 법률 검토 22번 통과) ──
