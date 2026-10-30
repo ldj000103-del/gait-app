@@ -893,7 +893,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v205';
+const APP_VERSION = 'v206';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -1968,7 +1968,7 @@ function showRecord(i) {
 
 // ── 영상 분석 (옆·앞·뒤) ──
 // 촬영 전 조건 확인 (디자인 팀 10/29, 교수님 아이디어 ①A): 누르면 켜지고 꺼지는 체크 5개(처음엔 모두 꺼짐, 방향마다 지난 선택 기억)
-// 근거: Perry 『보행 분석』 17장 362쪽(걷는 길과 직각), 365쪽(초당 60장), 20장 439~440쪽(양 끝 2m 여유, 연습 한 번) — refs/video_shooting_conditions.md
+// 근거: 아래 VSRC (Perry 17장·20장 + 휴대폰 촬영 연구) — refs/video_shooting_conditions.md
 const VCHECK = {
   side: ['휴대폰을 엉덩이 높이에 가로로 고정했어요 (줌 없이)', '걷는 길과 직각으로, 3~4m 떨어져 있어요', '화면 양 끝보다 2m 앞에서 출발해 2m 지나서 멈춰요',
     '밝은 곳, 몸에 붙는 옷, 화면에 나만 (비교하려면 지난번과 같게)', '찍기 전에 연습으로 한 번 걸어 봤어요'],
@@ -1976,6 +1976,12 @@ const VCHECK = {
     '밝은 곳, 몸에 붙는 옷, 화면에 나만 (비교하려면 지난번과 같게)', '찍기 전에 연습으로 한 번 걸어 봤어요'],
   back: ['휴대폰을 엉덩이 높이에 가로로 고정했어요 (줌 없이)', '휴대폰 바로 앞에서 출발해요', '6~8m 멀어지며 평소처럼 걸어가요',
     '밝은 곳, 몸에 붙는 옷, 화면에 나만 (비교하려면 지난번과 같게)', '찍기 전에 연습으로 한 번 걸어 봤어요'] };
+// 체크 항목별 근거 (디자인 팀 10/30, refs/video_shooting_conditions.md): [보기(s 옆·f 앞·b 뒤), 항목, 출처]. 휴대폰 연구는 PubMed 초록 기준
+const VSRC = [['s', '걷는 길과 직각으로', 'Perry 17장 362쪽'], ['s', '화면 양 끝 2m 여유', 'Perry 20장 439쪽'], ['sfb', '연습으로 한 번 걷기', 'Perry 20장 440쪽'],
+  ['sfb', '줌 없이, 화면에 나만', 'Arumugam 외 2025 (Methods Protoc) · Sensors 2025'], ['sfb', '밝은 곳', 'J Biomech 2026 (113343 · 113633)'],
+  ['sfb', '몸에 붙는 옷', 'J Biomech 2026 (113349) · PeerJ 2025'], ['sfb', '비교하려면 지난번과 같게', '위 옷·밝기 연구 + Pérez-de la Cruz 2026 (Sensors, 다른 날 다시 재면 7~17° 차이)'],
+  ['f', '앞모습은 카메라 쪽으로 걸어오기', 'Wang 외 2025 (J Biomech)'],
+  ['s', '휴대폰 엉덩이 높이, 옆 3~4m', '연구 근거를 찾지 못해 관례로 정했어요'], ['fb', '휴대폰 엉덩이 높이, 앞·뒤 6~8m', '연구 근거를 찾지 못해 관례로 정했어요']];
 // 위에서 본 배치 (옆 방향만): 걷는 길 점선, 화면에 담기는 곳(연초록), 양 끝 2m 여유, 휴대폰 → 길 수직 3~4m
 const VFIG = `<svg viewBox="0 0 340 150" role="img" aria-label="위에서 본 촬영 배치: 휴대폰을 걷는 길과 직각으로 3~4m 떨어뜨리고, 화면에 담기는 곳 양 끝으로 2m씩 더 걸어요">
   <rect x="100" y="22" width="140" height="28" rx="6" fill="var(--accent)" opacity=".16"/><text x="170" y="16" font-size="11" text-anchor="middle" fill="currentColor">화면에 담기는 곳</text>
@@ -1987,6 +1993,7 @@ const VFIG = `<svg viewBox="0 0 340 150" role="img" aria-label="위에서 본 �
 function showVGuide() {
   const v = $('vview').value, on = store.get('vchecks', {})[v] ?? [];
   $('vfig').innerHTML = v === 'side' ? VFIG : '';
+  $('vsrcList').innerHTML = VSRC.filter(([w]) => w.includes(v[0])).map(([, n, src]) => `<li>${n}: ${src}</li>`).join('');   // 그 보기에 있는 항목만
   $('vguide').innerHTML = VCHECK[v].map((x, i) => `<li><label><input type="checkbox" data-vc="${i}"${on[i] ? ' checked' : ''}><span>${x}</span></label></li>`).join('');
   document.querySelectorAll('[data-cloth]').forEach(c => c.setAttribute('aria-pressed', c.dataset.cloth === store.get('vcloth', null)));
 }

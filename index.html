@@ -53,6 +53,7 @@
   summary { cursor:pointer; color:var(--accent); font-weight:600; }
   details li { margin:4px 0; }
   details.weekInfo { margin-top:2px; font-size:.8125rem; } details.weekInfo > summary { cursor:pointer; list-style:none; padding:4px 0; } details.weekInfo > summary::-webkit-details-marker { display:none; }
+  details.vsrc > summary { font-size:.8125rem; padding:4px 0; list-style:none; } details.vsrc > summary::-webkit-details-marker { display:none; } details.vsrc .sub { font-size:.75rem; margin:2px 0; } details.vsrc ul { padding-left:18px; }   /* 촬영 체크 근거: 항목별 (디자인 팀 10/30) */
   details.howto { margin:8px 0 4px; } details.howto > summary { font-weight:600; color:var(--accent); cursor:pointer; padding:6px 0; }
   .warn { background:color-mix(in srgb, var(--o) 9%, transparent); border-left:3px solid var(--o);
           padding:10px 12px; border-radius:var(--r-sm); margin:8px 0; font-size:.875rem; }
@@ -612,7 +613,8 @@
     <div class="vcloth" role="group" aria-label="옷"><span class="sub">옷</span><button class="chip" data-cloth="tight">몸에 붙는 옷</button><button class="chip" data-cloth="loose">헐렁한 옷</button></div>
     <label class="btnlike" for="vcam">촬영하기</label>
     <label class="textlike" for="vfile">갤러리에서 고르기</label>
-    <p class="sub" style="font-size:.75rem;margin:4px 0 0">체크하지 않아도 찍을 수 있어요 · 체크한 내용은 결과에 같이 적혀요<br>근거: 페리 『보행 분석』 17장 362·365쪽, 20장 439~440쪽</p>
+    <p class="sub" style="font-size:.75rem;margin:4px 0 0">체크하지 않아도 찍을 수 있어요 · 체크한 내용은 결과에 같이 적혀요</p>
+    <details class="howto vsrc" id="vSrc"><summary>근거 보기 ›</summary><ul class="sub" id="vsrcList"></ul><p class="sub">휴대폰 연구는 PubMed 초록 기준으로 정리했어요.</p></details>
     <details class="howto" id="vSolo"><summary>혼자라면 폰 세우는 법</summary><p class="sub">휴대폰을 <b>허리 높이</b>(의자·선반·책을 쌓은 위)에 <b>가로로</b> 세우고, 넘어지지 않게 물건으로 받쳐요. 촬영을 먼저 누른 뒤 걷는 길에서 3~4m 떨어진 곳으로 가서, 화면 끝에서 끝까지 지나가며 평소처럼 걸어요. 다 걸으면 돌아와 촬영을 멈춰요.</p></details>
     <details class="howto" id="vHelper"><summary>가족이 찍어 주기</summary><p class="sub">찍어 주는 사람은 걷는 길에서 <b>3~4m 떨어진 옆</b>에 서서 휴대폰을 <b>허리 높이로, 가로로</b> 들어요. 걷는 사람을 따라 몸을 돌리지 말고 제자리에서 휴대폰을 고정해요. 머리부터 발끝까지 화면에 담기게 해요.</p></details>
     <input id="vcam" type="file" accept="video/*" capture="environment" class="hidden">
