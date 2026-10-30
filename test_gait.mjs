@@ -183,3 +183,21 @@ console.log('모든 점검 통과');
   const one = analyzeWalk(fakeWalk({ cadence: 113, walkS: 300, position: 'pocket' }), { position: 'pocket' });   // 쭉 걷기는 그대로
   assert.ok(Math.abs(one.steps - 565) <= 6 && one.walkSegs === 1, `쭉 걷기 ${one.steps}`);
 }
+// 빠르기가 다른 구간 (검수팀 10/30): 117로 3분 → 서기 40초 → 95로 3분 → 서기 → 117로 2분. 가장 긴 구간이 95여도 117 구간을 그 빠르기로 더함
+{
+  let r = 5; const rand = () => ((r = (r * 16807) % 2147483647) / 2147483647 - 0.5);
+  const hz = 60, samples = []; let t0 = 0, want = 0;
+  for (const [cad, dur] of [[117, 180], [0, 40], [95, 190], [0, 40], [117, 120]]) {
+    for (let i = 0; i < dur * hz; i++) {
+      let a = 9.81 + rand() * 0.15;
+      if (cad) { const k = (i / hz) / (60 / cad), n = Math.floor(k), ph = k - n; a += (n % 2 ? 0.4 : 3.2) * Math.exp(-(((ph - 0.15) / 0.07) ** 2)) + 2.0 * Math.sin(Math.PI * k) + rand() * 0.4; }
+      samples.push({ t: (t0 + i / hz) * 1000, x: 0, y: a, z: 0 });
+    }
+    t0 += dur; want += cad * dur / 60;
+  }
+  const res = analyzeWalk(samples, { position: 'pocket' });
+  console.log(`빠르기 섞기: 케이던스 ${res.cadence.toFixed(1)}(가장 긴 구간), 걸음 ${res.steps} (실제 ${Math.round(want)}), 구간 ${res.walkSegs}개`);
+  assert.ok(Math.abs(res.cadence - 95) / 95 < 0.02, `케이던스 ${res.cadence}`);
+  assert.ok(Math.abs(res.steps - want) / want < 0.03, `걸음 ${res.steps} / ${want}`);
+  assert.equal(res.walkSegs, 3);
+}
