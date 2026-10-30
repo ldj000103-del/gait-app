@@ -100,7 +100,7 @@ const GRADE = {
 // 오래 걷지 않을 때 (민원팀 10/28): 걷지 않는 상태가 IDLE_ASK_S 이어지면 물음, 물은 뒤 IDLE_END_S 동안 답이 없으면 저장하고 끝냄, MAX_REC_S가 되면 저장하고 끝냄
 // 설치형 앱은 GaitService.java가 같은 값으로 화면이 꺼져도 처리, 웹은 화면이 켜져 있는 동안만. 데이터분석팀이 조정
 const IDLE_ASK_S = 15 * 60, IDLE_END_S = 15 * 60, MAX_REC_S = 3 * 3600, STILL_SD = 0.6;   // STILL_SD: 5초 가속도 크기 흔들림(m/s²)이 이보다 작으면 걷지 않음
-let pendingEnd = null;                                                   // 이번 측정이 자동으로 끝난 이유 → 저장할 기록의 warnings에 붙임
+let pendingEnd = null, metroStart = 0;                                 // metroStart: 측정을 시작할 때 켜져 있던 박자 소리 빠르기                                                   // 이번 측정이 자동으로 끝난 이유 → 저장할 기록의 warnings에 붙임
 const WARN = {
   idleEnd: `오래 움직임이 없어 자동으로 끝냈어요. ${IDLE_ASK_S / 60}분 넘게 걷지 않아 물었고 ${IDLE_END_S / 60}분 동안 답이 없어, 그때까지 잰 기록으로 분석했어요.`,
   maxEnd: `측정이 ${MAX_REC_S / 3600}시간이 되어 자동으로 끝냈어요. 앞 ${MAX_REC_S / 3600}시간까지 잰 기록으로 분석했어요.`,
@@ -116,6 +116,7 @@ const WARN = {
 const canRelab = r => RELAB.includes(r.activity ?? 'walk') && !r.autoRec;
 const relabBtn = (r, cls = 'relab') => canRelab(r) ? `<button class="textlike ${cls}" data-relab="${r.date}">활동 바꾸기 ›</button>` : '';
 const resTitle = (r, title) => `<div class="restitle"><h2>${title}</h2>${relabBtn(r)}</div>`;
+const metroNote = r => r.metro && r.cadence ? `<div class="sub" style="margin:0 0 8px">박자 소리 ${r.metro}걸음/분을 켜고 쟀어요 · 잰 케이던스 ${Math.round(r.cadence)} (차이 ${Math.round(r.cadence) - r.metro > 0 ? '+' : ''}${Math.round(r.cadence) - r.metro})</div>` : '';   // 박자에 맞춰 걸었다면 측정이 얼마나 맞는지 볼 수 있음
 const warnHtml = r => r.warnings.map(w => `<div class="warn">${w === 'paused' && r.diag?.gapS >= 1 ? `<b>중간에 ${Math.round(r.diag.gapS)}초 끊겼어요.</b> ` : ''}${WARN[w]}${w === 'paused' && !Native ? ' <a href="install.html">설치형 앱 받기</a>' : ''}${w === 'walkLike' || w === 'running' ? ' ' + relabBtn(r, 'relabLink') : ''}</div>`).join('');
 
 // ── 내 정보 ──
@@ -287,7 +288,7 @@ async function deleteRec(date) {
       return;
     }
   }
-  hist.splice(i, 1); store.set('history', hist); rawDel(date).catch(() => {});
+  hist.splice(i, 1); rePractice(hist, date); store.set('history', hist); rawDel(date).catch(() => {});   // 지운 게 그날 연습이었으면 다음 걷기가 연습
   closePick();
   if (shownDate === date) { shownDate = null; route = null; $('result').classList.add('hidden'); $('vresult').classList.add('hidden'); }   // 지운 기록 화면은 닫음
   if (!hist.length) $('histBody').innerHTML = '아직 기록이 없어요.';
@@ -443,6 +444,7 @@ $('start').addEventListener('click', async () => {
   if (useGps) startGps(); else gpsPts = [];                                 // 위치 권한 창은 여기서 뜸 (카운트다운 동안 GPS가 잡힘)
   try { wakeLock = await navigator.wakeLock?.request('screen'); } catch { wakeLock = null; }
   }
+  metroStart = metroIv ? metroBpm() : 0;
   document.body.classList.add('recording');                                 // 측정 중엔 탭 막대를 숨겨 다른 화면으로 못 넘어가게 (앱도 같이)
   samples = []; $('setup').classList.add('hidden'); $('result').classList.add('hidden'); $('rec').classList.remove('hidden');
   $('recTitle').textContent = '3초 안에 주머니에 넣으세요';
@@ -816,7 +818,9 @@ async function rawGet(key) {
 }
 const keepHist = hist => { let m = 0, a = 0; return hist.filter(h => h.autoRec ? a++ < 200 : m++ < 200); };   // 자동 기록은 따로 200개 (법률 29번: 직접 잰 기록이 자동 기록에 밀려 지워지지 않게)
 function saveRec(rec, hist, demo, raw) {
-  if (pendingEnd) { rec.warnings = [...(rec.warnings ?? []), pendingEnd]; pendingEnd = null; }   // 결과·기록·익명 전송에 '자동으로 끝냄'
+  if (pendingEnd) { rec.warnings = [...(rec.warnings ?? []), pendingEnd]; pendingEnd = null; }
+  if (metroStart && metroIv) rec.metro = metroBpm();                        // 박자 소리를 켜고 시작해 끝까지 켜져 있었음 (중간에 끄거나 앱이 다시 열리면 안 남김)
+  metroStart = 0;   // 결과·기록·익명 전송에 '자동으로 끝냄'
   if (raw && !demo && !raw[0]?.mag) rawPut(rec.date, raw.map(p => [Math.round(p.t * 10) / 10, +p.x.toFixed(3), +p.y.toFixed(3), +p.z.toFixed(3)])).catch(() => {});
   hist.unshift(rec);
   hist.forEach((h, i) => { if (i >= ROUTE_KEEP) delete h.route; });     // ponytail: 휴대폰 저장 공간(약 5MB) 때문에 최근 30개만. 더 필요하면 IndexedDB로
@@ -835,7 +839,7 @@ function send(r) {
     cadence: num(r.cadence, 1), steps: r.steps ?? '', activeS: num(r.activeS, 1), regularity: num(r.regularity, 2),
     speed: r.speed ? +r.speed.toFixed(2) : '', stepLength: r.stepLength ? +r.stepLength.toFixed(2) : '', distance: r.distance ? +r.distance.toFixed(1) : '',
     // ponytail: 시트 칸을 늘리려면 Apps Script 재배포가 필요해서 거리 출처(gps)는 warnings 칸에 붙여 보냄
-    position: r.position, practice: r.practice, warnings: [r.activity !== 'walk' && r.activity, r.autoRec && 'auto', ...r.warnings, r.distSource === 'gps' && 'gps', r.sd != null && `sd${r.sd.toFixed(1)}`,   // 흔들림 세기(m/s²): 걷기·달리기 구분 기준 RUN_SD를 실제 기록으로 보정하려고
+    position: r.position, practice: r.practice, warnings: [r.activity !== 'walk' && r.activity, r.autoRec && 'auto', ...r.warnings, r.distSource === 'gps' && 'gps', r.metro && `metro${r.metro}`, r.sd != null && `sd${r.sd.toFixed(1)}`,   // 흔들림 세기(m/s²): 걷기·달리기 구분 기준 RUN_SD를 실제 기록으로 보정하려고
       r.diag && `d:${r.diag.src}/${r.diag.durS.toFixed(0)}s/${r.diag.hz.toFixed(0)}hz/gap${r.diag.gapS.toFixed(1)}/gps${r.diag.gpsGood}`].filter(Boolean).join(' '),
     ageGroup: +age ? Math.floor(+age / 10) * 10 : '', sex: sex || '',
     os: osName(),
@@ -909,7 +913,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v214';
+const APP_VERSION = 'v215';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -1047,7 +1051,7 @@ function render(r, prev) {
   let html = resTitle(r, `걷기 결과${r.practice ? ' <span class="badge b-n">연습</span>' : ''}`);
   if (r.autoRec) html += '<div class="warn">자동으로 잰 기록이에요. 휴대폰을 둔 곳(주머니·가방·손)을 모르고 짐작해서, 직접 잰 측정보다 덜 정확할 수 있어요. 걷기를 알아채기까지 몇 초 걸려 걸음 수가 조금 적게 잡혀요.</div>';
   if (r.practice) html += `<div class="warn">오늘 첫 측정은 연습으로 저장했어요. 처음 걸을 때는 보통 7% 느리게 나와요(Perry 20장). 한 번 더 걸어 주세요.</div>`;
-  html += autoNote(r) + warnHtml(r);
+  html += autoNote(r) + metroNote(r) + warnHtml(r);
   const gps = r.distSource === 'gps';
   const short = !gps && r.distance < 20;                                   // 짧으면 출발·정지 구간 비중이 커져 느리게 나옴
   const dGrade = short || (gps && r.medAcc > 10) ? 'o' : 'y';
@@ -1205,7 +1209,7 @@ function renderRun(r, prev) {
   const c = r.cadence;
   const easy = r.activity === 'easyrun';
   const cGrade = r.warnings.includes('hand') || r.warnings.includes('irregular') ? 'o' : 'y';
-  const head = resTitle(r, `${easy ? '천천히 달리기' : '러닝'} 결과`) + autoNote(r) + warnHtml(r)
+  const head = resTitle(r, `${easy ? '천천히 달리기' : '러닝'} 결과`) + autoNote(r) + metroNote(r) + warnHtml(r)
     + topCards(r, { label: '케이던스', value: c.toFixed(0), unit: '걸음/분', grade: cGrade, sub: prev ? `기준선 없음 · 지난 러닝보다 ${signed(c - prev.cadence)}` : '기준선 없음 · 내 기록의 변화만 봐요',
       stats: [...timeStats(r), { icon: 'dist', value: r.distance && (r.distance / 1000).toFixed(2), label: '거리 km' },
         { icon: 'pace', value: r.speed && paceText(r.speed), label: '페이스 /km' }, { icon: 'steps', value: r.steps, label: '걸음' }] }, [
@@ -1990,6 +1994,11 @@ function renderAny(hist, i) {
 // 이 휴대폰에 남은 센서 원본(최근 RAW_KEEP개)으로 고른 활동 기준으로 다시 계산. 원래 기록은 h.orig에 그대로 보관 → '되돌리기'
 // 익명 결과: 원래 보낸 행은 두고, 바꾼 값을 새 행으로 보냄(warnings에 relabel:원래 접수번호). 다시 바꾸거나 되돌리면 앞서 바꿔 보낸 행은 삭제 요청
 // 12분 달리기·계단·영상은 측정 방식이 달라 바꾸지 않음. GPS 거리는 다시 못 재서 그때 속도 그대로 두고 걸음 길이·거리만 새 값으로
+// 그날 연습 = 직접 잰 걷기 중 가장 이른 하나 (Perry 20장). 활동 바꾸기·기록 지우기 뒤에 다시 정함 (검수팀). 이미 보낸 다른 기록의 practice는 다시 보내지 않음
+function rePractice(hist, date) {
+  const day = new Date(date).toLocaleDateString('sv-SE'), walks = hist.filter(x => !x.autoRec && (x.activity ?? 'walk') === 'walk' && new Date(x.date).toLocaleDateString('sv-SE') === day);
+  walks.forEach(x => { x.practice = x === walks[walks.length - 1]; });     // 기록은 최신 순이라 마지막이 가장 이름
+}
 const RELAB = ['walk', 'run', 'slowrun', 'easyrun'], RELAB_KEEP = ['idleEnd', 'maxEnd', 'paused'];   // 측정 상황 경고는 다시 계산해도 그대로
 function openRelabel(date) {
   const h = store.get('history', []).find(x => x.date === date); if (!h) return;
@@ -2010,7 +2019,7 @@ async function relabel(date, act) {
     const rows = await rawGet(date);
     if (!rows) return toast('이 기록은 센서 원본이 없어 바꿀 수 없어요');   // 원본은 최근 측정 몇 개만 이 휴대폰에 남음
     const data = rows.map(([t, x, y, z]) => ({ t, x, y, z })), position = base.position;
-    const keep = { date: base.date, start: base.start, position, ctx: h.ctx, hr: h.hr,   // 측정 뒤에 붙인 메모·심박은 지금 값 그대로 (검수팀)
+    const keep = { date: base.date, start: base.start, position, ctx: h.ctx, hr: h.hr, metro: base.metro,   // 측정 뒤에 붙인 메모·심박은 지금 값 그대로 (검수팀)
       auto: base.auto?.pos ? { pos: base.auto.pos } : {}, route: h.route, diag: base.diag, diagHtml: base.diagHtml, autoRec: base.autoRec };
     const kw = (base.warnings ?? []).filter(w => RELAB_KEEP.includes(w));
     if (act === 'slowrun') {
@@ -2035,8 +2044,7 @@ async function relabel(date, act) {
     if (base.receipt && ok && ENDPOINT) try { next.receipt = send({ ...next, warnings: [...next.warnings, `relabel:${base.receipt}`] }); } catch {}
   }
   hist[i] = next;
-  { const day = new Date(date).toLocaleDateString('sv-SE'), walks = hist.filter(x => !x.autoRec && (x.activity ?? 'walk') === 'walk' && new Date(x.date).toLocaleDateString('sv-SE') === day);   // 그날 연습 = 가장 이른 걷기 하나 (Perry 20장, 검수팀)
-    walks.forEach(x => { x.practice = x === walks[walks.length - 1]; }); }   // 기록은 최신 순이라 마지막이 가장 이름. 이미 보낸 다른 기록의 practice는 다시 보내지 않음
+  rePractice(hist, date);
   store.set('history', hist);
   const past = $('result').textContent.includes('지난 기록 다시 보기');
   shownDate = date; route = next.route ?? null;
@@ -2579,6 +2587,7 @@ if (new URLSearchParams(location.search).has('demo')) {
       const north = Math.min(Math.max(t - 3, 0), walkS) * 1.3 + (Math.random() - .5) * 10;
       g.push({ t: t * 1000, lat: 37.5 + north / 111320, lon: 127 + (Math.random() - .5) * 10 / 88300, acc: 6 });
     }
+    metroStart = metroIv ? metroBpm() : 0;                               // 시작 버튼과 같게 (박자 소리 기록 확인용)
     finish(s, true, g);
   });
 }
