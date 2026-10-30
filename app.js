@@ -893,7 +893,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v208';
+const APP_VERSION = 'v209';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -2740,6 +2740,7 @@ if (history.state?.sub || history.state?.pickSheet) history.replaceState(null, '
 // 걸음 수업 판: 발 모형 3D(footpress.glb, 한 주기 8초) + 주기에 맞는 자막·단계 막대, 단계 버튼은 그 순간으로 (디자인 팀 10/28·10/30, 법률 검토 20번). 홈 '배워 보기' 카드 그림(assets/learn 50장)도 같은 모형
 // 투명 WebP를 캔버스에 그려 밝은·어두운 화면 모두 바탕이 자연스럽고 사파리에서도 재생됨. 이용자 측정값과는 연결하지 않음
 const LESSON_N = 50, LESSON_MS = 111;                                      // 한 걸음 약 5.6초 (근육 영상 시안과 같은 빠르기)
+const MV_TS = 10000 / (LESSON_N * LESSON_MS);                              // 발 모형 3D 빠르기(time-scale 속성): 모형 한 주기 100프레임(10fps, 10초)을 홈 카드 그림 한 주기(50장 × 111ms ≈ 5.6초)에 맞춤 → 약 1.8배, 입각기만 도는 수업은 약 3.3초 (사용자 10/30). 모형을 불러온 뒤(load)에 넣어야 함: 그 전에 넣으면 두 번째로 연 판부터는 1로 남음(time-scale 속성은 안 읽음)
 const LESSON_SUB = [[0, '① 뒤꿈치 흔들의자 · 정강이 앞 근육이 발이 ‘탁’ 떨어지지 않게 천천히 내려놓아요'],
   [12, '② 발목 흔들의자 · 가자미근이 정강이가 너무 빨리 넘어가지 않게 붙잡아요'],
   [31, '③ 앞발 흔들의자 · 뒤꿈치가 들리며 몸이 앞으로 떨어져요(걸음에서 가장 강한 추진력). 종아리 근육은 정강이가 너무 빨리 넘어가지 않게 늦춰요'],   // Perry 3장: 추진력은 몸무게가 받침 밖으로 떨어지며 생김, 근육은 늦춤
@@ -2763,9 +2764,8 @@ function openLesson() {
   for (const el of [document.querySelector('main'), $('tabbar')]) el.inert = true;
   const mv = o.querySelector('model-viewer'), btn = o.querySelector('[data-lx=play]');
   let musM = {}, tick = 0, shownSub = -1, shownPh = -1, playing = !reduce, at = 1;   // at: 고른 단계 순간 (다 불러오기 전에 눌러도 그 순간으로)
-  mv.timeScale = 1.25;                                                      // 한 주기 100프레임(10fps) → 8초. 카메라는 한 주기 동안 다리가 앞뒤로 옮겨 가는 범위 가운데에 고정 (자동 맞춤은 첫 자세만 봐서 흔들기 때 발끝이 잘림)
   const setBtn = () => { btn.textContent = playing ? '❚❚ 일시정지' : '▶ 재생'; };
-  mv.addEventListener('load', () => { musM = exFixMats(mv);
+  mv.addEventListener('load', () => { musM = exFixMats(mv); mv.timeScale = MV_TS;
     for (const m of mv.model.materials) if (m.name.startsWith('cop')) { m.setAlphaMode('BLEND'); m.pbrMetallicRoughness.setBaseColorFactor([0, 0, 0, 0]); }   // 발바닥 파란 점·점선은 이 수업에선 숨김
     if (!playing || at > 1) mvSeek(mv, at); });
   mvReady.catch(() => { o.querySelector('.fpbox').innerHTML = '<p class="sub" style="text-align:center;padding:24px 8px">인터넷에 연결되면 3D로 볼 수 있어요</p>'; });
@@ -2874,7 +2874,7 @@ function openFootLesson(kind = 'foot') {
   const mv = o.querySelector('model-viewer'), cards = o.querySelector('.fpcards'), playB = o.querySelector('[data-fx=play]'), ax = o.querySelector('.fpax');
   let musM = {}, tick = 0, cur = 0, resume = null;
   // 발바닥 보기는 발만 든 따로 파일(footsole.glb: 발은 보행 주기 20%로 고정, 점·점선만 움직임, 바닥 판 없음, 디자인 팀). 바꿀 때 지금 순간과 재생 상태를 이어 감
-  mv.addEventListener('load', async () => { musM = exFixMats(mv);
+  mv.addEventListener('load', async () => { musM = exFixMats(mv); mv.timeScale = MV_TS;
     if (resume) { const r = resume; resume = null; seek(r.fr);
       const co = mv.cameraOrbit; mv.cameraOrbit = '0deg 90deg auto'; await mv.updateComplete; mv.cameraOrbit = co; await mv.updateComplete; mv.jumpCameraToGoal();   // 새 파일을 불러오면 카메라가 처음 각도로 돌아가는데 같은 값은 다시 넣어도 안 바뀌어서 한 번 다른 값을 거쳐 넣음
       if (!r.paused) setTimeout(() => mv.play(), 250); }
