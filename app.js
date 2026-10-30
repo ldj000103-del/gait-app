@@ -893,7 +893,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v207';
+const APP_VERSION = 'v208';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -2737,7 +2737,7 @@ document.addEventListener('click', e => { const s = e.target.closest('[data-sub]
 function closeAllSub() { const n = (subOpen ? 1 : 0) + subStack.length; while (subOpen) closeSub(false); if (n && history.state?.sub) history.go(-n); }
 addEventListener('popstate', () => { while (subOpen && history.state?.sub !== subOpen) closeSub(false); });   // 새로고침 전에 남은 다른 {sub} 칸으로 돌아가도 닫히게 (검수팀)
 if (history.state?.sub || history.state?.pickSheet) history.replaceState(null, '');   // 새로고침하면 판·하위 화면은 닫힌 채라 남은 기록 칸을 비움 (뒤로 가기가 한 번 헛돌지 않게)
-// 걸음 수업 판: 발 모형 3D(footpress.glb, 한 주기 8초) + 주기에 맞는 자막·단계 막대, 단계 버튼은 그 순간으로 (디자인 팀 10/28·10/30, 법률 검토 20번). 근육 그림(assets/muscle 50장)은 홈 '배워 보기' 카드만 씀
+// 걸음 수업 판: 발 모형 3D(footpress.glb, 한 주기 8초) + 주기에 맞는 자막·단계 막대, 단계 버튼은 그 순간으로 (디자인 팀 10/28·10/30, 법률 검토 20번). 홈 '배워 보기' 카드 그림(assets/learn 50장)도 같은 모형
 // 투명 WebP를 캔버스에 그려 밝은·어두운 화면 모두 바탕이 자연스럽고 사파리에서도 재생됨. 이용자 측정값과는 연결하지 않음
 const LESSON_N = 50, LESSON_MS = 111;                                      // 한 걸음 약 5.6초 (근육 영상 시안과 같은 빠르기)
 const LESSON_SUB = [[0, '① 뒤꿈치 흔들의자 · 정강이 앞 근육이 발이 ‘탁’ 떨어지지 않게 천천히 내려놓아요'],
@@ -3175,18 +3175,17 @@ $('homeTop').addEventListener('click', e => {
     if (rows.length < 2) showRecord(+p.dataset.pair.split(',')[0]);        // 기록 탭은 최근 20개만 그려서 옛 영상이 없으면 그 기록을 바로 엶
   } else if (l) openDict(+l.dataset.lesson);
 });
-// 홈 '배워 보기' 카드의 걷는 근육 그림: 걸음 수업과 같은 50장, 정강이·발 부분만 잘라 그 장면의 다리 가운데를 따라감 (그림은 고관절 고정이라 다리가 앞뒤로 움직임)
-const LEARN_CX = [374, 369, 358, 342, 327, 311, 296, 280, 264, 248, 231, 215, 198, 182, 166, 150, 134, 118, 103, 92, 81, 86, 91, 96, 98, 105, 112, 126, 140, 154, 168, 183, 197, 210, 222, 236, 248, 262, 288, 319, 340, 348, 354, 360, 366, 370, 374, 375, 374, 374];   // 장면마다 아래 70% 다리의 가운데 x (480px 그림 기준)
-let learnImgs = null, learnK = 10, learnT = 0;
+// 홈 '배워 보기' 카드 그림: 걸음 수업과 같은 발 모형(footpress.glb)을 30초 수업 기본 보기로 렌더한 한 주기 50장(2% 간격, assets/learn), 일하는 근육만 빨강 (디자인 팀 10/30)
+// 다리가 칸 안에 들어오게 렌더해서 그대로 그림. 칸 배경은 연회색 판(#eceeed, 다크에서도 같음)
+let learnImgs = null, learnK = 0, learnT = 0;
 function learnFigDraw() {
   const cv = $('learnFig'), im = learnImgs[learnK]; if (!im.complete || !im.naturalWidth) return;
-  const sh = 343, sw = Math.round(sh * 96 / 116), sx = Math.max(0, Math.min(480 - sw, LEARN_CX[learnK] - sw / 2));   // 위 60px(넓적다리 흐림)은 빼고 상자 비율로
-  const g = cv.getContext('2d'); g.clearRect(0, 0, cv.width, cv.height); g.drawImage(im, sx, 60, sw, sh, 0, 0, cv.width, cv.height);
+  const g = cv.getContext('2d'); g.clearRect(0, 0, cv.width, cv.height); g.drawImage(im, 0, 0, cv.width, cv.height);
 }
 function learnFigStart() {
-  if (!learnImgs) learnImgs = Array.from({ length: LESSON_N }, (_, i) => { const im = new Image(); im.src = `assets/muscle/m${String(i).padStart(2, '0')}.webp`; if (i === 10) im.onload = learnFigDraw; return im; });
+  if (!learnImgs) learnImgs = Array.from({ length: LESSON_N }, (_, i) => { const im = new Image(); im.src = `assets/learn/l${String(i).padStart(2, '0')}.webp`; if (i === 0) im.onload = learnFigDraw; return im; });
   learnFigDraw();
-  if (learnT || matchMedia('(prefers-reduced-motion: reduce)').matches) return;   // 움직임 줄이기 = 20% 장면에 멈춤
+  if (learnT || matchMedia('(prefers-reduced-motion: reduce)').matches) return;   // 움직임 줄이기 = 발뒤꿈치 닿기(0%) 장면에 멈춤
   learnT = setInterval(() => {
     if (!$('learnFig').offsetParent) { clearInterval(learnT); learnT = 0; return; }   // 홈이 안 보이면 멈춤 (홈으로 오면 renderHomeTop이 다시 켬)
     learnK = (learnK + 1) % LESSON_N; learnFigDraw();
