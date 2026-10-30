@@ -893,7 +893,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v212';
+const APP_VERSION = 'v213';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -1069,7 +1069,7 @@ function render(r, prev) {
   html += metric({
     title: '걸음 수', value: r.steps, unit: `걸음 (8초 넘게 이어 걸은 시간 합 ${clock(r.activeS)})`,   // v212부터 걸은 구간을 모두 더함 (검수팀 10/30)
     grade: r.warnings.includes('slow') ? 'o' : 'g',
-    why: ['바지 앞주머니 스마트폰은 실제 보행에서 오차 약 0.5%로 가장 정확했어요.', '허벅지·발목 착용 오차 약 1%, 허리 3%, 손목 15%', '시속 3km 이하로 아주 느리게 걸으면 모든 기기가 걸음을 적게 셀 수 있어요.'],
+    why: ['계산: 8초 넘게 이어 걸은 구간을 모두 더하고, 구간마다 그 구간의 1분당 걸음 수로 셌어요. 8초보다 짧게 잠깐 옮겨 다닌 걸음은 빠져요.', '바지 앞주머니 스마트폰은 실제 보행에서 오차 약 0.5%로 가장 정확했어요.', '허벅지·발목 착용 오차 약 1%, 허리 3%, 손목 15%', '시속 3km 이하로 아주 느리게 걸으면 모든 기기가 걸음을 적게 셀 수 있어요.'],
     refs: ['simonsen', 'mora'],
   });
   if (r.minutes != null) html += metric({
