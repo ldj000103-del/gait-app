@@ -971,7 +971,7 @@ function topCards(r, hero, cells) {
   const dur = r.diag?.durS ?? r.durS;
   const top = [whenTxt(r.date), ACT[r.activity ?? 'walk'], dur && `측정 ${mmss(dur)}`].filter(Boolean).join(' · ');
   const color = ACT_C[r.activity ?? 'walk'] ?? 'var(--c-run)';
-  const relab = RELAB.includes(r.activity ?? 'walk') ? `<button class="textlike relab" data-relab="${r.date}">활동 바꾸기 ›</button>` : '';   // 건의 K-5D73A0A1 (디자인 팀 시안 A)
+  const relab = RELAB.includes(r.activity ?? 'walk') && !r.autoRec ? `<button class="textlike relab" data-relab="${r.date}">활동 바꾸기 ›</button>` : '';   // 건의 K-5D73A0A1 (디자인 팀 시안 A)   // 자동 측정 기록은 센서 원본을 남기지 않아 다시 계산할 수 없음
   return `<div class="sub restop"><span>${top}</span>${relab}</div>
     <div class="mcard static rhero"><div class="mtop"><span class="mlab"><i style="background:${color}"></i>${hero.label}</span>${badge(hero.grade)}</div>
     <div class="mnum">${hero.value}<small>${hero.unit}</small></div>${hero.bar ?? ''}<div class="msub">${hero.sub}</div>${statRow(hero.stats ?? [])}</div>
@@ -1992,7 +1992,7 @@ function openRelabel(date) {
   const h = store.get('history', []).find(x => x.date === date); if (!h) return;
   const now = h.activity ?? 'walk';
   pickFor = null; $('pickQ').textContent = '어떤 활동이었나요?';
-  $('pickList').innerHTML = `<p class="delDesc">고르면 이 기록을 그 활동 기준으로 다시 계산해요. 케이던스 같은 값이 달라질 수 있어요.</p>`
+  $('pickList').innerHTML = `<p class="delDesc">고르면 이 기록을 그 활동 기준으로 다시 계산해요. 케이던스 같은 값이 달라질 수 있어요.${h.receipt || h.orig?.receipt ? ' 익명 결과를 보냈다면 바뀐 값도 새로 보내요. 처음 보낸 값은 ‘잘못 고른 측정’으로 표시돼 함께 남아요.' : ''}</p>`   // 법률 검토 32번
     + RELAB.map(a => `<button data-relabel="${a}" data-date="${date}" aria-pressed="${a === now}">${svgIc(a === 'walk' ? IC.walk : IC.run)}<span>${ACT[a]}${a === now ? ' <em>✓ 지금</em>' : ''}</span></button>`).join('');
   $('pickSheet').hidden = false; history.pushState({ pickSheet: 1 }, '');
   $('pickList').querySelector('[aria-pressed="true"]')?.focus();
@@ -2027,7 +2027,8 @@ async function relabel(date, act) {
   if (h.orig && h.receipt && h.receipt !== base.receipt) askDelete(h.receipt);   // 앞서 바꿔 보낸 행은 지움
   if (next.orig) {
     next.receipt = null;
-    if (base.receipt && consent?.share && ENDPOINT) try { next.receipt = send({ ...next, warnings: [...next.warnings, `relabel:${base.receipt}`] }); } catch {}
+    const ok = base.autoRec ? consent?.autoShare && base.start >= Date.parse(consent.autoShare.date) : consent?.share;   // 기록 종류에 맞는 동의로 (법률 검토 32번: 자동 기록은 자동 측정 동의, 그 날짜 이후만)
+    if (base.receipt && ok && ENDPOINT) try { next.receipt = send({ ...next, warnings: [...next.warnings, `relabel:${base.receipt}`] }); } catch {}
   }
   hist[i] = next; store.set('history', hist);
   const past = $('result').textContent.includes('지난 기록 다시 보기');
