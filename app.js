@@ -893,7 +893,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v202';
+const APP_VERSION = 'v203';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -2700,7 +2700,7 @@ function renderHomeTop() {
       <div class="sub" style="margin-top:6px">한 달에 한 번, 옆모습 영상으로 내 걸음을 비춰 봐요${last ? ` · 마지막 ${last.d.getMonth() + 1}월 ${last.d.getDate()}일` : ''}</div>
       ${pair ? `<a href="#" class="textlike" style="text-align:left;padding:8px 0 0;text-decoration:none" data-pair="${prev.i},${last.i}">${pair} 나란히 보기 ›</a>` : ''}</div>
 `;
-  $('lessonCard').innerHTML = `<button class="mcard" data-foot="rock"><div class="mtop"><span class="mlab">걸음 수업 · 3D</span><span class="mdate">›</span></div><div style="font-weight:700;margin-top:6px">발이 굴러가는 흔들의자 3개</div><div class="msub">뒤꿈치·발목·앞발을 축으로 굴러가는 한 걸음</div></button>
+  $('lessonCard').innerHTML = `<button class="mcard" data-lesson><div class="mtop"><span class="mlab">걸음 수업 · 30초</span><span class="mdate">›</span></div><div style="font-weight:700;margin-top:6px">발이 굴러가는 흔들의자 3개</div><div class="msub">근육 그림으로 보는 한 걸음</div></button>
     <button class="mcard" data-foot="foot" style="margin-top:8px"><div class="mtop"><span class="mlab">걸음 수업 · 3D</span><span class="mdate">›</span></div><div style="font-weight:700;margin-top:6px">걸을 때 발바닥에서 일어나는 일</div><div class="msub">체중이 옮겨 가는 길과 차례로 일하는 근육</div></button>`;   // 그림과 같은 주제로 고정 (디자인 팀 10/28, 날마다 바뀌던 사전 항목은 뺌)
   // 이번 주 카드: 월~일 그날 활동 색 점 + 측정 횟수 · 걷기 케이던스 평균 (달력과 같은 점 색)
   const mon0 = monOf(today), hist = store.get('history', []), tk = dayKey(today), cur = weekSummary(hist).cur;
@@ -2730,8 +2730,48 @@ document.addEventListener('click', e => { const s = e.target.closest('[data-sub]
 function closeAllSub() { const n = (subOpen ? 1 : 0) + subStack.length; while (subOpen) closeSub(false); if (n && history.state?.sub) history.go(-n); }
 addEventListener('popstate', () => { while (subOpen && history.state?.sub !== subOpen) closeSub(false); });   // 새로고침 전에 남은 다른 {sub} 칸으로 돌아가도 닫히게 (검수팀)
 if (history.state?.sub || history.state?.pickSheet) history.replaceState(null, '');   // 새로고침하면 판·하위 화면은 닫힌 채라 남은 기록 칸을 비움 (뒤로 가기가 한 번 헛돌지 않게)
-// 근육 그림(assets/muscle, 보행 주기 2% 간격 50장): 홈 '배워 보기' 카드 그림이 씀
+// 걸음 수업 판: 근육 그림(assets/muscle, 보행 주기 2% 간격 50장)을 캔버스로 반복 재생 + 주기에 맞는 자막·단계 막대 (디자인 팀 10/28, 법률 검토 20번)
+// 투명 WebP를 캔버스에 그려 밝은·어두운 화면 모두 바탕이 자연스럽고 사파리에서도 재생됨. 이용자 측정값과는 연결하지 않음
 const LESSON_N = 50, LESSON_MS = 111;                                      // 한 걸음 약 5.6초 (근육 영상 시안과 같은 빠르기)
+const LESSON_SUB = [[0, '① 뒤꿈치 흔들의자 · 정강이 앞 근육이 발이 ‘탁’ 떨어지지 않게 천천히 내려놓아요'],
+  [12, '② 발목 흔들의자 · 가자미근이 정강이가 너무 빨리 넘어가지 않게 붙잡아요'],
+  [31, '③ 앞발 흔들의자 · 뒤꿈치가 들리며 몸이 앞으로 떨어져요(걸음에서 가장 강한 추진력). 종아리 근육은 정강이가 너무 빨리 넘어가지 않게 늦춰요'],   // Perry 3장: 추진력은 몸무게가 받침 밖으로 떨어지며 생김, 근육은 늦춤
+  [50, '④ 유각 전 · 체중이 반대 발로 넘어가고, 발가락 관절을 축으로 발목이 펴지며 무릎이 굽어요'],
+  [62, '흔들기 · 발이 바닥에서 떨어져 앞으로 가요']];
+function openLesson() {
+  const o = document.createElement('div');
+  o.id = 'lessonOv'; o.setAttribute('role', 'dialog'); o.setAttribute('aria-modal', 'true'); o.setAttribute('aria-label', '걸음 수업');
+  o.innerHTML = `<div class="dsheet lesson"><div class="lhead"><div><div class="sub" style="font-size:.75rem">걸음 수업 · 30초</div><h3>발이 굴러가는 흔들의자 3개</h3></div><button class="lx" data-lx="close" aria-label="닫기">✕</button></div>
+    <div class="lfig"><canvas width="480" height="403" role="img" aria-label="페리의 보행 분석 기준 걸음에서 정강이·발 근육의 길이가 바뀌는 그림"></canvas><button class="chip lplay" data-lx="play"></button></div>
+    <p class="lsub"></p>
+    <div class="gc" aria-label="보행 주기 단계"><span>입각기 <small>0~62%</small></span><span>유각기 <small>62~100%</small></span>${OLD_PH.map(n => `<b class="chip">${n}</b>`).join('')}</div>
+    <button class="textlike" data-lx="more" style="text-align:left;padding-left:0">더 알아보기 ›</button>
+    <p class="lfine">근육 그림: BodyParts3D·Z-Anatomy 모델로 만듦 (CC BY-SA) · <a href="#" data-bonesrc>출처 보기 ›</a><br>페리의 보행 분석 기준: Perry 『Gait Analysis』 3장·4장·9장 · 근육 모양은 각도에 맞춘 근사예요 · 일반적인 걸음 정보이며 진료를 대신하지 않아요</p></div>`;
+  document.body.append(o);
+  for (const el of [document.querySelector('main'), $('tabbar')]) el.inert = true;
+  const cv = o.querySelector('canvas'), g = cv.getContext('2d'), imgs = [], btn = o.querySelector('[data-lx=play]');
+  let k = 0, playing = !matchMedia('(prefers-reduced-motion: reduce)').matches, timer = 0, shownSub = -1, shownPh = -1;
+  for (let i = 0; i < LESSON_N; i++) { const im = new Image(); im.src = `assets/muscle/m${String(i).padStart(2, '0')}.webp`; if (i === 0) im.onload = () => draw(); imgs.push(im); }
+  const draw = () => {
+    const im = imgs[k]; if (im.complete && im.naturalWidth) { g.clearRect(0, 0, cv.width, cv.height); g.drawImage(im, 0, 0, cv.width, cv.height); }
+    const q = k * 2, s = LESSON_SUB.reduce((a, x, j) => q >= x[0] ? j : a, 0), ph = phaseIdx(q);
+    if (s !== shownSub) { shownSub = s; o.querySelector('.lsub').textContent = LESSON_SUB[s][1]; }
+    if (ph !== shownPh) { shownPh = ph; o.querySelectorAll('.gc > .chip').forEach((c, j) => c.setAttribute('aria-pressed', j === ph)); o.querySelectorAll('.gc > span').forEach((c, j) => c.classList.toggle('on', j === (ph < 5 ? 0 : 1))); }
+  };
+  const tick = () => { if (playing) { k = (k + 1) % LESSON_N; draw(); } };
+  const setBtn = () => { btn.textContent = playing ? '❚❚ 일시정지' : '▶ 재생'; };
+  const close = () => { clearInterval(timer); for (const el of [document.querySelector('main'), $('tabbar')]) el.inert = false; o.remove(); $('lessonCard').querySelector('[data-lesson]')?.focus(); };
+  setBtn(); draw(); timer = setInterval(tick, LESSON_MS);
+  o.addEventListener('click', e => {
+    const b = e.target.closest('[data-lx]');
+    if (e.target === o || b?.dataset.lx === 'close' || e.target.closest('[data-bonesrc]')) return close();   // 출처 보기는 판을 닫고 홈 '이 앱의 근거'로 (아래 공용 처리)
+    if (b?.dataset.lx === 'play') { playing = !playing; setBtn(); }
+    else if (b?.dataset.lx === 'more') { close(); openFootLesson('rock'); }   // 발 모형 카드 수업 '흔들의자 3개 자세히 보기' (디자인 팀 10/30)
+  });
+  o.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
+  o.querySelector('[data-lx=close]').focus();
+}
+$('lessonCard').addEventListener('click', e => { if (e.target.closest('[data-lesson]')) openLesson(); });
 
 // ── 걸음 수업 2: 걸을 때 발바닥에서 일어나는 일 (사용자 아이디어, 디자인 팀 10/30 최종) ──
 // 3D(assets/exercise3d/footpress.glb): Z-Anatomy 오른쪽 무릎 아래 뼈·근육 + 반투명 피부, 입각기(보행 주기 0~60%) 6초 고리. 근육 색은 timeline.json 'footpress'(Perry 4장 근육 시점)
@@ -2757,7 +2797,7 @@ const FP_CARDS = [
    <p class="sub fpsm">한 발로 디디는 동안 발바닥에 실린 무게의 중심이 번호 순서대로 옮겨 가요(전문 용어로 압력 중심).</p>
    <ol class="sub fpsm fpol"><li>발이 닿을 때: 뒤꿈치 가운데 바로 바깥쪽</li><li>발바닥 전체로 설 때: 발 중간 바깥쪽</li><li>뒤꿈치가 들릴 때: 앞발 안쪽 (엄지·둘째 발가락 뿌리 아래)</li><li>발이 떨어질 때: 엄지발가락</li></ol>
    <p class="sub fpsm">사람마다 앞발이 닿는 순서는 달라요: 새끼발가락 쪽부터 71%, 앞발 전체가 한꺼번에 22%, 엄지 쪽부터 8%(반올림).</p>
-   <button class="textlike fplink" data-flink="rock">발이 굴러가는 흔들의자 3개 함께 보기 ›</button>`,
+   <button class="textlike fplink" data-flink="rock">흔들의자 3개 자세히 보기 ›</button>`,
   `<h3>① 발이 닿을 때 <span class="sub">· 뒤꿈치 가운데 바로 바깥쪽 · 보행 주기 0~12%</span></h3><ul class="exmus">
    ${FP_MUS('전경골근', '정강이 앞 근육', '발이 ‘탁’ 떨어지지 않게 천천히 내려놓아요.')}${FP_MUS('후경골근', '종아리 안쪽 깊은 곳', '발이 닿을 때부터 일하기 시작해요.')}</ul>`,
   `<h3>② 발바닥 전체로 설 때 <span class="sub">· 발 중간 바깥쪽 · 12~31%</span></h3><ul class="exmus">
@@ -2786,7 +2826,7 @@ const RK_CARDS = [
 const FP_LESSONS = {
   foot: { t: '걸을 때 발바닥에서 일어나는 일', cards: FP_CARDS, seek: FP_SEEK, def: 3, views: true, chips: ['요약', '①', '②', '③', '④'],
     fine: '근거: Perry 『Gait Analysis』 2장·4장(그림 4.18) · Neumann 『Kinesiology』 15장' },
-  rock: { t: '발이 굴러가는 흔들의자 3개', cards: RK_CARDS, seek: RK_SEEK, def: 1, ax: RK_AX, chips: ['요약', '①', '②', '③'],
+  rock: { t: '흔들의자 3개 자세히 보기', cards: RK_CARDS, seek: RK_SEEK, def: 1, ax: RK_AX, chips: ['요약', '①', '②', '③'],
     fine: '근거: Perry 『Gait Analysis』 3장·4장(발목·발: 3개의 흔들의자)' } };
 function openFootLesson(kind = 'foot') {
   const L = FP_LESSONS[kind];
@@ -2834,7 +2874,7 @@ function openFootLesson(kind = 'foot') {
   }
   let st = 0;
   cards.addEventListener('scroll', () => { clearTimeout(st); st = setTimeout(() => { const i = Math.round(cards.scrollLeft / cards.clientWidth); if (i !== cur) pick(i, true); }, 120); });
-  const close = () => { clearInterval(tick); for (const el of [document.querySelector('main'), $('tabbar')]) el.inert = false; o.remove(); $('lessonCard').querySelector(`[data-foot="${kind}"]`)?.focus(); };
+  const close = () => { clearInterval(tick); for (const el of [document.querySelector('main'), $('tabbar')]) el.inert = false; o.remove(); $('lessonCard').querySelector(kind === 'rock' ? '[data-lesson]' : '[data-foot]')?.focus(); };
   o.addEventListener('click', e => {
     const fi = e.target.closest('[data-fi]'); if (fi) return pick(+fi.dataset.fi);
     const fv = e.target.closest('[data-fv]');
