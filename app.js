@@ -259,7 +259,7 @@ function openDelete(date) {
   const what = h.view ? `영상 ${{ side: '옆모습', front: '앞모습', back: '뒷모습' }[h.view]}` : ACT[h.activity ?? 'walk'];
   pickFor = null; $('pickQ').textContent = '이 기록을 지울까요?';
   $('pickList').innerHTML = `<p class="delDesc">${whenTxt(h.date)} ${what} · 지우면 되살릴 수 없어요. 달력·그래프·한 달 점검에서도 빠져요.</p>`
-    + (h.receipt ? `<p class="delDesc">이 기록은 익명 결과로도 보냈어요(접수번호 <b>${h.receipt}</b>).</p><label class="delAsk"><input type="checkbox" id="delAsk"> 운영자에게 보낸 익명 결과도 지워 달라고 요청하기</label>` : '')   // 법률 검토 21번: 지우면 접수번호도 사라지니 지우기 전에 요청 기회
+    + (h.receipt || h.orig?.receipt ? `<p class="delDesc">이 기록은 익명 결과로도 보냈어요(접수번호 <b>${h.receipt || h.orig.receipt}</b>).</p><label class="delAsk"><input type="checkbox" id="delAsk"> 운영자에게 보낸 익명 결과도 지워 달라고 요청하기</label>` : '')   // 법률 검토 21번: 지우면 접수번호도 사라지니 지우기 전에 요청 기회
     + `<div class="delActs"><button data-del="${h.date}">지우기</button><button data-keep>그대로 두기</button></div>`;
   $('pickSheet').hidden = false; history.pushState({ pickSheet: 1 }, '');
   $('pickList').querySelector('[data-keep]').focus();
@@ -271,10 +271,11 @@ function toast(msg) { const t = $('toast'); t.textContent = msg; t.hidden = fals
 const askDelete = receipt => fetch(ENDPOINT, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ kind: 'delete', receipt }) }).then(() => true, () => false);
 async function deleteRec(date) {
   const hist = store.get('history', []), i = hist.findIndex(x => x.date === date); if (i < 0) return closePick();
-  const ask = $('delAsk')?.checked && hist[i].receipt;
+  const ask = $('delAsk')?.checked && (hist[i].receipt || hist[i].orig?.receipt);
   if (ask) {
     const b = $('pickList').querySelector('[data-del]'); b.disabled = true;
     const ok = await askDelete(hist[i].receipt); b.disabled = false;
+    if (ok && hist[i].orig?.receipt && hist[i].orig.receipt !== hist[i].receipt) askDelete(hist[i].orig.receipt);   // 활동을 바꿔 보냈으면 원래 행도
     if (!ok) {                                                            // 접수번호가 먼저 사라지면 안 되니 휴대폰 기록은 그대로 (체크를 풀면 기록만 지울 수 있음)
       if ($('pickSheet').hidden) return toast('삭제 요청을 보내지 못해 기록을 그대로 뒀어요');   // 보내는 중에 판을 닫았으면 판 밖에서 알림
       $('pickList').querySelector('.delErr')?.remove();
@@ -299,6 +300,7 @@ $('pickList').addEventListener('click', e => {
   const dl = e.target.closest('[data-del]'); if (dl) { deleteRec(dl.dataset.del); return; }
   if (e.target.closest('[data-keep]')) { closePick(); return; }
   const s = e.target.closest('[data-share]'); if (s) { closePick(); shareSummary(s.dataset.share); return; }
+  const rl = e.target.closest('[data-relabel]'); if (rl) { closePick(); relabel(rl.dataset.date, rl.dataset.relabel); return; }
   const b = e.target.closest('[data-val]'); if (!b) return;
   if ($(pickFor).value !== b.dataset.val) { $(pickFor).value = b.dataset.val; $(pickFor).dispatchEvent(new Event('change')); syncPicks(); }
   closePick();
@@ -613,8 +615,7 @@ function finish(data, demo = false, gps = [], press = []) {
   if (act === 'slowrun') return finishSlow(data, demo, position, auto);
   if (act === 'cooper') return finishCooper(data, gps, demo, position);
   if (act === 'stairs') return finishStairs(data, demo, position, press);
-  const res = analyzeWalk(data, { position, activity: act === 'walk' ? 'walk' : 'run' });   // 천천히 달리기도 러닝 방식으로 분석
-  if (act === 'walk' && !res.error) Object.assign(res, fastMinutes(data, { position, activity: 'walk' }));   // 빠르게 걸은 분 (기록에 같이 저장)
+  const res = stepCalc(data, act, position);
   const mode = $('dmode').value;
   let maxGap = 0, gapSum = 0;                                              // 2초 넘게 센서 값이 없던 빈틈 = 끊김
   for (let i = 1; i < data.length; i++) { const g = data[i].t - data[i - 1].t; maxGap = Math.max(maxGap, g); if (g > 2000) gapSum += g; }
@@ -658,6 +659,11 @@ function finish(data, demo = false, gps = [], press = []) {
   renderHistory();
 }
 
+function stepCalc(data, act, position) {
+  const res = analyzeWalk(data, { position, activity: act === 'walk' ? 'walk' : 'run' });   // 천천히 달리기도 러닝 방식으로 분석
+  if (act === 'walk' && !res.error) Object.assign(res, fastMinutes(data, { position, activity: 'walk' }));   // 빠르게 걸은 분 (기록에 같이 저장)
+  return res;
+}
 // sec초씩 자른 조각 [{k, s}] (20초 미만 조각은 버림)
 function chunks(data, sec) {
   const out = [], t0s = data[0].t;
@@ -676,10 +682,10 @@ function autoAct(data, position) {
 }
 
 // ── 슬로우 러닝: 1분 단위로 잘라 조깅 구간은 러닝, 걷기 구간은 걷기로 분석 (자동 구분이면 30초씩 신호로 가름) ──
-function finishSlow(data, demo, position, auto = {}) {
-  shownDate = null;
-  const t0s = data[0].t, segs = [];
-  const parts = auto.act ? chunks(data, 30).map(({ s }) => ({ s, jog: guessActivity(s, position) === 'run' })) : chunks(data, INTERVAL_S).map(({ k, s }) => ({ s, jog: k % 2 === 0 }));
+// 슬로우 러닝 값 계산: 1분(자동이면 30초 신호) 조각마다 조깅은 러닝 방식, 걷기는 걷기 방식. 조깅 구간이 없으면 error (활동 바꾸기도 같이 씀)
+function slowCalc(data, position, byGuess) {
+  const segs = [];
+  const parts = byGuess ? chunks(data, 30).map(({ s }) => ({ s, jog: guessActivity(s, position) === 'run' })) : chunks(data, INTERVAL_S).map(({ k, s }) => ({ s, jog: k % 2 === 0 }));
   let asWalk = 0, walkLike = false;
   for (const { s: slice, jog } of parts) {
     const a = jog ? analyzeJog(slice, position) : { r: analyzeWalk(slice, { position, activity: 'walk' }), jog: false }, r = a.r;
@@ -688,14 +694,20 @@ function finishSlow(data, demo, position, auto = {}) {
     if (!r.error) segs.push({ jog: a.jog, cadence: r.cadence, steps: r.steps, activeS: r.activeS, regularity: r.regularity, sd: r.sd });
   }
   const jogs = segs.filter(x => x.jog), walks = segs.filter(x => !x.jog);
-  if (!jogs.length) return showHtml(`<h2>다시 측정해 주세요</h2><div class="warn">조깅 구간을 찾지 못했어요.${asWalk ? ' 조깅 시간에 잡힌 움직임이 걷기와 비슷했어요(흔들림이 작음).' : ''} 첫 1분은 조깅, 다음 1분은 걷기로 번갈아 해 주세요. 조깅 구간이 20초 이상 있어야 분석해요.</div>`);
+  if (!jogs.length) return { error: 'noJog', asWalk };
   const avg = (xs, k) => xs.reduce((s, x) => s + x[k], 0) / xs.length, sum = (xs, k) => xs.reduce((s, x) => s + x[k], 0);
-  const hist = store.get('history', []);
-  const rec = { date: new Date().toISOString(), start: Date.now() - (data[data.length - 1].t - t0s), activity: 'slowrun', position, auto, practice: false,
-    cadence: avg(jogs, 'cadence'), walkCadence: walks.length ? avg(walks, 'cadence') : null,
+  return { cadence: avg(jogs, 'cadence'), walkCadence: walks.length ? avg(walks, 'cadence') : null,
     steps: sum(segs, 'steps'), activeS: sum(jogs, 'activeS'), walkS: sum(walks, 'activeS'),
     regularity: avg(jogs, 'regularity'), sd: avg(jogs, 'sd'), jogCount: jogs.length,   // sd = 조깅 구간 흔들림 평균 (RUN_SD 보정용, 데이터분석팀)
     warnings: [`jog${jogs.length}`, ...(asWalk ? [`jogAsWalk${asWalk}`] : []), ...(walkLike ? ['walkLike'] : [])],   // 조깅으로 계산한 구간 수 · 조깅 시간인데 걷기로 계산한 구간 수 · 달리기치고 낮은 케이던스
+  };
+}
+function finishSlow(data, demo, position, auto = {}) {
+  shownDate = null;
+  const t0s = data[0].t, c = slowCalc(data, position, auto.act), asWalk = c.asWalk;
+  if (c.error) return showHtml(`<h2>다시 측정해 주세요</h2><div class="warn">조깅 구간을 찾지 못했어요.${asWalk ? ' 조깅 시간에 잡힌 움직임이 걷기와 비슷했어요(흔들림이 작음).' : ''} 첫 1분은 조깅, 다음 1분은 걷기로 번갈아 해 주세요. 조깅 구간이 20초 이상 있어야 분석해요.</div>`);
+  const hist = store.get('history', []);
+  const rec = { date: new Date().toISOString(), start: Date.now() - (data[data.length - 1].t - t0s), activity: 'slowrun', position, auto, practice: false, ...c,
     diag: { src: Native ? 'app' : 'web', durS: (data[data.length - 1].t - t0s) / 1000, hz: data.length / Math.max(1, (data[data.length - 1].t - t0s) / 1000), gapS: 0, gpsGood: 0 } };
   saveRec(rec, hist, demo, data);
   shownDate = rec.date;
@@ -893,7 +905,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v213';
+const APP_VERSION = 'v214';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -921,7 +933,7 @@ const ro = w => { const c = (w.charCodeAt(w.length - 1) - 0xac00) % 28; return w
 function autoNote(r) {
   const a = r.auto ?? {};
   if (!a.act && !a.pos) return '';
-  return `<div class="metric"><div class="sub">${a.act ? `활동: <b>${ro(ACT[a.act])}</b> 자동 구분 <span class="badge b-y">참고</span><br>` : ''}${a.pos ? `휴대폰 위치: <b>${ro(POS[a.pos])}</b> 짐작 <span class="badge b-n">검증 안 됨</span><br>` : ''}다르면 다음엔 측정 탭에서 골라 주세요.</div>
+  return `<div class="metric"><div class="sub">${a.act ? `활동: <b>${ro(ACT[a.act])}</b> 자동 구분 <span class="badge b-y">참고</span><br>` : ''}${a.pos ? `휴대폰 위치: <b>${ro(POS[a.pos])}</b> 짐작 <span class="badge b-n">검증 안 됨</span><br>` : ''}다르면 맨 위 활동 바꾸기에서 고칠 수 있어요.</div>
     <details><summary>어떻게 골랐나요?</summary><ul>
     ${a.act ? `<li>달리기 방식으로 센 케이던스가 ${RUN_CAD}걸음/분 이상이고 흔들림도 크면 달리기, 아니면 걷기로 봐요. 이 선은 이 앱이 정한 것이고 연구로 확인하지 않았어요.</li><li>30초씩 나눠 보고 걷기와 달리기가 각각 1분 넘게 섞여 있으면 슬로우 러닝으로 봐요.</li>` : ''}
     ${a.pos ? '<li>화면이 하늘을 보고 있으면 손, 같은 다리가 돌아올 때만 신호가 크게 반복되면 바지 앞주머니(허벅지), 걸음마다 비슷하면 허리로 짐작해요(Perry 7장: 몸통 움직임은 걸음마다 반복). 정확도를 확인한 연구가 없어요.</li>' : ''}</ul></details></div>`;
@@ -959,7 +971,8 @@ function topCards(r, hero, cells) {
   const dur = r.diag?.durS ?? r.durS;
   const top = [whenTxt(r.date), ACT[r.activity ?? 'walk'], dur && `측정 ${mmss(dur)}`].filter(Boolean).join(' · ');
   const color = ACT_C[r.activity ?? 'walk'] ?? 'var(--c-run)';
-  return `<div class="sub">${top}</div>
+  const relab = RELAB.includes(r.activity ?? 'walk') ? `<button class="textlike relab" data-relab="${r.date}">활동 바꾸기 ›</button>` : '';   // 건의 K-5D73A0A1 (디자인 팀 시안 A)
+  return `<div class="sub restop"><span>${top}</span>${relab}</div>
     <div class="mcard static rhero"><div class="mtop"><span class="mlab"><i style="background:${color}"></i>${hero.label}</span>${badge(hero.grade)}</div>
     <div class="mnum">${hero.value}<small>${hero.unit}</small></div>${hero.bar ?? ''}<div class="msub">${hero.sub}</div>${statRow(hero.stats ?? [])}</div>
     <div class="rgrid">${cells.map(c => `<div class="mcard static"><div class="mtop"><span class="mlab">${c.label}</span>${c.value === '-' ? '' : badge(c.grade)}</div>
@@ -1962,10 +1975,71 @@ function showRecord(i) {
   const del = `<button class="textlike delRec" data-delrec="${h.date}">이 기록 지우기</button>`;   // 기록 탭에서 연 결과에만 (디자인 팀 10/28)
   if (act === 'video') { openSub('spVideo'); $('vcanvas').classList.add('hidden'); renderVideo(h.r); $('vresult').insertAdjacentHTML('afterbegin', banner); $('vresult').insertAdjacentHTML('beforeend', del); return; }
   setTab('measure');
-  const prev = hist.slice(i + 1).find(x => !x.practice && !x.autoRec && (x.activity ?? 'walk') === act);
-  if (act === 'slowrun') renderSlow(h, hist); else if (act === 'cooper') renderCooper(h); else if (act === 'stairs') renderStairs(h); else if (act === 'walk') render(h, prev); else renderRun(h, prev);
+  renderAny(hist, i);
   $('result').insertAdjacentHTML('afterbegin', banner); $('result').insertAdjacentHTML('beforeend', del);
 }
+function renderAny(hist, i) {
+  const h = hist[i], act = h.activity ?? 'walk', prev = hist.slice(i + 1).find(x => !x.practice && !x.autoRec && (x.activity ?? 'walk') === act);
+  if (act === 'slowrun') renderSlow(h, hist); else if (act === 'cooper') renderCooper(h); else if (act === 'stairs') renderStairs(h); else if (act === 'walk') render(h, prev); else renderRun(h, prev);
+}
+
+// ── 활동 바꾸기 (건의 K-5D73A0A1 '걷기인데 러닝으로 잘못 누름', 디자인 팀 시안 A) ──
+// 이 휴대폰에 남은 센서 원본(최근 RAW_KEEP개)으로 고른 활동 기준으로 다시 계산. 원래 기록은 h.orig에 그대로 보관 → '되돌리기'
+// 익명 결과: 원래 보낸 행은 두고, 바꾼 값을 새 행으로 보냄(warnings에 relabel:원래 접수번호). 다시 바꾸거나 되돌리면 앞서 바꿔 보낸 행은 삭제 요청
+// 12분 달리기·계단·영상은 측정 방식이 달라 바꾸지 않음. GPS 거리는 다시 못 재서 그때 속도 그대로 두고 걸음 길이·거리만 새 값으로
+const RELAB = ['walk', 'run', 'slowrun', 'easyrun'], RELAB_KEEP = ['idleEnd', 'maxEnd', 'paused'];   // 측정 상황 경고는 다시 계산해도 그대로
+function openRelabel(date) {
+  const h = store.get('history', []).find(x => x.date === date); if (!h) return;
+  const now = h.activity ?? 'walk';
+  pickFor = null; $('pickQ').textContent = '어떤 활동이었나요?';
+  $('pickList').innerHTML = `<p class="delDesc">고르면 이 기록을 그 활동 기준으로 다시 계산해요. 케이던스 같은 값이 달라질 수 있어요.</p>`
+    + RELAB.map(a => `<button data-relabel="${a}" data-date="${date}" aria-pressed="${a === now}">${svgIc(a === 'walk' ? IC.walk : IC.run)}<span>${ACT[a]}${a === now ? ' <em>✓ 지금</em>' : ''}</span></button>`).join('');
+  $('pickSheet').hidden = false; history.pushState({ pickSheet: 1 }, '');
+  $('pickList').querySelector('[aria-pressed="true"]')?.focus();
+}
+async function relabel(date, act) {
+  const hist = store.get('history', []), i = hist.findIndex(x => x.date === date), h = hist[i]; if (!h) return;
+  const base = h.orig ?? h, from = h.activity ?? 'walk';
+  if (act === from) return;
+  let next;
+  if (act === (base.activity ?? 'walk')) next = { ...base };              // 처음 활동으로 고르면 = 되돌리기 (원래 값 그대로)
+  else {
+    const rows = await rawGet(date);
+    if (!rows) return toast('이 기록은 센서 원본이 없어 바꿀 수 없어요');   // 원본은 최근 측정 몇 개만 이 휴대폰에 남음
+    const data = rows.map(([t, x, y, z]) => ({ t, x, y, z })), position = base.position;
+    const keep = { date: base.date, start: base.start, position, auto: base.auto?.pos ? { pos: base.auto.pos } : {}, route: h.route, diag: base.diag, diagHtml: base.diagHtml, autoRec: base.autoRec };
+    const kw = (base.warnings ?? []).filter(w => RELAB_KEEP.includes(w));
+    if (act === 'slowrun') {
+      const c = slowCalc(data, position, true);
+      if (c.error) return toast('슬로우 러닝 기준으로는 조깅 구간을 찾지 못해 그대로 뒀어요');
+      next = { ...keep, activity: act, practice: false, ...c, warnings: [...c.warnings, ...kw] };
+    } else {
+      const res = stepCalc(data, act, position);
+      if (res.error) return toast(`${ACT[act]} 기준으로는 걸음 신호를 찾지 못해 그대로 뒀어요`);
+      const day = new Date(date).toLocaleDateString('sv-SE');
+      const d = base.distSource === 'gps' && base.speed ? { speed: base.speed, stepLength: base.speed * 60 / res.cadence, distance: base.speed * res.activeS }
+        : base.distSource === 'manual' ? withDistance(res, base.distance) : {};
+      next = { ...keep, activity: act, practice: act === 'walk' && !hist.slice(i + 1).some(x => !x.autoRec && (x.activity ?? 'walk') === 'walk' && new Date(x.date).toLocaleDateString('sv-SE') === day),
+        ...res, distance: base.distSource === 'manual' ? base.distance : null, ...d, distSource: d.speed ? base.distSource : null, warnings: [...res.warnings, ...kw] };
+    }
+    next.orig = base;
+  }
+  if (h.orig && h.receipt && h.receipt !== base.receipt) askDelete(h.receipt);   // 앞서 바꿔 보낸 행은 지움
+  if (next.orig) {
+    next.receipt = null;
+    if (base.receipt && consent?.share && ENDPOINT) try { next.receipt = send({ ...next, warnings: [...next.warnings, `relabel:${base.receipt}`] }); } catch {}
+  }
+  hist[i] = next; store.set('history', hist);
+  const past = $('result').textContent.includes('지난 기록 다시 보기');
+  shownDate = date; route = next.route ?? null;
+  if (past) showRecord(i); else renderAny(hist, i);
+  $('result').insertAdjacentHTML('afterbegin', `<div class="relabNote" role="status">${next.orig ? `${ACT[from]} → ${ro(ACT[act])} 바꿨어요` : `처음 활동(${ACT[act]})으로 되돌렸어요`}${next.orig ? ` · <button class="textlike relabUndo" data-relabel="${base.activity ?? 'walk'}" data-date="${date}">되돌리기</button>` : ''}</div>`);
+  renderHistory();                                                           // 달력 색·이번 주 통계·홈 카드는 기록에서 다시 계산됨
+}
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-relab]'); if (b) return openRelabel(b.dataset.relab);
+  const u = e.target.closest('.relabUndo'); if (u) relabel(u.dataset.date, u.dataset.relabel);
+});
 
 // ── 영상 분석 (옆·앞·뒤) ──
 // 촬영 전 조건 확인 (디자인 팀 10/29, 교수님 아이디어 ①A): 누르면 켜지고 꺼지는 체크 5개(처음엔 모두 꺼짐, 방향마다 지난 선택 기억)
