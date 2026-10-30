@@ -893,7 +893,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v210';
+const APP_VERSION = 'v211';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -2854,7 +2854,8 @@ function fpTint(mv, tl, musM, k = 1) {                                          
   }
   return f;
 }
-function mvSeek(mv, fr) { const t = fr / 10; mv.currentTime = t; if (mv.paused) { mv.play(); setTimeout(() => { mv.currentTime = t; setTimeout(() => { mv.pause(); mv.currentTime = t; }, 120); }, 60); } }   // 멈춘 채로 시간만 옮기면 안 그려져서 잠깐 재생 후 멈춤, 멈춘 뒤 한 번 더 넣어 그 120ms만큼 밀리지 않게 (검수팀)
+function mvSeek(mv, fr) { const t = fr / 10 / (mv.timeScale || 1);   // currentTime에 넣은 값은 timeScale배로 들어가서 나눠 넣음 (읽을 때는 실제 시간, 검수팀)
+  mv.currentTime = t; if (mv.paused) { mv.play(); setTimeout(() => { mv.currentTime = t; setTimeout(() => { mv.pause(); mv.currentTime = t; }, 120); }, 60); } }   // 멈춘 채로 시간만 옮기면 안 그려져서 잠깐 재생 후 멈춤, 멈춘 뒤 한 번 더 넣어 그 120ms만큼 밀리지 않게 (검수팀)
 function openFootLesson(kind = 'foot') {
   const L = FP_LESSONS[kind];
   mvReady ??= import('./vendor/model-viewer-4.4.0.min.js').catch(e => { mvReady = null; throw e; });
