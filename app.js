@@ -893,7 +893,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v204';
+const APP_VERSION = 'v205';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -2738,6 +2738,7 @@ const LESSON_SUB = [[0, '① 뒤꿈치 흔들의자 · 정강이 앞 근육이 �
   [31, '③ 앞발 흔들의자 · 뒤꿈치가 들리며 몸이 앞으로 떨어져요(걸음에서 가장 강한 추진력). 종아리 근육은 정강이가 너무 빨리 넘어가지 않게 늦춰요'],   // Perry 3장: 추진력은 몸무게가 받침 밖으로 떨어지며 생김, 근육은 늦춤
   [50, '④ 유각 전 · 체중이 반대 발로 넘어가고, 발가락 관절을 축으로 발목이 펴지며 무릎이 굽어요'],
   [62, '흔들기 · 발이 바닥에서 떨어져 앞으로 가요']];
+const LS_VIEW = { out: '-60deg 95deg 1.6m', in: '90deg 95deg 1.6m' };   // 바깥쪽에서 30° 앞으로: 전경골근 근육 배와 비복근·가자미근이 함께 보임 (디자인 팀 10/30). 안쪽 = 발바닥 수업과 같은 방향
 function openLesson() {
   mvReady ??= import('./vendor/model-viewer-4.4.0.min.js').catch(e => { mvReady = null; throw e; });
   exCache(['vendor/model-viewer-4.4.0.min.js', 'assets/exercise3d/timeline.json', 'assets/exercise3d/footpress.glb']);
@@ -2745,7 +2746,8 @@ function openLesson() {
   o.id = 'lessonOv'; o.setAttribute('role', 'dialog'); o.setAttribute('aria-modal', 'true'); o.setAttribute('aria-label', '걸음 수업');
   o.innerHTML = `<div class="dsheet lesson"><div class="lhead"><div><div class="sub" style="font-size:.75rem">걸음 수업 · 30초</div><h3>발이 굴러가는 흔들의자 3개</h3></div><button class="lx" data-lx="close" aria-label="닫기">✕</button></div>
     <div class="fpbox lfig"><model-viewer src="assets/exercise3d/footpress.glb" alt="오른쪽 무릎 아래 뼈와 근육 3D 모형. 페리의 보행 분석 기준 걸음 한 주기 동안 그 순간 일하는 근육이 진해져요" camera-controls touch-action="pan-y" disable-pan interaction-prompt="none"
-      camera-target="-0.077m 0.25m 0.07m" camera-orbit="90deg 95deg 1.6m" max-camera-orbit="auto 180deg 4m" field-of-view="26deg" min-field-of-view="10deg" exposure="1.05" environment-image="neutral" ${reduce ? '' : 'autoplay'}></model-viewer><button class="chip lplay" data-lx="play"></button></div>
+      camera-target="-0.077m 0.25m 0.07m" camera-orbit="${LS_VIEW.out}" max-camera-orbit="auto 180deg 4m" field-of-view="26deg" min-field-of-view="10deg" exposure="1.05" environment-image="neutral" ${reduce ? '' : 'autoplay'}></model-viewer>
+      <div class="d3bar"><span>${[['out', '바깥쪽'], ['in', '안쪽']].map(([v, n]) => `<button class="chip" data-fv="${v}" aria-pressed="${v === 'out'}">${n}</button>`).join('')}</span><button class="chip" data-lx="play"></button></div></div>
     <p class="lsub"></p>
     <div class="gc" aria-label="보행 주기 단계"><span>입각기 <small>0~62%</small></span><span>유각기 <small>62~100%</small></span>${OLD_PH.map((n, i) => `<button class="chip" data-ph="${i}">${n}</button>`).join('')}</div>
     <button class="textlike" data-lx="more" style="text-align:left;padding-left:0">더 알아보기 ›</button>
@@ -2766,13 +2768,14 @@ function openLesson() {
     if (ph !== shownPh) { shownPh = ph; o.querySelectorAll('.gc > .chip').forEach((c, j) => c.setAttribute('aria-pressed', j === ph)); o.querySelectorAll('.gc > span').forEach((c, j) => c.classList.toggle('on', j === (ph < 5 ? 0 : 1))); }
   };
   show(0); setBtn();
-  exTimeline().then(TL => { const tl = TL.footpress; if (tl && o.isConnected) tick = setInterval(() => show(fpTint(mv, tl, musM) % 100), 100); });
+  exTimeline().then(TL => { const tl = TL.footpress; if (tl && o.isConnected) tick = setInterval(() => show(fpTint(mv, tl, musM, 2.5) % 100), 100); });   // 2.5배: 일하는 근육은 0.35 이상이면 진한 빨강에 가깝게 (디자인 팀: 이 수업은 일하는 근육을 확실히)
   const close = () => { clearInterval(tick); for (const el of [document.querySelector('main'), $('tabbar')]) el.inert = false; o.remove(); $('lessonCard').querySelector('[data-lesson]')?.focus(); };
   o.addEventListener('click', e => {
     const b = e.target.closest('[data-lx]'), ph = e.target.closest('[data-ph]');
     if (e.target === o || b?.dataset.lx === 'close' || e.target.closest('[data-bonesrc]')) return close();   // 출처 보기는 판을 닫고 홈 '이 앱의 근거'로 (아래 공용 처리)
     if (ph) { const i = +ph.dataset.ph; at = Math.round((PH_START[i] + (PH_START[i + 1] ?? 100)) / 2); mvSeek(mv, at); }   // 그 단계 가운데 순간으로: 멈춰 있으면 거기서 멈추고, 재생 중이면 거기서부터 이어서
     else if (b?.dataset.lx === 'play') { playing = !playing; if (playing) mv.play(); else mv.pause(); setBtn(); }
+    else if (e.target.closest('[data-fv]')) { const v = e.target.closest('[data-fv]').dataset.fv; mv.cameraOrbit = LS_VIEW[v]; o.querySelectorAll('[data-fv]').forEach(c => c.setAttribute('aria-pressed', c.dataset.fv === v)); }
     else if (b?.dataset.lx === 'more') { close(); openFootLesson('rock'); }   // 발 모형 카드 수업 '흔들의자 3개 자세히 보기' (디자인 팀 10/30)
   });
   o.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
@@ -2835,10 +2838,10 @@ const FP_LESSONS = {
     fine: '근거: Perry 『Gait Analysis』 2장·4장(그림 4.18) · Neumann 『Kinesiology』 15장' },
   rock: { t: '흔들의자 3개 자세히 보기', cards: RK_CARDS, seek: RK_SEEK, def: 1, ax: RK_AX, chips: ['요약', '①', '②', '③'],
     fine: '근거: Perry 『Gait Analysis』 3장·4장(발목·발: 3개의 흔들의자)' } };
-function fpTint(mv, tl, musM) {                                             // 그 순간 일하는 근육만 진하게 (운동 상세와 같은 색), 지금 프레임(= 보행 주기 %)을 돌려줌
+function fpTint(mv, tl, musM, k = 1) {                                             // 그 순간 일하는 근육만 진하게 (운동 상세와 같은 색), 지금 프레임(= 보행 주기 %)을 돌려줌
   const f = (mv.currentTime || 0) * 10, mats = mv.model?.materials ?? [];
   for (const [nm, pts] of Object.entries(tl.mus)) {
-    const m = mats.find(x => x.name === 'mus_' + nm), t = pwl(pts, f), me = musM['mus_' + nm];
+    const m = mats.find(x => x.name === 'mus_' + nm), t = Math.min(1, pwl(pts, f) * k), me = musM['mus_' + nm];
     m?.pbrMetallicRoughness.setBaseColorFactor([...MUS_PALE.map((p, j) => p + (MUS_LIN[j] - p) * t), 0.35 + 0.65 * t]);
     if (me) { const deep = t > 0.9; me.material.depthWrite = deep; me.renderOrder = deep ? -3 : -2; }
   }
