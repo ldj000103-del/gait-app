@@ -112,7 +112,11 @@ const WARN = {
   hand: '손에 들면 팔 흔들림이 섞여 정확도가 낮아요. 바지 앞주머니를 권장해요.',
   paused: '측정 중에 화면이 꺼지거나 다른 앱(카톡·전화)으로 가서 센서가 잠시 멈췄어요. 설치형 안드로이드 앱은 다른 앱을 써도 계속 측정돼요. 끊기지 않고 가장 길게 걸은 구간만으로 계산해서 걸음 수가 실제보다 적을 수 있어요. 다음엔 전원 버튼을 누르지 말고 주머니 모드 그대로 넣어 주세요.',
 };
-const warnHtml = r => r.warnings.map(w => `<div class="warn">${w === 'paused' && r.diag?.gapS >= 1 ? `<b>중간에 ${Math.round(r.diag.gapS)}초 끊겼어요.</b> ` : ''}${WARN[w]}${w === 'paused' && !Native ? ' <a href="install.html">설치형 앱 받기</a>' : ''}</div>`).join('');
+// 결과 제목 줄: 왼쪽 '○○ 결과', 오른쪽 끝 '활동 바꾸기 ›' (건의 K-5D73A0A1, 디자인 팀 시안 A). 자동 측정 기록은 센서 원본을 남기지 않아 다시 계산할 수 없어서 버튼 없음
+const canRelab = r => RELAB.includes(r.activity ?? 'walk') && !r.autoRec;
+const relabBtn = (r, cls = 'relab') => canRelab(r) ? `<button class="textlike ${cls}" data-relab="${r.date}">활동 바꾸기 ›</button>` : '';
+const resTitle = (r, title) => `<div class="restitle"><h2>${title}</h2>${relabBtn(r)}</div>`;
+const warnHtml = r => r.warnings.map(w => `<div class="warn">${w === 'paused' && r.diag?.gapS >= 1 ? `<b>중간에 ${Math.round(r.diag.gapS)}초 끊겼어요.</b> ` : ''}${WARN[w]}${w === 'paused' && !Native ? ' <a href="install.html">설치형 앱 받기</a>' : ''}${w === 'walkLike' || w === 'running' ? ' ' + relabBtn(r, 'relabLink') : ''}</div>`).join('');
 
 // ── 내 정보 ──
 const store = {
@@ -971,8 +975,7 @@ function topCards(r, hero, cells) {
   const dur = r.diag?.durS ?? r.durS;
   const top = [whenTxt(r.date), ACT[r.activity ?? 'walk'], dur && `측정 ${mmss(dur)}`].filter(Boolean).join(' · ');
   const color = ACT_C[r.activity ?? 'walk'] ?? 'var(--c-run)';
-  const relab = RELAB.includes(r.activity ?? 'walk') && !r.autoRec ? `<button class="textlike relab" data-relab="${r.date}">활동 바꾸기 ›</button>` : '';   // 건의 K-5D73A0A1 (디자인 팀 시안 A)   // 자동 측정 기록은 센서 원본을 남기지 않아 다시 계산할 수 없음
-  return `<div class="sub restop"><span>${top}</span>${relab}</div>
+  return `<div class="sub">${top}</div>
     <div class="mcard static rhero"><div class="mtop"><span class="mlab"><i style="background:${color}"></i>${hero.label}</span>${badge(hero.grade)}</div>
     <div class="mnum">${hero.value}<small>${hero.unit}</small></div>${hero.bar ?? ''}<div class="msub">${hero.sub}</div>${statRow(hero.stats ?? [])}</div>
     <div class="rgrid">${cells.map(c => `<div class="mcard static"><div class="mtop"><span class="mlab">${c.label}</span>${c.value === '-' ? '' : badge(c.grade)}</div>
@@ -1041,7 +1044,7 @@ function render(r, prev) {
     ? (c >= 120 ? '약 5 MET (활발)' : c >= 110 ? '약 4 MET' : c >= 100 ? '중강도 (3 MET)' : '저강도')
     : (c >= 130 ? '고강도 (6 MET)' : c >= 100 ? '중강도 (3 MET)' : '저강도');
 
-  let html = `<h2>결과 ${r.practice ? '<span class="badge b-n">연습</span>' : ''}</h2>`;
+  let html = resTitle(r, `걷기 결과${r.practice ? ' <span class="badge b-n">연습</span>' : ''}`);
   if (r.autoRec) html += '<div class="warn">자동으로 잰 기록이에요. 휴대폰을 둔 곳(주머니·가방·손)을 모르고 짐작해서, 직접 잰 측정보다 덜 정확할 수 있어요. 걷기를 알아채기까지 몇 초 걸려 걸음 수가 조금 적게 잡혀요.</div>';
   if (r.practice) html += `<div class="warn">오늘 첫 측정은 연습으로 저장했어요. 처음 걸을 때는 보통 7% 느리게 나와요(Perry 20장). 한 번 더 걸어 주세요.</div>`;
   html += autoNote(r) + warnHtml(r);
@@ -1202,7 +1205,7 @@ function renderRun(r, prev) {
   const c = r.cadence;
   const easy = r.activity === 'easyrun';
   const cGrade = r.warnings.includes('hand') || r.warnings.includes('irregular') ? 'o' : 'y';
-  const head = `<h2>${easy ? '천천히 달리기' : '러닝'} 결과</h2>` + autoNote(r) + warnHtml(r)
+  const head = resTitle(r, `${easy ? '천천히 달리기' : '러닝'} 결과`) + autoNote(r) + warnHtml(r)
     + topCards(r, { label: '케이던스', value: c.toFixed(0), unit: '걸음/분', grade: cGrade, sub: prev ? `기준선 없음 · 지난 러닝보다 ${signed(c - prev.cadence)}` : '기준선 없음 · 내 기록의 변화만 봐요',
       stats: [...timeStats(r), { icon: 'dist', value: r.distance && (r.distance / 1000).toFixed(2), label: '거리 km' },
         { icon: 'pace', value: r.speed && paceText(r.speed), label: '페이스 /km' }, { icon: 'steps', value: r.steps, label: '걸음' }] }, [
@@ -1229,7 +1232,7 @@ function renderRun(r, prev) {
 
 function renderSlow(r, hist) {
   const wk = weekSlowJogMin(hist);
-  const head = `<h2>슬로우 러닝 결과</h2>` + autoNote(r)
+  const head = resTitle(r, '슬로우 러닝 결과') + autoNote(r)
     + topCards(r, { label: '조깅한 시간', value: (r.activeS / 60).toFixed(1), unit: '분', grade: 'y', sub: `이번 주 조깅 ${wk.toFixed(0)}분 · 연구의 주간량 90분`,
       stats: [{ icon: 'time', value: clock(r.diag?.durS ?? r.activeS + r.walkS), label: '전체 시간' }, { icon: 'jog', value: r.jogCount, label: '조깅 구간' }, { icon: 'steps', value: r.steps, label: '걸음' }] }, [
       { label: '조깅 케이던스', value: r.cadence.toFixed(0), unit: '걸음/분', grade: 'y', sub: `조깅 ${r.jogCount}구간 평균` },
@@ -1505,7 +1508,7 @@ $('result').addEventListener('click', async e => {
 function showHtml(html) {
   const el = $('result'); el.innerHTML = html;
   el.querySelector('details.more, details.howto')?.insertAdjacentHTML('beforebegin', routeBox());   // 지도는 접지 않고 카드 바로 아래
-  if (shownDate) el.querySelector('h2')?.insertAdjacentHTML('afterend', shareBtn(shownDate));
+  if (shownDate) (el.querySelector('.restitle') ?? el.querySelector('h2'))?.insertAdjacentHTML('afterend', shareBtn(shownDate));   // 제목 줄(제목 + 활동 바꾸기) 아래
   el.insertAdjacentHTML('beforeend', glossList(markTerms(el)));
   if (shownDate) el.insertAdjacentHTML('beforeend', `<button class="ghost" data-raw="${shownDate}">센서 원본 내보내기 (CSV)</button><div class="sub" style="font-size:.8125rem">이 파일에는 이번 측정의 센서 원본이 들어 있어요. 운영자에게 보내려면 먼저 실험 참여 동의서를 써 주세요.</div>`);   // 최근 ${RAW_KEEP}개 측정만
   if (shownDate) el.insertAdjacentHTML('beforeend', ctxBox(shownDate));   // 지표 먼저, 그때 상황 남기기는 맨 아래 (사용자 메모)
