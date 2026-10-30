@@ -1067,7 +1067,7 @@ function render(r, prev) {
     refs: ['cadenceAdults', 'aguiar'],
   });
   html += metric({
-    title: '걸음 수', value: r.steps, unit: `걸음 (6초 넘게 이어 걸은 시간 합 ${clock(r.activeS)})`,   // v212부터 걸은 구간을 모두 더함 (검수팀 10/30)
+    title: '걸음 수', value: r.steps, unit: `걸음 (8초 넘게 이어 걸은 시간 합 ${clock(r.activeS)})`,   // v212부터 걸은 구간을 모두 더함 (검수팀 10/30)
     grade: r.warnings.includes('slow') ? 'o' : 'g',
     why: ['바지 앞주머니 스마트폰은 실제 보행에서 오차 약 0.5%로 가장 정확했어요.', '허벅지·발목 착용 오차 약 1%, 허리 3%, 손목 15%', '시속 3km 이하로 아주 느리게 걸으면 모든 기기가 걸음을 적게 셀 수 있어요.'],
     refs: ['simonsen', 'mora'],
@@ -1284,7 +1284,7 @@ function cardRows(h) {
     push('걷기 강도', level, '', older ? 'CADENCE-Adults 61세 이상 기준: 100 = 중강도' : 'CADENCE-Adults 기준: 100걸음/분 = 중강도, 130 = 고강도');
     if (h.speed) push('걷는 속도', f(h.speed, 2), 'm/s', `페리 기준 성인 평균 1.37 · 차이 ${h.speed - 1.37 >= 0 ? '+' : ''}${(h.speed - 1.37).toFixed(2)}`);
     if (h.stepLength && sex) { const ideal = (sex === 'f' ? 0.0064 : 0.0072) * c * 100; push('걸음 길이', f(h.stepLength * 100), 'cm', `Neumann 효율 최적 약 ${ideal.toFixed(0)}cm (${vs(h.stepLength * 100, ideal, ['더 길게 디뎌도 됨', '더 짧게 디뎌도 됨'])})`); }
-    push('걸음 수', String(h.steps), '걸음', `6초 넘게 이어 걸은 시간 합 ${clock(h.activeS)}`);
+    push('걸음 수', String(h.steps), '걸음', `8초 넘게 이어 걸은 시간 합 ${clock(h.activeS)}`);
   } else if (act === 'run' || act === 'easyrun') {
     push('러닝 케이던스', f(h.cadence), '걸음/분', act === 'easyrun' ? '걷기 없이 쭉 천천히 달린 기록' : `+5% = ${Math.round(h.cadence * 1.05)}, +10% = ${Math.round(h.cadence * 1.1)} (Heiderscheit 2011·Neumann 16장 연구 범위)`);
     if (h.speed) { push('페이스', paceText(h.speed), '/km', `속도 ${f(h.speed, 2)} m/s · GPS로 잰 참고값`); }

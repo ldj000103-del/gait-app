@@ -133,14 +133,14 @@ export function analyzeWalk(samples, { position = 'pocket', activity = 'walk' } 
   const hp = peakNear(ac, (stride * HZ) / 2, 0.15), stepReg = hp > 0 ? ac[hp] : 0;   // 한 걸음 간격의 반복 (위치 짐작용)
   let sd = 0; { let m = 0; for (const v of seg) m += v; m /= seg.length; for (const v of seg) sd += (v - m) ** 2; sd = Math.sqrt(sd / seg.length); }   // 흔들림 세기 (자동 구분용)
 
-  // 걸은 시간·걸음 = 가장 긴 구간 + 다른 구간(6초 이상)마다 그 구간의 빠르기로 다시 센 값. 걸음처럼 반복(regularity ≥ 0.4)되는 구간만 더함
+  // 걸은 시간·걸음 = 가장 긴 구간 + 다른 구간(8초 이상)마다 그 구간의 빠르기로 다시 센 값. 걸음처럼 반복(regularity ≥ 0.4)되는 구간만 더함
   // (걷다 서다 반복하면 가장 긴 구간만 세던 문제: '24분 쟀는데 299보', K-B8EC7CAB / 빠르기가 다른 구간도 빠지지 않게, 검수팀 10/30)
   // 서서 몸만 움직인 구간은 반복이 약해 빠짐. 케이던스는 가장 긴 구간 값 그대로 (Perry 기준과 비교하는 이어 걸은 값)
-  // ponytail: 걸음과 비슷한 박자로 서서 다리를 떨면 걸음으로 들어감(규칙적인 흔들림은 구별 못 함). 6초 미만으로 잠깐씩 옮겨 다닌 걸음은 안 셈
+  // ponytail: 걸음과 비슷한 박자로 서서 다리를 떨면 걸음으로 들어감(규칙적인 흔들림은 구별 못 함). 8초 미만으로 잠깐씩 옮겨 다닌 걸음은 안 셈
   const cadence = 120 / stride;
   let activeS = (a1 - a0) / HZ, steps = (activeS * cadence) / 60, walkSegs = 1;
   for (const [p, q] of segs) {
-    if (p === a0 || q - p < 6 * HZ) continue;
+    if (p === a0 || q - p < 8 * HZ) continue;                          // 8초: 잘라 다시 셀 때 analyzeWalk의 tooShort(8초 미만)와 맞춤
     const t0 = samples[0].t + (p * 1000) / HZ, t1 = samples[0].t + (q * 1000) / HZ;
     const r = analyzeWalk(samples.filter(o => o.t >= t0 && o.t <= t1), { position, activity });
     if (!r.error && r.regularity >= 0.4) { activeS += r.activeS; steps += (r.activeS * r.cadence) / 60; walkSegs++; }
