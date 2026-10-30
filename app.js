@@ -893,7 +893,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v211';
+const APP_VERSION = 'v212';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');

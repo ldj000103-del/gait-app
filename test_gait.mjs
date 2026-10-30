@@ -158,3 +158,28 @@ console.log('모든 점검 통과');
   assert.ok(Math.abs(upW.climbM - 30) < 1.5, `걸으며 30m: ${upW.climbM}`);
   console.log('계단 높이 점검 통과');
 }
+
+// 걷다 서다 반복 (K-B8EC7CAB 아버님 '24분 쟀는데 299보', 검수팀 10/30): 2분 30초 걷기 + 40초 서기 × 9 → 걸은 구간을 모두 더해야 함
+// 중간에 30초 '서서 몸만 움직임'(규칙 없는 흔들림)을 넣어도 걸음으로 세지 않아야 함
+{
+  let r = 11; const rand = () => ((r = (r * 16807) % 2147483647) / 2147483647 - 0.5);
+  const hz = 60, cad = 117, step = 60 / cad, samples = [];
+  const plan = []; for (let k = 0; k < 9; k++) plan.push(['walk', 150], ['still', 40]); plan.splice(5, 0, ['fidget', 30]);
+  let t0 = 0, walkS = 0;
+  for (const [kind, dur] of plan) {
+    for (let i = 0; i < dur * hz; i++) {
+      const t = t0 + i / hz; let a = 9.81 + rand() * 0.15;
+      if (kind === 'walk') { const k = (i / hz) / step, n = Math.floor(k), ph = k - n; a += (n % 2 ? 0.4 : 3.2) * Math.exp(-(((ph - 0.15) / 0.07) ** 2)) + 2.0 * Math.sin(Math.PI * k) + rand() * 0.4; }
+      if (kind === 'fidget') a += rand() * 4;
+      samples.push({ t: t * 1000, x: 0, y: a, z: 0 });
+    }
+    t0 += dur; if (kind === 'walk') walkS += dur;
+  }
+  const res = analyzeWalk(samples, { position: 'pocket' }), want = walkS * cad / 60;
+  console.log(`걷다 서다 ×9: 케이던스 ${res.cadence.toFixed(1)}, 걸음 ${res.steps} (실제 ${Math.round(want)}), 걸은 시간 ${(res.activeS / 60).toFixed(1)}분, 걸은 구간 ${res.walkSegs}개`);
+  assert.ok(Math.abs(res.cadence - cad) / cad < 0.02, `케이던스 ${res.cadence}`);
+  assert.ok(Math.abs(res.steps - want) / want < 0.03, `걸음 ${res.steps} / ${want}`);
+  assert.equal(res.walkSegs, 9, '서서 몸만 움직인 30초는 빠짐');
+  const one = analyzeWalk(fakeWalk({ cadence: 113, walkS: 300, position: 'pocket' }), { position: 'pocket' });   // 쭉 걷기는 그대로
+  assert.ok(Math.abs(one.steps - 565) <= 6 && one.walkSegs === 1, `쭉 걷기 ${one.steps}`);
+}

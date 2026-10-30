@@ -1,5 +1,5 @@
 // 오프라인에서도 열리도록 앱 파일 저장 (파일을 고치면 VERSION을 올리기)
-const VERSION = 'v211';
+const VERSION = 'v212';
 const FILES = ['./', 'index.html', 'app.js', 'gait.js', 'video.js', 'manifest.webmanifest', 'icon.svg', 'icon-192.png', 'icon-512.png', 'icon-maskable-512.png', 'privacy.html', 'location-terms.html',
   ...['side', 'front', 'back'].flatMap(v => ['pelvis', 'femur', 'shank', 'foot'].map(p => `assets/bones/${v}-${p}.webp`)),
   ...Array.from({ length: 50 }, (_, i) => `assets/learn/l${String(i).padStart(2, '0')}.webp`)];   // 홈 '배워 보기' 카드 그림 50장(약 245KB, 발 모형 렌더)도 오프라인에서   // 걸음걸이 탭 뼈 그림 12장(약 39KB)도 오프라인에서 보이게

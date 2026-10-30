@@ -33,8 +33,8 @@ function movingAvg(x, w) {
   return out;
 }
 
-// 1초 창의 표준편차가 기준을 넘는 가장 긴 구간 = 실제로 걸은 구간
-export function activeSegment(x, hz = HZ) {
+// 1초 창의 표준편차가 기준을 넘는 구간들 [[시작, 끝], …] (0.5초 넘게 멈추면 끊김). 가장 긴 구간 = 케이던스·GPS를 보는 구간
+export function activeSegments(x, hz = HZ) {
   const w = hz, half = w >> 1, on = new Uint8Array(x.length);
   for (let i = 0; i < x.length; i++) {
     const a = Math.max(0, i - half), b = Math.min(x.length, i + half);
@@ -45,16 +45,15 @@ export function activeSegment(x, hz = HZ) {
     for (let k = a; k < b; k++) v += (x[k] - m) ** 2;
     on[i] = Math.sqrt(v / (b - a)) > ACTIVE_STD ? 1 : 0;
   }
-  let best = [0, 0], start = -1, gap = 0;
+  const segs = []; let start = -1, gap = 0;
   for (let i = 0; i <= x.length; i++) {
     if (i < x.length && on[i]) { if (start < 0) start = i; gap = 0; }
     else if (start >= 0 && (++gap > hz / 2 || i === x.length)) {   // 0.5초 넘게 멈추면 끊김
-      const end = i - gap + 1;
-      if (end - start > best[1] - best[0]) best = [start, end];
+      segs.push([start, i - gap + 1]);
       start = -1; gap = 0;
     }
   }
-  return best;
+  return segs;
 }
 
 function autocorr(x, maxLag) {
@@ -99,9 +98,8 @@ export function analyzeWalk(samples, { position = 'pocket', activity = 'walk' } 
   if (samples.length < 50 || totalS < 8) return { error: 'tooShort', totalS };
 
   const x = movingAvg(resample(samples), 5);          // 0.1초 평활
-  const [a0, a1] = activeSegment(x);
-  const activeS = (a1 - a0) / HZ;
-  if (activeS < 6) return { error: 'noWalk', totalS, activeS };
+  const segs = activeSegments(x), [a0, a1] = segs.reduce((m, g) => g[1] - g[0] > m[1] - m[0] ? g : m, [0, 0]);
+  if ((a1 - a0) / HZ < 6) return { error: 'noWalk', totalS, activeS: (a1 - a0) / HZ };
 
   let s = a0 + TRIM_S * HZ, e = a1 - TRIM_S * HZ;
   if ((e - s) / HZ < 6) { s = a0; e = a1; warnings.push('shortWalk'); }
@@ -135,6 +133,15 @@ export function analyzeWalk(samples, { position = 'pocket', activity = 'walk' } 
   const hp = peakNear(ac, (stride * HZ) / 2, 0.15), stepReg = hp > 0 ? ac[hp] : 0;   // 한 걸음 간격의 반복 (위치 짐작용)
   let sd = 0; { let m = 0; for (const v of seg) m += v; m /= seg.length; for (const v of seg) sd += (v - m) ** 2; sd = Math.sqrt(sd / seg.length); }   // 흔들림 세기 (자동 구분용)
 
+  // 걸은 시간 = 가장 긴 구간 + 다른 구간 중 6초 이상이고 같은 걸음 간격으로 반복되는 구간 (걷다 서다 반복하면 가장 긴 구간만 세던 문제: '24분 쟀는데 299보', K-B8EC7CAB, 검수팀 10/30)
+  // 서서 몸만 움직인 구간은 반복이 약해 빠짐. 케이던스는 가장 긴 구간 값 그대로 (Perry 기준과 비교하는 이어 걸은 값)
+  let walkN = a1 - a0, walkSegs = 1;
+  for (const [p, q] of segs) {
+    if (p === a0 || q - p < 6 * HZ) continue;
+    const g = x.slice(p, q), acg = autocorr(g, Math.min(Math.round(1.2 * stride * HZ), g.length - 2)), k = peakNear(acg, stride * HZ, 0.15);
+    if (k > 0 && acg[k] >= 0.4) { walkN += q - p; walkSegs++; }
+  }
+  const activeS = walkN / HZ;
   const cadence = 120 / stride;
   const steps = Math.round((activeS * cadence) / 60);
   if (regularity < 0.4) warnings.push('irregular');
@@ -145,7 +152,7 @@ export function analyzeWalk(samples, { position = 'pocket', activity = 'walk' } 
 
   // 꾸준히 걸은 구간의 시각 (samples의 t 기준, ms) → GPS 거리 계산에 씀
   const steadyFrom = samples[0].t + (s * 1000) / HZ, steadyTo = samples[0].t + (e * 1000) / HZ;
-  return { cadence, steps, strideS: stride, activeS, totalS, regularity, stepReg, sd, warnings, steadyFrom, steadyTo };
+  return { cadence, steps, strideS: stride, activeS, walkSegs, totalS, regularity, stepReg, sd, warnings, steadyFrom, steadyTo };
 }
 
 // ── 자동 구분 (검증 안 된 규칙 → 결과에 '참고'·'검증 안 됨'으로 표시) ──
