@@ -278,8 +278,8 @@ async function deleteRec(date) {
   const ask = $('delAsk')?.checked && (hist[i].receipt || hist[i].orig?.receipt);
   if (ask) {
     const b = $('pickList').querySelector('[data-del]'); b.disabled = true;
-    const ok = await askDelete(hist[i].receipt); b.disabled = false;
-    if (ok && hist[i].orig?.receipt && hist[i].orig.receipt !== hist[i].receipt) askDelete(hist[i].orig.receipt);   // 활동을 바꿔 보냈으면 원래 행도
+    const ok = await askDelete(hist[i].receipt || hist[i].orig?.receipt); b.disabled = false;   // 바꾼 뒤 동의를 껐으면 지금 기록엔 접수번호가 없음 (검수팀)
+    if (ok && hist[i].receipt && hist[i].orig?.receipt && hist[i].orig.receipt !== hist[i].receipt) askDelete(hist[i].orig.receipt);   // 활동을 바꿔 보냈으면 원래 행도
     if (!ok) {                                                            // 접수번호가 먼저 사라지면 안 되니 휴대폰 기록은 그대로 (체크를 풀면 기록만 지울 수 있음)
       if ($('pickSheet').hidden) return toast('삭제 요청을 보내지 못해 기록을 그대로 뒀어요');   // 보내는 중에 판을 닫았으면 판 밖에서 알림
       $('pickList').querySelector('.delErr')?.remove();
@@ -2005,12 +2005,13 @@ async function relabel(date, act) {
   const base = h.orig ?? h, from = h.activity ?? 'walk';
   if (act === from) return;
   let next;
-  if (act === (base.activity ?? 'walk')) next = { ...base };              // 처음 활동으로 고르면 = 되돌리기 (원래 값 그대로)
+  if (act === (base.activity ?? 'walk')) next = { ...base, ctx: h.ctx, hr: h.hr };              // 처음 활동으로 고르면 = 되돌리기 (원래 값 그대로)
   else {
     const rows = await rawGet(date);
     if (!rows) return toast('이 기록은 센서 원본이 없어 바꿀 수 없어요');   // 원본은 최근 측정 몇 개만 이 휴대폰에 남음
     const data = rows.map(([t, x, y, z]) => ({ t, x, y, z })), position = base.position;
-    const keep = { date: base.date, start: base.start, position, auto: base.auto?.pos ? { pos: base.auto.pos } : {}, route: h.route, diag: base.diag, diagHtml: base.diagHtml, autoRec: base.autoRec };
+    const keep = { date: base.date, start: base.start, position, ctx: h.ctx, hr: h.hr,   // 측정 뒤에 붙인 메모·심박은 지금 값 그대로 (검수팀)
+      auto: base.auto?.pos ? { pos: base.auto.pos } : {}, route: h.route, diag: base.diag, diagHtml: base.diagHtml, autoRec: base.autoRec };
     const kw = (base.warnings ?? []).filter(w => RELAB_KEEP.includes(w));
     if (act === 'slowrun') {
       const c = slowCalc(data, position, true);
@@ -2033,7 +2034,10 @@ async function relabel(date, act) {
     const ok = base.autoRec ? consent?.autoShare && base.start >= Date.parse(consent.autoShare.date) : consent?.share;   // 기록 종류에 맞는 동의로 (법률 검토 32번: 자동 기록은 자동 측정 동의, 그 날짜 이후만)
     if (base.receipt && ok && ENDPOINT) try { next.receipt = send({ ...next, warnings: [...next.warnings, `relabel:${base.receipt}`] }); } catch {}
   }
-  hist[i] = next; store.set('history', hist);
+  hist[i] = next;
+  { const day = new Date(date).toLocaleDateString('sv-SE'), walks = hist.filter(x => !x.autoRec && (x.activity ?? 'walk') === 'walk' && new Date(x.date).toLocaleDateString('sv-SE') === day);   // 그날 연습 = 가장 이른 걷기 하나 (Perry 20장, 검수팀)
+    walks.forEach(x => { x.practice = x === walks[walks.length - 1]; }); }   // 기록은 최신 순이라 마지막이 가장 이름. 이미 보낸 다른 기록의 practice는 다시 보내지 않음
+  store.set('history', hist);
   const past = $('result').textContent.includes('지난 기록 다시 보기');
   shownDate = date; route = next.route ?? null;
   if (past) showRecord(i); else renderAny(hist, i);
