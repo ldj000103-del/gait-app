@@ -237,6 +237,7 @@ addEventListener('popstate', () => closePick(false));
 // 설치형 앱 휴대폰 뒤로 가기: MainActivity가 먼저 물어봄. 열린 판을 닫았으면 true(앱은 그대로), 아니면 false(예전처럼 앱 닫힘)
 window.gaitBack = () => {
   if (!$('pickSheet').hidden) { closePick(); return true; }
+  if (!$('metroSheet').hidden) { closeMetro(); return true; }
   if (!$('stopSheet').hidden) { closeStopSheet(); $('stop').focus(); return true; }   // 측정 종료 확인 창 = '계속 측정'
   if ($('srcOv')) { $('srcOv').querySelector('[data-s=close]').click(); return true; }   // 출처 판은 운동 창 위에 떠서 먼저 닫음 (검수팀)
   if ($('exDet')) { $('exDet').querySelector('[data-exd=back]').click(); return true; }   // 운동 상세 → 목록
@@ -916,7 +917,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v218';
+const APP_VERSION = 'v219';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -3235,7 +3236,7 @@ let metroCtx = null, metroIv = 0, metroT = 0, metroN = 0;
 const metroBpm = () => Math.round(+$('metroBpm').value);
 $('metroBpm').value = store.get('metroBpm', '') || '';
 $('metroAcc').checked = store.get('metroAcc', false);
-$('metroBpm').addEventListener('change', () => store.set('metroBpm', metroBpm() || ''));
+$('metroBpm').addEventListener('change', () => { store.set('metroBpm', metroBpm() || ''); metroChip(); });
 $('metroAcc').addEventListener('change', () => store.set('metroAcc', $('metroAcc').checked));
 function metroBeep(t, hi) {
   const o = metroCtx.createOscillator(), g = metroCtx.createGain();
@@ -3243,7 +3244,16 @@ function metroBeep(t, hi) {
   o.connect(g).connect(metroCtx.destination); o.start(t); o.stop(t + 0.06);
 }
 function metroOff() { if (!metroIv) return; clearInterval(metroIv); metroIv = 0; metroCtx.suspend(); metroSet(false); }
-function metroSet(on) { $('metroBtn').textContent = on ? '소리 끄기' : '소리 켜기'; $('metroBtn').setAttribute('aria-pressed', on); }
+function metroSet(on) { $('metroBtn').textContent = on ? '소리 끄기' : '소리 켜기'; $('metroBtn').setAttribute('aria-pressed', on); metroChip(); }
+function metroChip() { const c = $('metroChip'); c.textContent = metroIv ? `♪ ${metroBpm()} 켜짐 ›` : '♪ 박자 소리 꺼짐 ›'; c.setAttribute('aria-pressed', !!metroIv); }
+// 박자 소리 판: 측정 탭 칩을 누르면 열림 (건의 K-3F9AFC6B, 디자인 팀 시안 A). 뒤로 가기·바깥·✕·Esc로 닫힘
+function openMetro() { $('metroSheet').hidden = false; history.pushState({ pickSheet: 1 }, ''); $('metroX').focus(); }
+function closeMetro(back = true) { if ($('metroSheet').hidden) return; $('metroSheet').hidden = true; $('metroChip').focus({ preventScroll: true }); if (back && history.state?.pickSheet) history.back(); }
+$('metroChip').addEventListener('click', openMetro);
+$('metroX').addEventListener('click', () => closeMetro());
+$('metroSheet').addEventListener('click', e => { if (e.target.id === 'metroSheet') closeMetro(); });
+$('metroSheet').addEventListener('keydown', e => { if (e.key === 'Escape') closeMetro(); });
+addEventListener('popstate', () => closeMetro(false));
 $('metroBtn').addEventListener('click', () => {
   if (metroIv) return metroOff();
   const b = metroBpm();

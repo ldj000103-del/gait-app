@@ -312,7 +312,7 @@
   body[data-tab="measure"] #start { position:fixed; z-index:19; left:clamp(8px, 4vw, 40px); right:clamp(8px, 4vw, 40px); bottom:calc(66px + env(safe-area-inset-bottom));
     width:auto; max-width:528px; margin:0 auto; border-radius:var(--radius); padding:8px 14px; background:#121816; color:#fff; font-size:1rem; line-height:1.3; box-shadow:0 4px 16px rgba(0,0,0,.18); }
   #start small { display:block; font-size:.75rem; font-weight:500; opacity:.75; }
-  body[data-tab="measure"] main { padding-bottom:calc(150px + env(safe-area-inset-bottom)); }
+  body[data-tab="measure"] main { padding-bottom:calc(190px + env(safe-area-inset-bottom)); }
   body[data-tab="measure"]:has(#result:not(.hidden)) #start { position:static; width:100%; box-shadow:none; }
   body[data-tab="measure"]:has(#result:not(.hidden)) main { padding-bottom:calc(80px + env(safe-area-inset-bottom)); }
   /* 내 정보: 큰 둥근 버튼·숫자 칸 */
@@ -378,6 +378,11 @@
   .pickRow.mini .pChev { font-size:1rem; }
   #pickSheet { position:fixed; inset:0; z-index:40; background:rgba(0,0,0,.45); display:flex; align-items:flex-end; }
   #pickSheet[hidden] { display:none; }
+  #metroSheet { position:fixed; inset:0; z-index:40; background:rgba(0,0,0,.45); display:flex; align-items:flex-end; } #metroSheet[hidden] { display:none; } #metroSheet .dsheet { max-height:85vh; overflow-y:auto; padding-left:20px; padding-right:20px; }
+  /* 박자 소리 칩: 시작 버튼 바로 위 오른쪽, 함께 고정 (디자인 팀 시안 A). 결과가 보이면 시작 버튼처럼 제자리로. 누르는 곳은 ::after로 위아래를 넓혀 44px */
+  #metroChip { position:relative; display:block; margin:8px 0 0 auto; } #metroChip::after { content:''; position:absolute; inset:-6px 0; } button#metroChip[aria-pressed="true"] { background:var(--card); border-color:var(--accent); color:var(--accent); }
+  body[data-tab="measure"] #metroChip { position:fixed; z-index:19; right:clamp(8px, 4vw, 40px); bottom:calc(128px + env(safe-area-inset-bottom)); margin:0; box-shadow:0 2px 8px rgba(0,0,0,.12); }
+  body[data-tab="measure"]:has(#result:not(.hidden)) #metroChip { position:relative; right:auto; bottom:auto; margin:8px 0 0 auto; box-shadow:none; }
   #pickSheet .dsheet { max-height:85vh; overflow-y:auto; padding-top:8px; touch-action:pan-y; }
   #pickSheet .grab { display:block; width:40px; height:4px; border-radius:2px; background:var(--line); margin:0 auto 10px; }
   #pickQ { margin:0 20px 6px; font-size:1rem; }
@@ -531,14 +536,8 @@
     </div>
     <div id="locBox" class="sub hidden" style="margin-top:8px"><label><input type="checkbox" id="locOk"> <a href="location-terms.html" target="_blank">위치기반서비스 이용약관</a>에 동의해요</label> (GPS로 거리·경로를 잴 때 필요해요. 체크를 풀면 언제든 철회돼요)</div>
     </div>
-    <details class="howto" id="metro"><summary>박자 소리 (메트로놈)</summary>
-      <div class="sub">직접 정한 빠르기로 '딱' 소리를 내요. 소리에 발을 맞춰 걸어 볼 수 있어요. 앱이 정해 주거나 권하는 값은 아니에요. 측정 중에도 계속 나고, 측정이 끝나면 저절로 꺼져요. 켠 채로 측정하면 그 빠르기를 결과에 함께 적어, 잰 케이던스와 비교해 볼 수 있어요(익명 결과를 보내기로 했다면 빠르기 숫자도 함께 가요).</div>
-      <label for="metroBpm">분당 걸음 수</label>
-      <input id="metroBpm" type="number" inputmode="numeric" min="40" max="220" step="1" placeholder="예: 120">
-      <label class="chk" style="justify-content:flex-start"><input type="checkbox" id="metroAcc"><span>네 박마다 첫 박을 높은 소리로 (하나·둘·셋·넷 세기)</span></label>
-      <button id="metroBtn" class="ghost" type="button" aria-pressed="false">소리 켜기</button>
-      <div class="sub" id="metroMsg" role="status"></div></details>
     <button id="warmBtn" class="textlike hidden" type="button">뛰기 전 몸 풀기 ›</button>
+    <button id="metroChip" class="chip" type="button" aria-haspopup="dialog" aria-pressed="false">♪ 박자 소리 꺼짐 ›</button>
     <button id="start" class="bigstart">시작<small>누르고 3초 안에 주머니에 넣어요</small></button>
     <div class="warn hidden" id="pocketNote">웹은 화면을 켠 채 손에 들고 재요 · <a href="install.html">설치형 앱</a></div>
     <details class="howto" id="firstGuide"><summary>처음 쓰는 법</summary><ol class="guide">
@@ -572,6 +571,13 @@
 
   <section class="card hidden" id="result" data-tab="measure"></section>
   <div id="toast" role="status" aria-live="polite" hidden></div>
+  <div id="metroSheet" hidden role="dialog" aria-modal="true" aria-labelledby="metroQ"><div class="dsheet"><div class="lhead"><h3 id="metroQ">박자 소리 (메트로놈)</h3><button class="lx" id="metroX" type="button" aria-label="닫기">✕</button></div>
+      <div class="sub">직접 정한 빠르기로 '딱' 소리를 내요. 소리에 발을 맞춰 걸어 볼 수 있어요. 앱이 정해 주거나 권하는 값은 아니에요. 측정 중에도 계속 나고, 측정이 끝나면 저절로 꺼져요. 켠 채로 측정하면 그 빠르기를 결과에 함께 적어, 잰 케이던스와 비교해 볼 수 있어요(익명 결과를 보내기로 했다면 빠르기 숫자도 함께 가요).</div>
+      <label for="metroBpm">분당 걸음 수</label>
+      <input id="metroBpm" type="number" inputmode="numeric" min="40" max="220" step="1" placeholder="예: 120">
+      <label class="chk" style="justify-content:flex-start"><input type="checkbox" id="metroAcc"><span>네 박마다 첫 박을 높은 소리로 (하나·둘·셋·넷 세기)</span></label>
+      <button id="metroBtn" class="ghost" type="button" aria-pressed="false">소리 켜기</button>
+      <div class="sub" id="metroMsg" role="status"></div></div></div>
   <div id="pickSheet" hidden role="dialog" aria-modal="true" aria-labelledby="pickQ"><div class="dsheet"><i class="grab" aria-hidden="true"></i><h3 id="pickQ"></h3><div id="pickList"></div></div></div>
 
   <section class="card" id="history" data-tab="records">
