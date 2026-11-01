@@ -100,7 +100,7 @@ const GRADE = {
 // 오래 걷지 않을 때 (민원팀 10/28): 걷지 않는 상태가 IDLE_ASK_S 이어지면 물음, 물은 뒤 IDLE_END_S 동안 답이 없으면 저장하고 끝냄, MAX_REC_S가 되면 저장하고 끝냄
 // 설치형 앱은 GaitService.java가 같은 값으로 화면이 꺼져도 처리, 웹은 화면이 켜져 있는 동안만. 데이터분석팀이 조정
 const IDLE_ASK_S = 15 * 60, IDLE_END_S = 15 * 60, MAX_REC_S = 3 * 3600, STILL_SD = 0.6;   // STILL_SD: 5초 가속도 크기 흔들림(m/s²)이 이보다 작으면 걷지 않음
-let pendingEnd = null, metroStart = 0, metroBroken = false;                                 // metroStart: 측정을 시작할 때 켜져 있던 박자 소리 빠르기                                                   // 이번 측정이 자동으로 끝난 이유 → 저장할 기록의 warnings에 붙임
+let pendingEnd = null, metroStart = 0, metroEnd = 0, metroBroken = false;                                 // metroStart: 측정을 시작할 때 켜져 있던 박자 소리 빠르기                                                   // 이번 측정이 자동으로 끝난 이유 → 저장할 기록의 warnings에 붙임
 const WARN = {
   idleEnd: `오래 움직임이 없어 자동으로 끝냈어요. ${IDLE_ASK_S / 60}분 넘게 걷지 않아 물었고 ${IDLE_END_S / 60}분 동안 답이 없어, 그때까지 잰 기록으로 분석했어요.`,
   maxEnd: `측정이 ${MAX_REC_S / 3600}시간이 되어 자동으로 끝냈어요. 앞 ${MAX_REC_S / 3600}시간까지 잰 기록으로 분석했어요.`,
@@ -574,6 +574,7 @@ const noDiag = () => ({ src: Native ? 'app' : 'web', durS: 0, hz: 0, gapS: 0, gp
 async function stopRec(killed = false, reason = null) {
   killed = killed === true;                                                // 혹시 클릭 이벤트가 넘어와도 진짜 true일 때만
   reason = typeof reason === 'string' && reason in WARN ? reason : null;   // idleEnd·maxEnd만 기록에 남김 (알림의 '끝내기'는 보통 종료)
+  metroEnd = metroStart && metroIv && !metroBroken ? metroBpm() : 0; metroOff();   // 측정이 어떻게 끝나든 박자 소리도 끔 (건의 K-3F9AFC6B). 빠르기는 다음에 쓰게 칸에 남음
   closeIdleAsk();
   closeStopSheet();                                                        // 12분 자동 종료·앱 정리로 끝날 때 확인 창이 남지 않게
   shownDate = null;                                                        // 실패 화면에 앞 측정의 공유·원본·상황 버튼이 붙지 않게 (finish는 따로 다시 정함)
@@ -820,8 +821,8 @@ async function rawGet(key) {
 const keepHist = hist => { let m = 0, a = 0; return hist.filter(h => h.autoRec ? a++ < 200 : m++ < 200); };   // 자동 기록은 따로 200개 (법률 29번: 직접 잰 기록이 자동 기록에 밀려 지워지지 않게)
 function saveRec(rec, hist, demo, raw) {
   if (pendingEnd) { rec.warnings = [...(rec.warnings ?? []), pendingEnd]; pendingEnd = null; }
-  if (metroStart && metroIv && !metroBroken) rec.metro = metroBpm();                        // 박자 소리를 켜고 시작해 끝까지 켜져 있었음 (중간에 끄거나 앱이 다시 열리면 안 남김)
-  metroStart = 0;   // 결과·기록·익명 전송에 '자동으로 끝냄'
+  if (metroEnd) rec.metro = metroEnd;                                       // 박자 소리를 켜고 시작해 끝까지 박을 놓치지 않음 (중간에 앱이 다시 열리면 안 남김)
+  metroStart = metroEnd = 0;   // 결과·기록·익명 전송에 '자동으로 끝냄'
   if (raw && !demo && !raw[0]?.mag) rawPut(rec.date, raw.map(p => [Math.round(p.t * 10) / 10, +p.x.toFixed(3), +p.y.toFixed(3), +p.z.toFixed(3)])).catch(() => {});
   hist.unshift(rec);
   hist.forEach((h, i) => { if (i >= ROUTE_KEEP) delete h.route; });     // ponytail: 휴대폰 저장 공간(약 5MB) 때문에 최근 30개만. 더 필요하면 IndexedDB로
@@ -914,7 +915,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v216';
+const APP_VERSION = 'v217';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -2588,7 +2589,7 @@ if (new URLSearchParams(location.search).has('demo')) {
       const north = Math.min(Math.max(t - 3, 0), walkS) * 1.3 + (Math.random() - .5) * 10;
       g.push({ t: t * 1000, lat: 37.5 + north / 111320, lon: 127 + (Math.random() - .5) * 10 / 88300, acc: 6 });
     }
-    metroStart = metroIv ? metroBpm() : 0; metroBroken = false;          // 시작 버튼과 같게 (박자 소리 기록 확인용)
+    metroEnd = metroIv ? metroBpm() : 0; metroOff();                     // 측정 끝과 같게 (박자 소리 기록 확인용)
     finish(s, true, g);
   });
 }
@@ -3240,9 +3241,10 @@ function metroBeep(t, hi) {
   o.frequency.value = hi ? 1760 : 1046; g.gain.setValueAtTime(0.5, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.05);
   o.connect(g).connect(metroCtx.destination); o.start(t); o.stop(t + 0.06);
 }
+function metroOff() { if (!metroIv) return; clearInterval(metroIv); metroIv = 0; metroCtx.suspend(); metroSet(false); }
 function metroSet(on) { $('metroBtn').textContent = on ? '소리 끄기' : '소리 켜기'; $('metroBtn').setAttribute('aria-pressed', on); }
 $('metroBtn').addEventListener('click', () => {
-  if (metroIv) { clearInterval(metroIv); metroIv = 0; metroCtx.suspend(); return metroSet(false); }
+  if (metroIv) return metroOff();
   const b = metroBpm();
   if (!(b >= 40 && b <= 220)) return ($('metroMsg').textContent = '분당 걸음 수를 40~220 사이로 넣어 주세요.');
   $('metroMsg').textContent = '';
