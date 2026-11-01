@@ -316,7 +316,8 @@ $('pickSheet').addEventListener('keydown', e => { if (e.key === 'Escape') closeP
 $('pickSheet').addEventListener('pointerdown', e => { pickDragY = e.clientY; });          // 아래로 끌면 닫기
 $('pickSheet').addEventListener('pointerup', e => { if (pickDragY != null && e.clientY - pickDragY > 60) closePick(); pickDragY = null; });
 function showAct() { showLoc(); const a = $('act').value;
-  syncPicks(); $('autoNote').classList.toggle('hidden', a !== 'auto'); $('easyNote').classList.toggle('hidden', a !== 'easyrun'); $('slowNote').classList.toggle('hidden', a !== 'slowrun'); $('cooperNote').classList.toggle('hidden', a !== 'cooper'); $('warmBtn').classList.toggle('hidden', !RUN_ACTS.includes(a)); $('stairsNote').classList.toggle('hidden', a !== 'stairs'); $('dmodeBox').classList.toggle('hidden', a === 'slowrun' || a === 'cooper' || a === 'stairs'); }
+  syncPicks(); $('walkNote').classList.toggle('hidden', a !== 'walk' && a !== 'auto'); $('autoNote').classList.toggle('hidden', a !== 'auto');   // walkNote: 건의 K-CFED1B60, 걷기·자동은 기압계를 켜지 않음
+  $('easyNote').classList.toggle('hidden', a !== 'easyrun'); $('slowNote').classList.toggle('hidden', a !== 'slowrun'); $('cooperNote').classList.toggle('hidden', a !== 'cooper'); $('warmBtn').classList.toggle('hidden', !RUN_ACTS.includes(a)); $('stairsNote').classList.toggle('hidden', a !== 'stairs'); $('dmodeBox').classList.toggle('hidden', a === 'slowrun' || a === 'cooper' || a === 'stairs'); }
 $('act').addEventListener('change', () => { store.set('act', $('act').value); showAct(); showSetSum(); });
 showAct();
 if (!store.get('history', []).length) $('firstGuide').open = true;   // 처음 쓰는 사람에겐 사용법을 펼쳐 둠
