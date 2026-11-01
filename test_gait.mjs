@@ -1,7 +1,7 @@
 // 걸음 분석 자체 점검: node test_gait.mjs
 // 가짜 걷기 신호(앞뒤 3초 서 있기 포함)를 만들어 케이던스를 2% 안으로 맞히는지 확인
 import assert from 'node:assert/strict';
-import { analyzeWalk, fastMinutes, withDistance, gpsSpeed, gpsDistance, guessActivity, guessPosition, routeMarks, analyzeJog, mixActivity, stairClimb } from './gait.js';
+import { analyzeWalk, fastMinutes, withDistance, gpsSpeed, gpsDistance, guessActivity, guessPosition, routeMarks, analyzeJog, mixActivity, stairClimb, mergeWalkRun, walkRunSegs } from './gait.js';
 
 function fakeWalk({ cadence, walkS = 20, position, hz = 60, seed = 1, amp = 1, odd = 0.4, sw = 2.0 }) {   // amp: 달리기는 흔들림이 큼
   let r = seed;
@@ -200,4 +200,32 @@ console.log('모든 점검 통과');
   assert.ok(Math.abs(res.cadence - 95) / 95 < 0.02, `케이던스 ${res.cadence}`);
   assert.ok(Math.abs(res.steps - want) / want < 0.03, `걸음 ${res.steps} / ${want}`);
   assert.equal(res.walkSegs, 3);
+}
+
+// 걷다가 뛴 구간 (건의 K-A374CBFC·K-2A2B1E90): 30초 조각 합치기 + 구간별로 그 활동 방식으로 세기
+{
+  const W = 'walk', R = 'run', shape = L => mergeWalkRun(L).map(r => r.type[0] + r.n).join(' ');
+  assert.equal(shape([W, W, R, R, W, W]), 'w2 r2 w2');
+  assert.equal(shape([W, W, R, W, W]), 'w5', '30초 하나만 튄 건 합침');
+  assert.equal(shape([R, W, W, W]), 'w4', '맨 앞 한 조각');
+  assert.equal(shape([W, W, W, R]), 'w4', '맨 끝 한 조각');
+  assert.equal(shape([W, null, W, R, R]), 'w3 r2', '신호 못 찾은 조각은 앞에 붙임');
+  assert.equal(shape([null, null]), '');
+  assert.equal(mergeWalkRun([W, R, W, R, W]).length, 1, '번갈아 튀면 한 구간으로');
+  let r = 9; const rand = () => ((r = (r * 16807) % 2147483647) / 2147483647 - 0.5);
+  const mk = plan => { const hz = 50, out = []; let t0 = 0, kk = 0; for (const [cad, dur] of plan) { for (let i = 0; i < dur * hz; i++) { kk += cad / 60 / hz; const n = Math.floor(kk), ph = kk - n, amp = cad >= 140 ? 4 : 1;
+    out.push({ t: (t0 + i / hz) * 1000, x: 0, y: 9.81 + amp * ((n % 2 ? 0.4 : 3.2) * Math.exp(-(((ph - 0.15) / 0.07) ** 2)) + 2 * Math.sin(Math.PI * kk)) + rand() * 0.3, z: 0 }); } t0 += dur; } return out; };
+  const mixed = walkRunSegs(mk([[110, 120], [165, 60], [110, 120]]), 'pocket');
+  console.log('걷기·뛰기 구간:', mixed.segs?.map(s => `${s.type} ${s.durS.toFixed(0)}초 ${s.cadence.toFixed(0)}/분 ${s.steps}보`).join(' / '));
+  assert.equal(mixed.segs.length, 3); assert.equal(mixed.major, 'walk'); assert.deepEqual(mixed.segs.map(s => s.type), ['walk', 'run', 'walk']);
+  assert.ok(Math.abs(mixed.segs[1].cadence - 165) / 165 < 0.03, `뛰기 ${mixed.segs[1].cadence}`);
+  assert.ok(Math.abs(mixed.segs[0].cadence - 110) / 110 < 0.03, `걷기 ${mixed.segs[0].cadence}`);
+  assert.ok(Math.abs(mixed.segs[1].steps - 165) <= 12, `뛰기 걸음 ${mixed.segs[1].steps}`);
+  assert.equal(mixed.segs[1].speed, null, 'GPS 없으면 속도 없음');
+  assert.equal(walkRunSegs(mk([[110, 180]]), 'pocket').segs, null, '걷기만');
+  assert.equal(walkRunSegs(mk([[165, 180]]), 'pocket').segs, null, '뛰기만');
+  assert.equal(walkRunSegs(mk([[110, 90], [165, 30], [110, 90]]), 'pocket').segs, null, '30초 한 조각만 뜀');
+  const runMajor = walkRunSegs(mk([[165, 240], [110, 60]]), 'pocket');
+  assert.equal(runMajor.major, 'run'); assert.equal(runMajor.segs[runMajor.main].type, 'run');
+  console.log('걷기·뛰기 구간 점검 통과');
 }

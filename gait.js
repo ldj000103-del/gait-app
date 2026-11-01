@@ -193,6 +193,52 @@ export function analyzeJog(samples, position) {
   if (r.error || (r.cadence >= RUN_CAD && r.sd > RUN_SD)) return { r, jog: true };
   return { r: analyzeWalk(samples, { position, activity: 'walk' }), jog: false };
 }
+// sec초씩 자른 조각 [{k, s}] (20초 미만 조각은 버림)
+export function chunks(data, sec) {
+  const out = [], t0s = data[0].t;
+  for (let k = 0; ; k++) {
+    const a = t0s + k * sec * 1000, b = a + sec * 1000;
+    if (a > data[data.length - 1].t) break;
+    const s = data.filter(p => p.t >= a && p.t < b);
+    if (s.length >= 50 && s[s.length - 1].t - s[0].t >= 20000) out.push({ k, s });
+  }
+  return out;
+}
+// 30초 조각 판정 → 이어진 구간 [{type, from, n}] (from·n = 조각 번호·개수). 신호를 못 찾은 조각(null)은 앞 구간에 붙임
+// 조각 하나(30초)만 튄 것은 이웃과 합침: 가장 짧게 보여 주는 구간 = 2조각(1분) (건의 예시가 뛰기 1분. 실제 기록으로 아직 못 정한 값, 시트에 구간이 없어서)
+export function mergeWalkRun(labels) {
+  const L = labels.slice();
+  for (let i = 1; i < L.length; i++) L[i] ??= L[i - 1];
+  for (let i = L.length - 2; i >= 0; i--) L[i] ??= L[i + 1];
+  if (!L.length || !L[0]) return [];
+  const runs = [];
+  L.forEach((type, i) => { const r = runs.at(-1); if (r?.type === type) r.n++; else runs.push({ type, from: i, n: 1 }); });
+  for (let i = 0; i < runs.length && runs.length > 1;) {                    // 앞에서부터: 짧은 조각은 앞 구간에(맨 앞이면 뒤 구간에) 합치고, 같은 활동끼리 이음
+    if (runs[i].n > 1) { i++; continue; }
+    if (i === 0) { runs[1].from = 0; runs[1].n += 1; runs.shift(); continue; }
+    runs[i - 1].n += 1 + (runs[i + 1]?.n ?? 0); runs.splice(i, runs[i + 1] ? 2 : 1); i = Math.max(0, i - 1);
+  }
+  return runs;
+}
+// 걷기·뛰기 구간 (건의 K-A374CBFC·K-2A2B1E90): 30초 조각을 guessActivity(케이던스 140·흔들림 3, 검증 안 된 규칙)로 나눠 잇고, 구간마다 그 활동 방식으로 다시 셈
+// → { major: 시간이 긴 활동, segs: 구간 목록(둘 다 있을 때만, 없으면 null), main: 많은 쪽 활동의 가장 긴 구간 번호 }
+// 속도·거리는 그 구간 GPS가 gpsSpeed 조건(1분·50m)을 넘을 때만, 아니면 비워 둠 (지어내지 않음)
+export function walkRunSegs(data, position, gps = []) {
+  const labels = []; for (const { k, s } of chunks(data, 30)) labels[k] = guessActivity(s, position);
+  const runs = mergeWalkRun(Array.from(labels, x => x ?? null));
+  const major = labels.filter(x => x === 'run').length > labels.filter(x => x === 'walk').length ? 'run' : 'walk';   // 합치기 전 조각 수로
+  if (runs.length < 2) return { major, segs: null };
+  const t0 = data[0].t, tEnd = data[data.length - 1].t, segs = [];
+  for (const [i, r] of runs.entries()) {
+    const from = t0 + r.from * 30000, to = i === runs.length - 1 ? tEnd + 1 : t0 + (r.from + r.n) * 30000;
+    const res = analyzeWalk(data.filter(p => p.t >= from && p.t < to), { position, activity: r.type });
+    if (res.error) return { major, segs: null };                           // 한 구간이라도 못 세면 구간 화면을 보여 주지 않음
+    const d = gpsSpeed(res, gps);
+    segs.push({ type: r.type, fromMs: from - t0, durS: (Math.min(to, tEnd) - from) / 1000, cadence: res.cadence, steps: res.steps, activeS: res.activeS, regularity: res.regularity, sd: res.sd, speed: d.speed ?? null, distance: d.distance ?? null, stepLength: d.stepLength ?? null, steadyFrom: res.steadyFrom, steadyTo: res.steadyTo, from, to });
+  }
+  const main = segs.reduce((m, s, i) => s.type === major && (m < 0 || s.durS > segs[m].durS) ? i : m, -1);
+  return { major, segs, main };
+}
 // 휴대폰 위치: 화면이 하늘을 보면 손, 아니면 허벅지(같은 다리 주기만 강함) / 허리(걸음마다 비슷, Perry 7장)
 // ponytail: 0.7·0.5 기준은 검증 안 됨. 손을 옆에 늘어뜨리고 걸으면 손으로 못 알아봄
 export function guessPosition(samples, activity) {

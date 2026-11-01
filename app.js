@@ -1,4 +1,4 @@
-import { analyzeWalk, fastMinutes, withDistance, gpsSpeed, gpsDistance, guessActivity, guessPosition, routeMarks, RUN_CAD, analyzeJog, mixActivity, stairClimb, FLOOR_M, STAIR_STEP_M } from './gait.js';
+import { analyzeWalk, fastMinutes, withDistance, gpsSpeed, gpsDistance, guessActivity, guessPosition, routeMarks, RUN_CAD, analyzeJog, mixActivity, stairClimb, FLOOR_M, STAIR_STEP_M, chunks, walkRunSegs } from './gait.js';
 import { analyzeSide, analyzeFrontal, extractPose, drawSnapshot, PART_ICON } from './video.js';
 
 const $ = id => document.getElementById(id);
@@ -113,6 +113,20 @@ const WARN = {
   paused: '측정 중에 화면이 꺼지거나 다른 앱(카톡·전화)으로 가서 센서가 잠시 멈췄어요. 설치형 안드로이드 앱은 다른 앱을 써도 계속 측정돼요. 끊기지 않고 가장 길게 걸은 구간만으로 계산해서 걸음 수가 실제보다 적을 수 있어요. 다음엔 전원 버튼을 누르지 말고 주머니 모드 그대로 넣어 주세요.',
 };
 // 결과 제목 줄: 왼쪽 '○○ 결과', 오른쪽 끝 '활동 바꾸기 ›' (건의 K-5D73A0A1, 디자인 팀 시안 A). 자동 측정 기록은 센서 원본을 남기지 않아 다시 계산할 수 없어서 버튼 없음
+// 걷기 + 뛰기 구간 카드 (디자인 팀 시안 A): 시간 비율 띠(걷기 단색·뛰기 빗금, 색만으로 구분하지 않음) + 전체 한 줄 + 구간 목록. GPS 조건이 안 되는 구간의 속도·거리는 '-'
+function segCard(r) {
+  if (!r.segs) return '';
+  const { sex } = store.get('profile', {}), norm = sex === 'm' ? 111 : sex === 'f' ? 117 : 113;
+  const name = t => t === 'run' ? '뛰기' : '걷기', sumS = r.segs.reduce((n, x) => n + x.activeS, 0), steps = r.segs.reduce((n, x) => n + x.steps, 0);
+  const row = x => `<li><span class="segname"><i class="segsw ${x.type}" aria-hidden="true"></i><b>${name(x.type)}</b></span><span class="segval">${clock(x.durS)} · ${x.distance ? `${(x.distance / 1000).toFixed(2)}km` : '-'}</span>
+    <span class="segval sub">케이던스 ${x.cadence.toFixed(0)} ${badge(x.type === 'run' ? 'y' : 'g')} ${x.type === 'run' ? '기준선 없음' : `페리 ${norm} · 차이 ${signed(+x.cadence.toFixed(0) - norm)}`} · ${x.speed ? (x.type === 'run' ? `${paceText(x.speed)}/km` : `${x.speed.toFixed(2)} m/s`) : '속도 -'}</span></li>`;
+  return `<div class="mcard static segcard"><div class="mtop"><span class="mlab">걷기와 뛰기 구간</span>${badge('y')}</div>
+    <div class="segbar" role="img" aria-label="${r.segs.map(x => `${name(x.type)} ${clock(x.durS)}`).join(', ')}">${r.segs.map(x => `<i class="${x.type}" style="flex:${Math.max(1, x.durS)}"></i>`).join('')}</div>
+    <div class="seglegend"><span><i class="segsw walk" aria-hidden="true"></i>걷기</span><span><i class="segsw run" aria-hidden="true"></i>뛰기</span></div>
+    <div class="msub">전체 ${clock(r.diag?.durS ?? sumS)}${r.distance ? ` · ${(r.distance / 1000).toFixed(2)}km` : ''} · 케이던스 평균 ${sumS ? (steps / sumS * 60).toFixed(0) : '-'}</div>
+    <ol class="seglist">${r.segs.map(row).join('')}</ol>
+    <div class="msub">30초씩 나눠 구분해서 경계는 조금 다를 수 있어요. 아래 카드는 많은 쪽(${name(r.activity === 'run' ? 'run' : 'walk')})의 가장 긴 구간 값이에요.</div></div>`;
+}
 const canRelab = r => RELAB.includes(r.activity ?? 'walk') && !r.autoRec;
 const relabBtn = (r, cls = 'relab') => canRelab(r) ? `<button class="textlike ${cls}" data-relab="${r.date}">활동 바꾸기 ›</button>` : '';
 const resTitle = (r, title) => `<div class="restitle"><h2>${title}</h2>${relabBtn(r)}</div>`;
@@ -292,7 +306,7 @@ async function deleteRec(date) {
   }
   hist.splice(i, 1); rePractice(hist, date); store.set('history', hist); rawDel(date).catch(() => {});   // 지운 게 그날 연습이었으면 다음 걷기가 연습
   closePick();
-  if (shownDate === date) { shownDate = null; route = null; $('result').classList.add('hidden'); $('vresult').classList.add('hidden'); }   // 지운 기록 화면은 닫음
+  if (shownDate === date) { shownDate = null; route = null; routeSegs = null; $('result').classList.add('hidden'); $('vresult').classList.add('hidden'); }   // 지운 기록 화면은 닫음
   if (!hist.length) $('histBody').innerHTML = '아직 기록이 없어요.';
   renderHistory(); toast(ask ? '지웠어요 · 익명 결과 삭제도 요청했어요' : '지웠어요');   // 홈 요약·달력·통계·그래프·한 달 점검·영상 비교값은 기록에서 다시 계산됨
 }
@@ -617,15 +631,22 @@ function endNote(reason) {
 }
 
 function finish(data, demo = false, gps = [], press = []) {
-  shownDate = null; route = null;
+  shownDate = null; route = null; routeSegs = null;
   let act = $('act').value, position = $('pos').value;
   const auto = {};                                                         // 자동으로 고른 것 → 결과에 '참고'·'검증 안 됨'으로 표시
   if (act === 'auto') act = auto.act = autoAct(data, position);
   if (position === 'auto') position = auto.pos = guessPosition(data, act === 'walk' ? 'walk' : 'run');
+  // 걷다가 뛴 구간 (건의 K-A374CBFC·K-2A2B1E90, 디자인 팀 시안 A). 자동에서 섞이면 예전엔 슬로우 러닝이었는데, 이제 많은 쪽 활동 + 구간 표 (슬로우 러닝은 직접 고를 때만)
+  let wr = null;
+  if (auto.act === 'slowrun') { wr = walkRunSegs(data, position, gps); act = auto.act = wr.major; }
+  else if (act === 'walk' || act === 'run') wr = walkRunSegs(data, position, gps);
   if (act === 'slowrun') return finishSlow(data, demo, position, auto);
   if (act === 'cooper') return finishCooper(data, gps, demo, position);
   if (act === 'stairs') return finishStairs(data, demo, position, press);
   const res = stepCalc(data, act, position);
+  const mainSeg = wr?.segs && !res.error ? wr.segs[wr.main] : null;        // 대표 값 = 많은 쪽 활동의 가장 긴 구간 (Perry 기준과 비교하는 이어 걸은 값), 걸음·걸은 시간 = 구간 합
+  if (mainSeg) Object.assign(res, { cadence: mainSeg.cadence, regularity: mainSeg.regularity, sd: mainSeg.sd, steadyFrom: mainSeg.steadyFrom, steadyTo: mainSeg.steadyTo, steps: wr.segs.reduce((n, x) => n + x.steps, 0), activeS: wr.segs.reduce((n, x) => n + x.activeS, 0),
+    warnings: res.warnings.filter(w => w !== 'walkLike' && w !== 'running') });   // 활동이 섞였다는 걸 이미 구간으로 보여 주므로 '걷기였을 수 있어요' 경고는 뺌
   const mode = $('dmode').value;
   let maxGap = 0, gapSum = 0;                                              // 2초 넘게 센서 값이 없던 빈틈 = 끊김
   for (let i = 1; i < data.length; i++) { const g = data[i].t - data[i - 1].t; maxGap = Math.max(maxGap, g); if (g > 2000) gapSum += g; }
@@ -660,30 +681,26 @@ function finish(data, demo = false, gps = [], press = []) {
   const practice = act === 'walk' && !hist.some(h => !h.autoRec && (h.activity ?? 'walk') === 'walk' && new Date(h.date).toLocaleDateString('sv-SE') === today);   // 그날 첫 걷기 측정 = 연습 (Perry 20장)
   const dist = mode === 'manual' ? parseFloat($('dist').value) || null : null;
   const d = mode === 'gps' ? (gpsDenied && !demo ? { gpsError: 'denied' } : gpsSpeed(res, gps)) : withDistance(res, dist);
-  const rec = { date: new Date().toISOString(), start: Date.now() - durS * 1000, activity: act, position, auto, practice, route: packRoute(gps), ...res, distance: dist, ...d, distSource: d.speed ? mode : null, diag, diagHtml };
+  if (mainSeg && mode === 'gps' && d.gpsError !== 'denied') { const g = gpsDistance(gps); if (g && g.dist >= 50) d.distance = g.dist; }   // 거리는 속도 × 시간이 아니라 전체 경로로 (걷기·뛰기 속도가 달라서)
+  const rec = { date: new Date().toISOString(), start: Date.now() - durS * 1000, activity: act, position, auto, practice, route: packRoute(gps), ...res, distance: dist, ...d, distSource: d.speed ? mode : null, diag, diagHtml, ...(mainSeg ? { segs: packSegs(wr.segs, gps) } : {}) };
   saveRec(rec, hist, demo, data);
   shownDate = rec.date;
-  route = rec.route;
+  route = rec.route; routeSegs = rec.segs ?? null;
   const prev = hist.find(h => !h.practice && !h.autoRec && h !== rec && (h.activity ?? 'walk') === act);
   act === 'walk' ? render(rec, prev) : renderRun(rec, prev);
   renderHistory();
 }
 
+// 구간은 이 휴대폰 기록에만 저장 (익명 결과로 보내지 않음). r0 = 저장된 경로(packRoute)에서 이 구간이 시작하는 점 번호
+function packSegs(segs, gps) {
+  const ts = []; let last = -Infinity;
+  for (const p of gps) if (p.acc <= 20 && p.t - last >= 5000) { ts.push(p.t); last = p.t; }
+  return segs.map(x => ({ type: x.type, durS: Math.round(x.durS), cadence: +x.cadence.toFixed(1), steps: x.steps, activeS: Math.round(x.activeS), speed: x.speed, distance: x.distance, r0: ts.findIndex(t => t >= x.from) }));
+}
 function stepCalc(data, act, position) {
   const res = analyzeWalk(data, { position, activity: act === 'walk' ? 'walk' : 'run' });   // 천천히 달리기도 러닝 방식으로 분석
   if (act === 'walk' && !res.error) Object.assign(res, fastMinutes(data, { position, activity: 'walk' }));   // 빠르게 걸은 분 (기록에 같이 저장)
   return res;
-}
-// sec초씩 자른 조각 [{k, s}] (20초 미만 조각은 버림)
-function chunks(data, sec) {
-  const out = [], t0s = data[0].t;
-  for (let k = 0; ; k++) {
-    const a = t0s + k * sec * 1000, b = a + sec * 1000;
-    if (a > data[data.length - 1].t) break;
-    const s = data.filter(p => p.t >= a && p.t < b);
-    if (s.length >= 50 && s[s.length - 1].t - s[0].t >= 20000) out.push({ k, s });
-  }
-  return out;
 }
 // 자동 구분: 30초씩 걷기·달리기를 고르고, 둘 다 1분(2조각) 이상 섞이면 슬로우 러닝
 // ponytail: 신호등에서 1분 넘게 걸은 러닝도 슬로우 러닝으로 봄 → 실제 기록으로 보정 필요
@@ -727,7 +744,7 @@ function finishSlow(data, demo, position, auto = {}) {
 
 // ── 12분 달리기 테스트: 처음 12분의 GPS 거리·페이스 기록 (체력 추정은 의료기기 위험이 있어 하지 않음) ──
 function finishCooper(data, gps, demo, position) {
-  shownDate = null; route = null;
+  shownDate = null; route = null; routeSegs = null;
   const t0s = data[0].t, end = t0s + COOPER_S * 1000;
   const run = data.filter(p => p.t <= end);                                // 앱은 화면이 꺼져 있어 12분 뒤에 끝을 눌러도 앞 12분만 씀
   const durS = (run[run.length - 1].t - t0s) / 1000;
@@ -764,7 +781,7 @@ function renderCooper(r) {
 // ── 계단 오르기 (민원팀·아버님 10/28): 오르기만. 높이는 설치형 앱의 기압계로, 걸음·케이던스는 걷기 방식 그대로 (계단에서는 검증 안 됨), 기준값 없음 ──
 // 익명 전송은 다른 측정과 같은 칸만 (활동 이름 stairs는 warnings에). 올라간 높이는 이 휴대폰에만 저장
 function finishStairs(data, demo, position, press) {
-  shownDate = null; route = null;
+  shownDate = null; route = null; routeSegs = null;
   const durS = (data[data.length - 1].t - data[0].t) / 1000;
   const res = analyzeWalk(data, { position, activity: 'walk' }), climb = stairClimb(press, data);
   if (res.error && !climb?.climbM) return showHtml(`<h2>다시 측정해 주세요</h2><div class="warn">걸음 신호를 찾지 못했어요. 휴대폰을 주머니에 넣고 계단을 6초 이상 올라 주세요. 그래서 이번 측정은 기록에 저장하지 않았어요.</div>`);
@@ -917,7 +934,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v219';
+const APP_VERSION = 'v220';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -981,7 +998,7 @@ function rangeBar(v, lo, hi, min, max, dp, lab) {
 }
 function topCards(r, hero, cells) {
   const dur = r.diag?.durS ?? r.durS;
-  const top = [whenTxt(r.date), ACT[r.activity ?? 'walk'], dur && `측정 ${mmss(dur)}`].filter(Boolean).join(' · ');
+  const top = [whenTxt(r.date), r.segs ? '걷기 + 뛰기' : ACT[r.activity ?? 'walk'], dur && `측정 ${mmss(dur)}`].filter(Boolean).join(' · ');
   const color = ACT_C[r.activity ?? 'walk'] ?? 'var(--c-run)';
   return `<div class="sub">${top}</div>
     <div class="mcard static rhero"><div class="mtop"><span class="mlab"><i style="background:${color}"></i>${hero.label}</span>${badge(hero.grade)}</div>
@@ -1052,7 +1069,7 @@ function render(r, prev) {
     ? (c >= 120 ? '약 5 MET (활발)' : c >= 110 ? '약 4 MET' : c >= 100 ? '중강도 (3 MET)' : '저강도')
     : (c >= 130 ? '고강도 (6 MET)' : c >= 100 ? '중강도 (3 MET)' : '저강도');
 
-  let html = resTitle(r, `걷기 결과${r.practice ? ' <span class="badge b-n">연습</span>' : ''}`);
+  let html = resTitle(r, `${r.segs ? '걷기 + 뛰기' : '걷기'} 결과${r.practice ? ' <span class="badge b-n">연습</span>' : ''}`);
   if (r.autoRec) html += '<div class="warn">자동으로 잰 기록이에요. 휴대폰을 둔 곳(주머니·가방·손)을 모르고 짐작해서, 직접 잰 측정보다 덜 정확할 수 있어요. 걷기를 알아채기까지 몇 초 걸려 걸음 수가 조금 적게 잡혀요.</div>';
   if (r.practice) html += `<div class="warn">오늘 첫 측정은 연습으로 저장했어요. 처음 걸을 때는 보통 7% 느리게 나와요(Perry 20장). 한 번 더 걸어 주세요.</div>`;
   html += autoNote(r) + metroNote(r) + warnHtml(r);
@@ -1060,7 +1077,7 @@ function render(r, prev) {
   const short = !gps && r.distance < 20;                                   // 짧으면 출발·정지 구간 비중이 커져 느리게 나옴
   const dGrade = short || (gps && r.medAcc > 10) ? 'o' : 'y';
   const ideal = sex === 'f' ? 0.0064 : sex === 'm' ? 0.0072 : null;
-  html += topCards(r, { label: '케이던스', value: c.toFixed(0), unit: '걸음/분', grade: cadGrade,
+  html += segCard(r) + topCards(r, { label: '케이던스', value: c.toFixed(0), unit: '걸음/분', grade: cadGrade,
     bar: rangeBar(c, 111, 117, 60, 160, 0, 'Perry 평균 남~여'),            // 20장 남 111·여 117 (책에 케이던스 표준편차는 없음, 본부 10/29)
     sub: `페리의 보행 분석 기준 ${norm} · 차이 ${signed(+c.toFixed(0) - norm)}${prev ? ` · 지난번보다 ${signed(c - prev.cadence)}` : ''}`,
     stats: [...timeStats(r), { icon: 'dist', value: r.distance && (r.distance / 1000).toFixed(2), label: '거리 km' },
@@ -1213,8 +1230,8 @@ function renderRun(r, prev) {
   const c = r.cadence;
   const easy = r.activity === 'easyrun';
   const cGrade = r.warnings.includes('hand') || r.warnings.includes('irregular') ? 'o' : 'y';
-  const head = resTitle(r, `${easy ? '천천히 달리기' : '러닝'} 결과`) + autoNote(r) + metroNote(r) + warnHtml(r)
-    + topCards(r, { label: '케이던스', value: c.toFixed(0), unit: '걸음/분', grade: cGrade, sub: prev ? `기준선 없음 · 지난 러닝보다 ${signed(c - prev.cadence)}` : '기준선 없음 · 내 기록의 변화만 봐요',
+  const head = resTitle(r, `${r.segs ? '걷기 + 뛰기' : easy ? '천천히 달리기' : '러닝'} 결과`) + autoNote(r) + metroNote(r) + warnHtml(r)
+    + segCard(r) + topCards(r, { label: '케이던스', value: c.toFixed(0), unit: '걸음/분', grade: cGrade, sub: prev ? `기준선 없음 · 지난 러닝보다 ${signed(c - prev.cadence)}` : '기준선 없음 · 내 기록의 변화만 봐요',
       stats: [...timeStats(r), { icon: 'dist', value: r.distance && (r.distance / 1000).toFixed(2), label: '거리 km' },
         { icon: 'pace', value: r.speed && paceText(r.speed), label: '페이스 /km' }, { icon: 'steps', value: r.steps, label: '걸음' }] }, [
       { label: '속도', value: r.speed ? r.speed.toFixed(2) : '-', unit: 'm/s', grade: r.medAcc > 10 ? 'o' : 'y', sub: r.speed ? `페이스 ${paceText(r.speed)}/km` : 'GPS 조건 안 됨' },
@@ -1427,7 +1444,7 @@ const shareBtn = date => `<button class="ghost sharebtn" data-date="${date}" sty
 // 누를 때만 지도를 불러옴. 경로 좌표는 이 휴대폰의 기록에만 저장(최근 30개)하고 운영자에게 보내지 않음 (send()에 넣지 않음)
 // 키: 카카오 개발자 사이트에서 JavaScript 키 발급 + 웹 도메인(https://ldj000103-del.github.io) 등록. 비어 있으면 버튼을 숨김
 const KAKAO_KEY = '2df85317dc9c2ac32b9f29bc1f8ba478';   // 공개용 키(등록한 도메인에서만 작동). 카카오 개발자 앱 '걸음 분석' ID 1621825
-let route = null, kakaoLoad = null;
+let route = null, routeSegs = null, kakaoLoad = null;                       // routeSegs: 걷기 + 뛰기 기록의 구간 (지도에 나눠 그림)
 const ROUTE_KEEP = 30;
 // GPS 점 → 5초에 한 점, 소수점 5자리(약 1m)로 줄인 [[위도, 경도], …] (오차 20m 넘는 점은 뺌)
 function packRoute(gps) {
@@ -1439,7 +1456,7 @@ function routeBox() {
   if (!KAKAO_KEY || !(route?.length > 1)) return '';
   return `<div class="metric" id="routeBox"><div class="mhead"><b>지도에서 경로 보기</b><span class="badge b-y">참고</span></div>
     <div class="sub">누르면 카카오 지도 서버에서 지도 그림을 받아 와요. 이때 보이는 지역의 대략 위치와 인터넷 주소(IP)가 카카오에 전달돼요. 경로는 이 휴대폰의 기록에만 저장되고(최근 30개 기록) 운영자에게 보내지 않아요. GPS 오차(보통 수 m) 때문에 선이 조금 삐뚤 수 있어요.</div>
-    <button class="ghost" id="routeBtn">지도 불러오기</button> <button class="ghost" id="routeDel">이 경로 지우기</button><div id="routeMap" class="hidden" style="height:280px;border-radius:12px;margin-top:8px"></div></div>`;
+    <button class="ghost" id="routeBtn">지도 불러오기</button> <button class="ghost" id="routeDel">이 경로 지우기</button><div id="routeMap" class="hidden" style="height:280px;border-radius:12px;margin-top:8px"></div>${routeSegs ? '<div class="routeLeg hidden" id="routeLeg"><span><i class="lw" aria-hidden="true"></i>걸은 구간</span><span><i class="lr" aria-hidden="true"></i>뛴 구간</span></div>' : ''}</div>`;
 }
 function loadKakao() {
   return kakaoLoad ??= new Promise((ok, no) => {
@@ -1461,13 +1478,21 @@ const ROUTE_C = '#008a6e';
 const dotHtml = (fill, ring) => `<div style="width:16px;height:16px;border-radius:50%;background:${fill};border:3px solid ${ring};box-sizing:border-box"></div>`;
 const tagHtml = t => `<div style="margin-left:14px;background:#121816;color:#fff;font:700 12px/18px sans-serif;padding:0 8px;border-radius:999px;white-space:nowrap">${t}</div>`;
 const kmHtml = n => `<div style="width:22px;height:22px;border-radius:50%;background:#fff;border:2px solid ${ROUTE_C};box-sizing:border-box;color:#005c49;font:700 12px/18px sans-serif;text-align:center">${n}</div>`;
-async function drawRoute(box, pts, live = false) {
+async function drawRoute(box, pts, live = false, segs = null) {
   try { await loadKakao(); } catch { kakaoLoad = null; return false; }
   const K = kakao.maps, path = pts.map(([lat, lon]) => new K.LatLng(lat, lon));
   box.innerHTML = ''; box.classList.remove('hidden'); box.style.position = 'relative';
   const map = new K.Map(box, { center: path[0], level: 4 }), b = new K.LatLngBounds();
-  new K.Polyline({ map, path, strokeWeight: 9, strokeColor: '#ffffff', strokeOpacity: 1 });
-  new K.Polyline({ map, path, strokeWeight: 5, strokeColor: ROUTE_C, strokeOpacity: 1 });
+  const parts = segs?.filter(x => x.r0 >= 0).map((x, i, a) => ({ type: x.type, path: path.slice(x.r0, (a[i + 1]?.r0 ?? path.length - 1) + 1) })).filter(x => x.path.length > 1);
+  if (parts?.length) {                                                     // 걸은 구간 = 실선 4px, 뛴 구간 = 굵은 점선 6px, 둘 다 흰 테두리 (디자인 팀 시안 A)
+    const css = getComputedStyle(document.documentElement), cW = css.getPropertyValue('--c-walk').trim(), cR = css.getPropertyValue('--c-run').trim();
+    for (const x of parts) new K.Polyline({ map, path: x.path, strokeWeight: x.type === 'run' ? 10 : 8, strokeColor: '#ffffff', strokeOpacity: 1 });
+    for (const x of parts) new K.Polyline({ map, path: x.path, strokeWeight: x.type === 'run' ? 6 : 4, strokeColor: x.type === 'run' ? cR : cW, strokeOpacity: 1, strokeStyle: x.type === 'run' ? 'shortdash' : 'solid' });
+    $('routeLeg')?.classList.remove('hidden');
+  } else {
+    new K.Polyline({ map, path, strokeWeight: 9, strokeColor: '#ffffff', strokeOpacity: 1 });
+    new K.Polyline({ map, path, strokeWeight: 5, strokeColor: ROUTE_C, strokeOpacity: 1 });
+  }
   const pin = (p, html, x = 0.5, z = 3) => new K.CustomOverlay({ map, position: p, content: html, xAnchor: x, yAnchor: 0.5, zIndex: z });
   for (const [lat, lon, km] of routeMarks(pts)) pin(new K.LatLng(lat, lon), kmHtml(km), 0.5, 2);
   const end = path[path.length - 1];
@@ -1485,7 +1510,7 @@ document.addEventListener('click', async e => {
   const btn = e.target.closest?.('#routeBtn');
   if (!btn) return;
   btn.disabled = true; btn.textContent = '지도 불러오는 중…';
-  if (await drawRoute($('routeMap'), route)) btn.remove();
+  if (await drawRoute($('routeMap'), route, false, routeSegs)) btn.remove();
   else { btn.disabled = false; btn.textContent = '지도를 못 불러왔어요 · 다시 누르기'; }
 });
 // 측정 중: 누를 때만 그 순간까지의 경로를 한 번 그림 (따라가며 계속 그리지 않음 → 배터리·카카오 전달은 누를 때만)
@@ -1741,7 +1766,7 @@ function renderWeek() {
   const y = calMonth.getFullYear(), mo = calMonth.getMonth(), end = new Date(y, mo + 1, 1), today = dayKey(new Date());
   let cells = '';
   for (let d = monOf(new Date(y, mo, 1)); d < end || d.getDay() !== 1; d.setDate(d.getDate() + 1)) {   // 월요일부터, 마지막 주는 일요일까지 채움
-    const k = dayKey(d), list = byDay[k] ?? [], acts = [...new Set(list.map(i => dot(hist[i].activity ?? 'walk')))];
+    const k = dayKey(d), list = byDay[k] ?? [], acts = [...new Set(list.flatMap(i => hist[i].segs ? ['walk', 'run'] : [dot(hist[i].activity ?? 'walk')]))];   // 걷기 + 뛰기 기록은 두 색 모두
     cells += `<button class="cday${d.getMonth() !== mo ? ' out' : ''}${k === today ? ' today' : ''}${k === calSel ? ' sel' : ''}" data-d="${k}"
       aria-label="${d.getMonth() + 1}월 ${d.getDate()}일 기록 ${list.length}개"><span>${d.getDate()}</span><i>${acts.map(a => `<b style="background:${ACT_C[a]}"></b>`).join('')}</i></button>`;
   }
@@ -1981,7 +2006,7 @@ function showRecord(i) {
   const when = whenTxt(h.date);
   const act = h.activity ?? 'walk';
   const banner = `<div class="sub" style="margin-bottom:6px">지난 기록 다시 보기${act === 'video' ? ` · ${when}` : ''}</div>`;
-  shownDate = h.date; route = h.route ?? null;
+  shownDate = h.date; route = h.route ?? null; routeSegs = h.segs ?? null;
   // 지난 영상 기록엔 영상이 없어 사진도 숨김 (다른 영상 사진이 남지 않게)
   const del = `<button class="textlike delRec" data-delrec="${h.date}">이 기록 지우기</button>`;   // 기록 탭에서 연 결과에만 (디자인 팀 10/28)
   if (act === 'video') { openSub('spVideo'); $('vcanvas').classList.add('hidden'); renderVideo(h.r); $('vresult').insertAdjacentHTML('afterbegin', banner); $('vresult').insertAdjacentHTML('beforeend', del); return; }
@@ -2051,7 +2076,7 @@ async function relabel(date, act) {
   rePractice(hist, date);
   store.set('history', hist);
   const past = $('result').textContent.includes('지난 기록 다시 보기');
-  shownDate = date; route = next.route ?? null;
+  shownDate = date; route = next.route ?? null; routeSegs = next.segs ?? null;   // 하나로 바꾸면 구간 화면이 꺼지고, 되돌리면 다시 나옴
   if (past) showRecord(i); else renderAny(hist, i);
   $('result').insertAdjacentHTML('afterbegin', `<div class="relabNote" role="status">${next.orig ? `${ACT[from]} → ${ro(ACT[act])} 바꿨어요` : `처음 활동(${ACT[act]})으로 되돌렸어요`}${next.orig ? ` · <button class="textlike relabUndo" data-relabel="${base.activity ?? 'walk'}" data-date="${date}">되돌리기</button>` : ''}</div>`);
   renderHistory();                                                           // 달력 색·이번 주 통계·홈 카드는 기록에서 다시 계산됨
@@ -2807,7 +2832,7 @@ function renderHomeTop() {
     <button class="mcard" data-foot="foot" style="margin-top:8px"><div class="mtop"><span class="mlab">걸음 수업 · 3D</span><span class="mdate">›</span></div><div style="font-weight:700;margin-top:6px">걸을 때 발바닥에서 일어나는 일</div><div class="msub">체중이 옮겨 가는 길과 차례로 일하는 근육</div></button>`;   // 그림과 같은 주제로 고정 (디자인 팀 10/28, 날마다 바뀌던 사전 항목은 뺌)
   // 이번 주 카드: 월~일 그날 활동 색 점 + 측정 횟수 · 걷기 케이던스 평균 (달력과 같은 점 색)
   const mon0 = monOf(today), hist = store.get('history', []), tk = dayKey(today), cur = weekSummary(hist).cur;
-  $('wkDots').innerHTML = ['월', '화', '수', '목', '금', '토', '일'].map((wd, k) => { const dk = dayKey(plusDays(mon0, k)), acts = [...new Set(hist.filter(h => dayKey(h.date) === dk).map(h => { const a = h.activity ?? 'walk'; return a === 'cooper' || a === 'easyrun' ? 'run' : a === 'stairs' ? 'walk' : a; }))];
+  $('wkDots').innerHTML = ['월', '화', '수', '목', '금', '토', '일'].map((wd, k) => { const dk = dayKey(plusDays(mon0, k)), acts = [...new Set(hist.filter(h => dayKey(h.date) === dk).flatMap(h => { if (h.segs) return ['walk', 'run']; const a = h.activity ?? 'walk'; return a === 'cooper' || a === 'easyrun' ? 'run' : a === 'stairs' ? 'walk' : a; }))];
     return `<div class="${dk === tk ? 'today' : ''}">${wd}<i>${acts.map(a => `<b style="background:${ACT_C[a] ?? ACT_C.run}"></b>`).join('')}</i></div>`; }).join('');
   $('wkLine').textContent = `측정 ${cur.n}회${cur.walkCad != null ? ` · 걷기 케이던스 평균 ${Math.round(cur.walkCad)}` : ''}`;
   if (!mirrorRaf && !matchMedia('(prefers-reduced-motion: reduce)').matches) { mirrorLast = 0; mirrorRaf = requestAnimationFrame(mirrorLoop); }
