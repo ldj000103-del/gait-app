@@ -575,7 +575,7 @@ const noDiag = () => ({ src: Native ? 'app' : 'web', durS: 0, hz: 0, gapS: 0, gp
 async function stopRec(killed = false, reason = null) {
   killed = killed === true;                                                // 혹시 클릭 이벤트가 넘어와도 진짜 true일 때만
   reason = typeof reason === 'string' && reason in WARN ? reason : null;   // idleEnd·maxEnd만 기록에 남김 (알림의 '끝내기'는 보통 종료)
-  metroEnd = metroStart && metroIv && !metroBroken ? metroBpm() : 0; metroOff();   // 측정이 어떻게 끝나든 박자 소리도 끔 (건의 K-3F9AFC6B). 빠르기는 다음에 쓰게 칸에 남음
+  metroEnd = metroStart && metroIv && !metroBroken && metroT >= metroCtx.currentTime ? metroBpm() : 0; metroOff();   // metroT 비교: 깨어나자마자 끝나 박자 타이머가 아직 안 돌았어도 멈춰 있던 걸 잡음 (검수팀).   // 측정이 어떻게 끝나든 박자 소리도 끔 (건의 K-3F9AFC6B). 빠르기는 다음에 쓰게 칸에 남음
   closeIdleAsk();
   closeStopSheet();                                                        // 12분 자동 종료·앱 정리로 끝날 때 확인 창이 남지 않게
   shownDate = null;                                                        // 실패 화면에 앞 측정의 공유·원본·상황 버튼이 붙지 않게 (finish는 따로 다시 정함)
@@ -916,7 +916,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v217';
+const APP_VERSION = 'v218';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
