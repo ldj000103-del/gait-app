@@ -978,7 +978,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v226';
+const APP_VERSION = 'v227';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -1858,9 +1858,9 @@ function renderWeek() {
     <div class="cal">${['월', '화', '수', '목', '금', '토', '일'].map(w => `<div class="dow">${w}</div>`).join('')}${cells}</div>
     <div class="legend">${Object.entries(ACT_C).map(([a, c]) => `<span><b style="background:${c}"></b>${ACT[a]}</span>`).join('')}</div>
     <div class="calsec">${sel.getMonth() + 1}월 ${sel.getDate()}일 기록</div>${stepsByDay[calSel] != null ? `<div class="sub">이날 걸음 수 <b>${stepsByDay[calSel].toLocaleString()}</b>걸음 (헬스 커넥트)</div>` : ''}${sleepByDay[calSel] ? `<div class="sub">그날 아침까지 잔 시간 <b>${Math.floor(sleepByDay[calSel] / 60)}시간 ${sleepByDay[calSel] % 60}분</b> (워치·삼성헬스)</div>` : ''}${recs}
-    <div class="calsec">${thisWeek ? '이번 주' : `${shortDate(mon)}~${shortDate(sun)} 주`} 통계</div>
-    ${perryCards && `<div class="wkpt">${thisWeek ? '이번 주' : `${shortDate(mon)}~${shortDate(sun)} 주`}, 페리 평균과 비교</div>${perryCards}
-    <details class="sub weekInfo"><summary><span aria-label="설명 보기">ⓘ</span> 페리 기준이 뭔가요?</summary>Perry 『Gait Analysis』(1992) 20장의 성인 평균값이에요. 케이던스는 미국 Rancho Los Amigos 병원 실험실에서 평소 빠르기로 걸은 20~85세 남 135명·여 158명 자료예요. 여러 사람의 평균이라, 내 값이 달라도 그것만으로 좋다·나쁘다를 뜻하지 않아요. 주간 평균은 여러 길과 조건에서 잰 값을 모은 거라 책의 측정 조건과 달라요.</details>`}
+    <div class="calsec">${thisWeek ? '이번 주' : `${md(mon)}~${md(sun)} 주`} 통계</div>
+    ${perryCards && `<div class="wkpt">${thisWeek ? '이번 주' : `${md(mon)}~${md(sun)} 주`}, 페리 평균과 비교</div>${perryCards}
+    <details class="sub weekInfo"><summary><span aria-label="설명 보기">ⓘ</span> 페리 평균이 뭔가요?</summary>Perry 『Gait Analysis』(1992) 20장의 성인 평균값이에요. 케이던스는 미국 Rancho Los Amigos 병원 실험실에서 평소 빠르기로 걸은 20~85세 남 135명·여 158명 자료예요. 여러 사람의 평균이라, 내 값이 달라도 그것만으로 좋다·나쁘다를 뜻하지 않아요. 주간 평균은 여러 길과 조건에서 잰 값을 모은 거라 책의 측정 조건과 달라요.</details>`}
     <table class="wk"><tr class="sub"><td></td><td class="num">${thisWeek ? '이번 주' : '그 주'}</td><td class="num">전 주 대비</td></tr>
     ${row('측정 횟수', cur.n, prev.n, '회')}
     ${row('러닝 케이던스 평균', cur.runCad, prev.runCad, '걸음/분')}${row('슬로우 조깅', cur.jog, prev.jog, '분')}${row('영상 분석', cur.video, prev.video, '회')}</table>
