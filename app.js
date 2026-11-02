@@ -716,7 +716,7 @@ function finish(data, demo = false, gps = [], press = []) {
   saveRec(rec, hist, demo, data);
   shownDate = rec.date;
   route = rec.route; routeSegs = rec.segs ?? null;
-  const prev = hist.find(h => !h.practice && !h.autoRec && h !== rec && (h.activity ?? 'walk') === act);
+  const prev = hist.find(h => !h.practice && !h.autoRec && h !== rec && !mixedRelab(h) && (h.activity ?? 'walk') === act);
   act === 'walk' ? render(rec, prev) : renderRun(rec, prev);
   renderHistory();
 }
@@ -1498,6 +1498,7 @@ async function shareFile(dataUrl, name, text) {
     const blob = await (await fetch(dataUrl)).blob(), file = new File([blob], name, { type: blob.type });
     if (navigator.canShare?.({ files: [file] })) { await navigator.share({ files: [file], title: '스텝미러', text }); return; }
   } catch (e) { if (e?.name === 'AbortError' || /cancel/i.test(e?.message || '')) return; }
+  if (P) return toast('공유 창을 열 수 없어요. 다시 시도해 주세요.');       // 앱 화면(WebView)은 내려받기를 처리하지 않아 저장됐다고 안내하면 틀림 (검수팀)
   const a = document.createElement('a'); a.href = dataUrl; a.download = name; a.click();   // 공유가 안 되면 내려받기
   toast('공유 창을 열 수 없어 파일을 내려받았어요. 기기에 저장돼요.');
 }
@@ -1911,9 +1912,10 @@ const avgOf = xs => xs.length ? xs.reduce((s, x) => s + x, 0) / xs.length : null
 const inRange = (hist, a, b) => hist.filter(h => { const t = new Date(h.date); return !h.practice && !h.autoRec && t >= a && t < b; });
 // 구간 기록의 걷기 속도 = 가장 긴 걷기 구간 값. v222 기록의 h.speed는 걷기·뛰기가 섞인 평균일 수 있어 쓰지 않음 (법률검토·디자인 팀)
 const walkSpeedOf = h => !h.segs ? h.speed : h.segs.filter(s => s.type === 'walk').reduce((a, s) => !a || s.durS > a.durS ? s : a, null)?.speed;
+const mixedRelab = h => h.orig?.segs;                                      // v222에서 활동을 바꿔 섞인 신호를 한 덩어리로 다시 센 기록은 평균·대표 값에서 뺌
+const isWalkRec = h => (h.activity ?? 'walk') === 'walk' && !mixedRelab(h) && h.cadence != null;
 function statOf(list) {
-  const mixedRelab = h => h.orig?.segs;                                    // v222에서 활동을 바꿔 섞인 신호를 한 덩어리로 다시 센 기록은 평균에서 뺌
-  const walk = list.filter(h => (h.activity ?? 'walk') === 'walk' && !mixedRelab(h) && h.cadence != null), withSpeed = walk.filter(walkSpeedOf);
+  const walk = list.filter(isWalkRec), withSpeed = walk.filter(walkSpeedOf);
   return { n: list.length, days: new Set(list.map(h => dayKey(h.date))).size, walkCad: avgOf(walk.map(h => h.cadence)), speed: avgOf(withSpeed.map(walkSpeedOf)), cadN: walk.length, speedN: withSpeed.length,
     cadGrade: walk.some(h => cadGradeOf(h) === 'o') ? 'o' : 'g', speedGrade: withSpeed.some(h => speedGradeOf(h) === 'o') ? 'o' : 'y',   // 가장 낮은 등급 (디자인 팀)
     runCad: avgOf(list.filter(h => isRun(h) && !mixedRelab(h)).map(h => h.cadence)),
@@ -2016,12 +2018,12 @@ function calChart(start, end, mo) {                                       // 카
 function bestRows() {
   const hist = store.get('history', []).filter(h => !h.practice && !h.autoRec), rows = [];
   const top = (list, key) => list.reduce((b, h) => !b || key(h) > key(b) ? h : b, null);
-  const walk = hist.filter(h => (h.activity ?? 'walk') === 'walk');
-  const sp = top(walk.filter(h => h.speed), h => h.speed);
-  if (sp) rows.push({ k: '가장 빠른 걷는 속도', v: sp.speed.toFixed(2), u: 'm/s', n: `${md(sp.date)} · 페리의 보행 분석 성인 평균 1.37` });
+  const walk = hist.filter(isWalkRec);
+  const sp = top(walk.filter(walkSpeedOf), walkSpeedOf);
+  if (sp) rows.push({ k: '가장 빠른 걷는 속도', v: walkSpeedOf(sp).toFixed(2), u: 'm/s', n: `${md(sp.date)} · 페리의 보행 분석 성인 평균 1.37` });
   const lg = top(walk, h => h.activeS);
   if (lg) rows.push({ k: '가장 오래 걸은 측정', v: (lg.activeS / 60).toFixed(1), u: '분', n: `${md(lg.date)} · 케이던스 ${lg.cadence.toFixed(0)}걸음/분` });
-  const rn = top(hist.filter(h => isRun(h) && h.speed), h => h.speed);
+  const rn = top(hist.filter(h => isRun(h) && !mixedRelab(h) && h.speed), h => h.speed);
   if (rn) rows.push({ k: '가장 빠른 러닝 페이스', v: paceText(rn.speed), u: '/km', n: `${md(rn.date)} · GPS로 잰 참고값` });
   const wk = {}; for (const h of hist.filter(h => h.activity === 'slowrun')) { const k = dayKey(monOf(h.date)); wk[k] = (wk[k] ?? 0) + h.activeS / 60; }
   const bw = Object.entries(wk).sort((a, b) => b[1] - a[1])[0];
@@ -2065,13 +2067,13 @@ function openCard(t) {
 function renderTiles() {
   const hist = store.get('history', []);
   const idx = f => hist.findIndex(h => !h.autoRec && f(h));               // 자동 측정 기록은 홈 대표 값에서 뺌
-  const isWalk = h => (h.activity ?? 'walk') === 'walk';
+  const isWalk = isWalkRec;
   // 대표 값은 추세선(trendVals)처럼 연습 측정을 뺀 최근 기록, 연습뿐이면 연습 기록 (그날 첫 걷기는 늘 연습)
   const pick = f => { const j = idx(h => !h.practice && f(h)); return j >= 0 ? j : idx(f); };
   const iw = pick(isWalk), w = hist[iw];
   const wPrev = iw >= 0 ? hist.slice(iw + 1).find(h => isWalk(h) && !h.practice && !h.autoRec) : null;
-  const is = pick(h => isWalk(h) && h.speed), sp = hist[is];
-  const ir = pick(isRun), rn = hist[ir];
+  const is = pick(h => isWalk(h) && walkSpeedOf(h)), sp = hist[is];
+  const ir = pick(h => isRun(h) && !mixedRelab(h) && h.cadence != null), rn = hist[ir];
   const iv = pick(h => h.activity === 'video' && h.view === 'side' && h.r?.m), vd = hist[iv];
   const delta = (a, b) => b ? ` · ${a - b >= 0 ? '+' : ''}${(a - b).toFixed(0)}` : '';
   const md2 = d => d ? md(d) : '';
@@ -2082,7 +2084,7 @@ function renderTiles() {
       sub: w ? `페리 ${norm}${delta(w.cadence, wPrev?.cadence)}` : '측정 탭에서 걸어요',
       ref: `페리의 보행 분석 성인 평균 ${norm}걸음/분 (남 111 · 여 117) · 출처: Perry 20장`,
       about: '1분 동안 걸은 걸음 수예요. 휴대폰 센서로 발이 땅에 닿는 횟수를 세요.' },
-    { k: 'walkSpeed', label: '걷기 속도', color: 'var(--c-walk)', base: 1.37, h: sp, i: is, value: sp?.speed.toFixed(2), unit: 'm/s', vals: trendVals('walkSpeed'), dp: 2,
+    { k: 'walkSpeed', label: '걷기 속도', color: 'var(--c-walk)', base: 1.37, h: sp, i: is, value: sp && walkSpeedOf(sp).toFixed(2), unit: 'm/s', vals: trendVals('walkSpeed'), dp: 2,
       sub: sp ? '페리 1.37' : 'GPS·거리 입력 필요',
       ref: '페리의 보행 분석 성인 평균 1.37 m/s · 출처: Perry 20장',
       about: '1초 동안 걸어간 거리예요. GPS로 잰 거리나 직접 넣은 거리를 걸은 시간으로 나눠요.' },
@@ -2134,10 +2136,10 @@ function renderHome() {
 
 // 변화 그래프: 선 하나 + 기준선/기준 범위(출처), 점을 누르면 값과 날짜
 const TREND = {
-  walkCad: { label: '걷기 케이던스', unit: '걸음/분', pick: h => (h.activity ?? 'walk') === 'walk' ? h.cadence : null,
+  walkCad: { label: '걷기 케이던스', unit: '걸음/분', pick: h => isWalkRec(h) ? h.cadence : null,
     ref: () => ({ band: [111, 117], text: '회색 띠 = 페리의 보행 분석 평균 남 111~여 117걸음/분 (20장, 정상 범위가 아니라 두 평균값 사이)' }) },
-  walkSpeed: { label: '걷는 속도', unit: 'm/s', dec: 2, pick: h => (h.activity ?? 'walk') === 'walk' ? h.speed ?? null : null, ref: () => ({ line: 1.37, text: '점선 = 페리의 보행 분석 성인 평균 1.37 m/s' }) },
-  runCad: { label: '러닝 케이던스', unit: '걸음/분', pick: h => isRun(h) ? h.cadence : null, ref: () => ({ text: '러닝 케이던스는 사람·속도마다 달라 기준선 없이 변화만 봐요' }) },
+  walkSpeed: { label: '걷는 속도', unit: 'm/s', dec: 2, pick: h => isWalkRec(h) ? walkSpeedOf(h) ?? null : null, ref: () => ({ line: 1.37, text: '점선 = 페리의 보행 분석 성인 평균 1.37 m/s' }) },
+  runCad: { label: '러닝 케이던스', unit: '걸음/분', pick: h => isRun(h) && !mixedRelab(h) ? h.cadence : null, ref: () => ({ text: '러닝 케이던스는 사람·속도마다 달라 기준선 없이 변화만 봐요' }) },
   knee: { label: '영상: 유각기 무릎 굽힘', unit: '°', pick: h => h.activity === 'video' && h.view === 'side' ? h.r?.m?.kneeSwingMax ?? null : null, ref: () => ({ line: 60, text: '점선 = 페리의 보행 분석 기준 초기 유각 약 60° · 영상 각도는 같은 조건으로 찍어야 비교돼요' }) },
 };
 $('tmetric').value = store.get('tmetric', 'walkCad');
@@ -2191,7 +2193,7 @@ function showRecord(i) {
   $('result').insertAdjacentHTML('afterbegin', banner); $('result').insertAdjacentHTML('beforeend', del);
 }
 function renderAny(hist, i) {
-  const h = hist[i], act = h.activity ?? 'walk', prev = hist.slice(i + 1).find(x => !x.practice && !x.autoRec && (x.activity ?? 'walk') === act);
+  const h = hist[i], act = h.activity ?? 'walk', prev = hist.slice(i + 1).find(x => !x.practice && !x.autoRec && !mixedRelab(x) && (x.activity ?? 'walk') === act);
   if (act === 'slowrun') renderSlow(h, hist); else if (act === 'cooper') renderCooper(h); else if (act === 'stairs') renderStairs(h); else if (act === 'slope') renderSlope(h); else if (act === 'walk') render(h, prev); else renderRun(h, prev);
 }
 
@@ -2235,7 +2237,7 @@ async function relabel(date, act) {
       const res = stepCalc(data, act, position);
       if (res.error) return toast(`${ACT[act]} 기준으로는 걸음 신호를 찾지 못해 그대로 뒀어요`);
       const day = new Date(date).toLocaleDateString('sv-SE');
-      const d = base.distSource === 'gps' && base.speed ? { speed: base.speed, stepLength: base.speed * 60 / res.cadence, distance: base.speed * res.activeS }
+      const d = base.distSource === 'gps' && base.speed ? { speed: base.speed, stepLength: base.speed * 60 / res.cadence, distance: base.speed * res.activeS, medAcc: base.medAcc }
         : base.distSource === 'manual' ? withDistance(res, base.distance) : {};
       next = { ...keep, activity: act, practice: act === 'walk' && !hist.slice(i + 1).some(x => !x.autoRec && (x.activity ?? 'walk') === 'walk' && new Date(x.date).toLocaleDateString('sv-SE') === day),
         ...res, distance: base.distSource === 'manual' ? base.distance : null, ...d, distSource: d.speed ? base.distSource : null, warnings: [...res.warnings, ...kw] };
@@ -2656,9 +2658,9 @@ function glance(rows, photo) {
     <div class="sub" style="font-size:.75rem;margin-top:8px">${photo ? '그림 속 색칠한 곳이 그 부위예요. 위 사진에도 같은 그림 이름표를 붙였어요. ' : '그림 속 색칠한 곳이 그 부위예요. '}차이는 사실만 적었어요. 영상 각도는 약 3~5° 오차가 있고(Russo 2026), 원인 판단은 전문가에게.</div></div>`;
 }
 function lastSpeedRow() {                                                  // 영상엔 거리 기준(cm)이 없어 속도를 못 잼 → 센서·GPS로 잰 가장 최근 값을 같이 보여 줌
-  const h = store.get('history', []).find(x => (x.activity ?? 'walk') === 'walk' && x.speed);
-  const d = h && h.speed - 1.37;
-  return h ? { part: 'step', what: '걷는 속도 (측정 탭 GPS)', big: Math.abs(d) < 0.005 ? '페리 기준과 같음' : `${Math.abs(d).toFixed(2)} m/s ${d > 0 ? '빠름' : '느림'}`, now: `${md(h.date)} 측정 ${h.speed.toFixed(2)} m/s · 페리의 보행 분석 성인 평균 1.37 m/s` }
+  const h = store.get('history', []).find(x => isWalkRec(x) && walkSpeedOf(x)), s = h && walkSpeedOf(h);
+  const d = h && s - 1.37;
+  return h ? { part: 'step', what: '걷는 속도 (측정 탭 GPS)', big: Math.abs(d) < 0.005 ? '페리 기준과 같음' : `${Math.abs(d).toFixed(2)} m/s ${d > 0 ? '빠름' : '느림'}`, now: `${md(h.date)} 측정 ${s.toFixed(2)} m/s · 페리의 보행 분석 성인 평균 1.37 m/s` }
     : { part: 'step', what: '걷는 속도', big: '-', now: '영상에는 거리 기준이 없어 속도를 못 재요. 측정 탭에서 GPS로 걸으면 여기 같이 보여요.' };
 }
 function glanceSide(r, photo) {

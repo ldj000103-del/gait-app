@@ -403,6 +403,7 @@
   #pickList .cmBtn { display:block; width:100%; margin:12px 0 0; padding:14px; background:none; color:var(--accent); border:1px solid var(--line); border-radius:var(--r-md); text-align:center; }
   #pickList .cmBtn[hidden], #cmHas[hidden], #cmSw[hidden] { display:none; }
   #pickList .cmGo { position:sticky; bottom:0; background:var(--accent); color:#fff; border:0; } #pickList .cmGo:disabled { opacity:.5; }
+  @media (prefers-color-scheme: dark) { #pickList .cmGo { color:var(--bg); } }
   #cmHas { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:12px; font-size:.875rem; }
   #pickList #cmHas button { width:auto; display:inline-block; margin:0; padding:6px 12px; border:1px solid var(--line); border-radius:var(--r-pill); color:var(--accent); }
   #cmSw .chk { margin:10px 0 0; justify-content:flex-start; } #cmSw input:disabled + span { color:var(--sub); }
