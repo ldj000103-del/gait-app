@@ -1554,7 +1554,7 @@ function openCardMake(h) {
     <button class="cmBtn" id="cmAdd" data-cm="add">사진 넣기 (선택)</button><input type="file" id="cmFile" accept="image/*" hidden>
     <div id="cmHas" hidden><span>사진을 넣었어요</span><button class="chip" data-cm="del">빼기</button></div><p id="cmErr" class="sub" role="alert" hidden>이 사진은 열지 못했어요. 다른 사진을 골라 주세요.</p>
     <div id="cmSw" hidden>${sw('cad', '케이던스·정확도')}${(h.activity ?? 'walk') === 'walk' ? sw('perry', 'Perry 평균과 차이') : ''}${sw('dist', '거리·시간')}</div>
-    <p class="sub">사진은 카드를 만들 때 이 휴대폰에서만 쓰고 앱에 저장하지 않아요. 운영자에게 보내지 않아요. 내가 공유를 고르면 고른 곳으로만 가요.</p>
+    <p class="sub">사진은 이 휴대폰에서 카드를 만드는 데만 쓰고 앱 기록에 저장하지 않아요. 운영자에게 보내지 않아요. 설치형 앱에서 공유할 때 잠시 만든 파일은 다음 공유 때나 앱을 다시 열 때 지워요. 내가 공유를 고르면 고른 곳으로만 가요.</p>
     <p class="sub">다른 사람이 보이면 먼저 물어보세요. 남이 찍은 사진이나 방송·연예인 사진은 쓰지 마세요.</p>
     <p class="sub">카드 이미지에는 사진의 촬영 위치 정보를 넣지 않아요. 다만 사진 속 간판·건물로 장소를 알 수 있어요.</p>
     <p class="sub">카드에는 걸음·건강 숫자가 담겨요. 공유하면 받는 사람이나 게시물을 보는 사람이 볼 수 있고, 올린 뒤에는 회수하기 어려워요.<span id="cmHide" hidden> 숨기고 싶은 숫자는 끌 수 있어요.</span><span id="cmNoHide"> 공유하지 않으면 아무에게도 보이지 않아요.</span></p>
