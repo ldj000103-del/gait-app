@@ -334,7 +334,7 @@
   /* 지표 사전 설명 카드: 아래에서 올라오는 판, 옆으로 넘기기(scroll-snap) */
   #srcOv { position:fixed; inset:0; z-index:50; background:rgba(0,0,0,.45); display:flex; align-items:flex-end; } #srcOv .sub { word-break:break-all; }   /* 출처 보기: 그 자리에서 아래 판 (운동 창 위에도) */
   .noteBar { display:flex; align-items:center; gap:4px; margin:0 0 10px; padding:6px 6px 6px 12px; background:var(--card); border:1px solid var(--line); border-radius:var(--r-md); font-size:.8125rem; }
-  #locOffBtn.hidden { display:none; } #locOk { width:auto; margin:0 4px 0 0; vertical-align:middle; }
+  #locOffBtn.hidden { display:none; } #locBox .chk { justify-content:flex-start; margin-top:0; }
   #privNote span, #locNote span { white-space:normal; }   /* 법적 안내라 전문이 보여야 함 (법률검토팀) */
   .noteBar span { flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; } .noteBar button { flex:none; width:auto; margin:0; padding:8px; min-height:36px; background:none; color:var(--accent); font-size:.8125rem; } .noteBar [data-n=close] { color:var(--sub); }   /* 약관·처리방침 변경 알림: 홈 맨 위 한 줄 띠 */
   #permOv, #dictOv, #fbOv, #lessonOv, #exOv, #autoOv { position:fixed; inset:0; z-index:40; background:rgba(0,0,0,.45); display:flex; align-items:flex-end; }
@@ -560,7 +560,7 @@
     <div class="sub" id="gpsNote">휴대폰 GPS는 위치 오차가 보통 몇 m라서 <b>짧은 거리는 오차가 크게 생길 수 있어요.</b> 그래서 1분·50m보다 짧으면 속도를 계산하지 않고, 길게 걸어도 "참고" 등급이에요. 실내에서는 GPS가 잘 안 잡혀요.<br>
       위치 권한을 물어봐요. 위치는 이 휴대폰 안에서 거리·속도·경로를 계산하는 데 쓰고, 경로는 이 휴대폰에만 최근 30개 기록까지 저장해요. 운영자에게 보내지 않아요. 지도를 불러올 때만 대략적인 위치가 카카오에 전달돼요.</div>
     </div>
-    <div id="locBox" class="sub hidden" style="margin-top:8px"><label><input type="checkbox" id="locOk"> <a href="location-terms.html" target="_blank">위치기반서비스 이용약관</a>에 동의해요</label> (GPS로 거리·경로를 잴 때 필요해요. 체크를 풀면 언제든 철회되고 저장된 경로도 지워져요)</div>
+    <div id="locBox" class="sub hidden" style="margin-top:8px"><label class="chk"><input type="checkbox" id="locOk"><span><a href="location-terms.html" target="_blank">위치기반서비스 이용약관</a>에 동의해요</span></label> (GPS로 거리·경로를 잴 때 필요해요. 체크를 풀면 언제든 철회되고 저장된 경로도 지워져요)</div>
     </div>
     <button id="warmBtn" class="textlike hidden" type="button">뛰기 전 몸 풀기 ›</button>
     <button id="metroChip" class="chip" type="button" aria-haspopup="dialog" aria-pressed="false">♪ 박자 소리 꺼짐 ›</button>
