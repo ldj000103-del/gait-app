@@ -291,6 +291,11 @@
   #toast { position:fixed; left:50%; bottom:calc(96px + env(safe-area-inset-bottom)); transform:translateX(-50%); z-index:45; background:var(--ink); color:var(--card); padding:10px 16px; border-radius:var(--r-pill); font-size:.875rem; }
   #toast[hidden] { display:none; }
   /* 좌우 나란히·디딤기 막대·범위 막대 (본부 10/29, 메디스텝 아이디어만 — 판정 말 없이 숫자·차이·Perry 범위) */
+  .wkpt { font-size:.8125rem; font-weight:600; color:var(--sub); margin-top:6px; }
+  #home .wkp { background:var(--bg); }   /* 흰 카드 안 카드라 바탕을 달리해 경계가 보이게 */
+  .wkp .rbar b { background:color-mix(in srgb, var(--sub) 45%, transparent); }   /* 주간 비교 띠는 회색, 활동 색 안 씀 (디자인 팀) */
+  .wkp .wkpd { font-size:.8125rem; color:var(--sub); margin-top:6px; }
+  .wkp + details.weekInfo { margin:6px 0 4px; }
   .rlab { display:flex; justify-content:space-between; font-size:.75rem; color:var(--sub); margin-top:2px; }
   .stbar { display:flex; position:relative; height:22px; border-radius:var(--r-sm); overflow:visible; margin:6px 0 2px; font-size:.75rem; font-weight:600; }
   .stbar b { background:color-mix(in srgb, var(--c-walk) 30%, transparent); border-radius:var(--r-sm) 0 0 var(--r-sm); display:flex; align-items:center; padding-left:8px; white-space:nowrap; }

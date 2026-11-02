@@ -978,7 +978,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v224';
+const APP_VERSION = 'v225';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -1024,6 +1024,9 @@ const plain = w => w.replace(/(^|\. )[A-Z][A-Za-z]*( et al\.?)?(, [A-Z][A-Za-z]*
 const signed = (d, dp = 0) => `${d > 0 ? '+' : ''}${d.toFixed(dp)}`;
 const mmss = x => { const t = Math.round(x); return t >= 60 ? `${Math.floor(t / 60)}분 ${t % 60}초` : `${t}초`; };   // 초를 먼저 반올림 ("1분 60초" 방지)
 // 결과 한눈에 보기 (홈 카드 모양, 디자인 팀 10/26): 맨 위 한 줄 → 대표 값 큰 카드 → 2칸 작은 카드. 긴 설명은 그 아래 '자세히 보기'에 접어 둠
+// 걷기 기록의 정확도 등급: 결과 화면과 주간 평균이 같은 계산을 씀 (저장된 warnings·거리·GPS 오차로 다시 구함)
+const cadGradeOf = r => r.warnings?.includes('hand') || r.warnings?.includes('irregular') ? 'o' : 'g';
+const speedGradeOf = r => (r.distSource === 'gps' ? r.medAcc > 10 : r.distance < 20) ? 'o' : 'y';   // 짧으면 출발·정지 구간 비중이 커져 느리게 나옴
 const badge = g => { if (!g) return ''; const [cls, label] = GRADE[g]; return `<span class="badge ${cls}">${label}</span>`; };
 // 대표 카드 아래 아이콘 숫자 줄 (디자인 팀 10/27): 탭 막대와 같은 선 아이콘, 값이 없는 칸은 빼고 남은 칸을 같은 폭으로
 const STAT_ICON = { time: '<circle cx="12" cy="13" r="8"/><path d="M12 9v4l3 2M9 2h6"/>', dist: '<path d="M6 20c-2 0-3-1.5-3-3s1-3 3-3h12c1.7 0 3-1.3 3-3s-1.3-3-3-3H9"/><circle cx="6" cy="5" r="2"/><circle cx="18" cy="20" r="1.5"/>',
@@ -1035,10 +1038,13 @@ const timeStats = r => { const all = r.diag?.durS ?? r.activeS; return all - r.a
 const statRow = stats => { const ok = stats.filter(s => s.value != null && s.value !== ''); return ok.length ? `<div class="rstats" style="grid-template-columns:repeat(${ok.length},1fr)">${ok.map(s =>
   `<div><svg viewBox="0 0 24 24" aria-hidden="true">${STAT_ICON[s.icon]}</svg><b>${s.value}</b><small>${s.label}</small></div>`).join('')}</div>` : ''; };
 // 범위 막대 (본부 10/29): 회색 띠 = Perry 책의 평균값들 사이(정상 범위 아님 → 라벨 lab에 무엇인지 적음), 점 = 내 값. 판정 말 없음 (검수팀 10/29)
+const rbarOnly = (v, lo, hi, min, max) => {
+  const p = x => (Math.min(Math.max((x - min) / (max - min), 0), 1) * 100).toFixed(1);
+  return `<div class="rbar" aria-hidden="true"><b style="left:${p(lo)}%;width:${(p(hi) - p(lo)).toFixed(1)}%"></b><i style="left:${p(v)}%"></i></div>`;
+};
 function rangeBar(v, lo, hi, min, max, dp, lab) {
   if (v == null || Number.isNaN(v)) return '';
-  const p = x => (Math.min(Math.max((x - min) / (max - min), 0), 1) * 100).toFixed(1);
-  return `<div class="rbar" aria-hidden="true"><b style="left:${p(lo)}%;width:${(p(hi) - p(lo)).toFixed(1)}%"></b><i style="left:${p(v)}%"></i></div><div class="rlab"><span>${lab} ${lo.toFixed(dp)}~${hi.toFixed(dp)}</span><span>나 ${v.toFixed(dp)}</span></div>`;
+  return `${rbarOnly(v, lo, hi, min, max)}<div class="rlab"><span>${lab} ${lo.toFixed(dp)}~${hi.toFixed(dp)}</span><span>나 ${v.toFixed(dp)}</span></div>`;
 }
 function topCards(r, hero, cells) {
   const dur = r.diag?.durS ?? r.durS;
@@ -1111,7 +1117,7 @@ function render(r, prev) {
   const c = r.cadence;
   const where = `이번 값 ${c.toFixed(0)} · 페리 평균과 차이 ${signed(+c.toFixed(0) - norm)}`;   // 막대와 같은 기준: Perry 평균값과 숫자 차이만 (예전 ±10% 안·밖 문장은 판정처럼 읽혀 뺌, 검수팀 10/29)
   const pos = Math.min(Math.max((c - 60) / 100, 0), 1) * 100;
-  const cadGrade = r.warnings.includes('hand') || r.warnings.includes('irregular') ? 'o' : 'g';
+  const cadGrade = cadGradeOf(r);
   const older = +age >= 61;
   const intensity = older
     ? (c >= 120 ? '약 5 MET (활발)' : c >= 110 ? '약 4 MET' : c >= 100 ? '중강도 (3 MET)' : '저강도')
@@ -1122,8 +1128,8 @@ function render(r, prev) {
   if (r.practice) html += `<div class="warn">오늘 첫 측정은 연습으로 저장했어요. 처음 걸을 때는 보통 7% 느리게 나와요(Perry 20장). 한 번 더 걸어 주세요.</div>`;
   html += autoNote(r) + metroNote(r) + elevNote(r) + warnHtml(r);
   const gps = r.distSource === 'gps';
-  const short = !gps && r.distance < 20;                                   // 짧으면 출발·정지 구간 비중이 커져 느리게 나옴
-  const dGrade = short || (gps && r.medAcc > 10) ? 'o' : 'y';
+  const short = !gps && r.distance < 20;
+  const dGrade = speedGradeOf(r);
   const ideal = sex === 'f' ? 0.0064 : sex === 'm' ? 0.0072 : null;
   html += segCard(r) + topCards(r, { label: '케이던스', value: c.toFixed(0), unit: '걸음/분', grade: cadGrade,
     bar: rangeBar(c, 111, 117, 60, 160, 0, 'Perry 평균 남~여'),            // 20장 남 111·여 117 (책에 케이던스 표준편차는 없음, 본부 10/29)
@@ -1800,6 +1806,7 @@ const inRange = (hist, a, b) => hist.filter(h => { const t = new Date(h.date); r
 function statOf(list) {
   const walk = list.filter(h => (h.activity ?? 'walk') === 'walk');
   return { n: list.length, days: new Set(list.map(h => dayKey(h.date))).size, walkCad: avgOf(walk.map(h => h.cadence)), speed: avgOf(walk.filter(h => h.speed).map(h => h.speed)),
+    cadGrade: walk.some(h => cadGradeOf(h) === 'o') ? 'o' : 'g', speedGrade: walk.some(h => h.speed && speedGradeOf(h) === 'o') ? 'o' : 'y',   // 가장 낮은 등급 (디자인 팀)
     runCad: avgOf(list.filter(isRun).map(h => h.cadence)),
     jog: list.filter(h => h.activity === 'slowrun').reduce((s, h) => s + h.activeS / 60, 0), video: list.filter(h => h.activity === 'video').length };
 }
@@ -1838,13 +1845,21 @@ function renderWeek() {
     return `<tr><td>${label}</td><td class="num">${v}</td><td class="num sub">${d}</td></tr>`;
   };
   const thisWeek = dayKey(mon) === dayKey(monOf(new Date()));
+  // 페리 기준 비교 카드 (민원 v218, 디자인 팀 시안 B): 숫자·회색 띠·진한 점만, 판정 색 없음. 값이 없는 주는 숨김
+  const perryCard = (label, grade, a, b, unit, dp, ref, bar, note) => a == null ? '' : `<div class="mcard static wkp"><div class="mtop"><span class="mlab">${label}</span>${badge(grade)}</div>
+      <div class="rnum">${a.toFixed(dp)}<small>${unit} · 차이 ${signed(+a.toFixed(dp) - ref, dp)}</small></div>${rbarOnly(a, ...bar)}<div class="msub">${note}</div><div class="wkpd">전 주 대비 ${b == null ? '-' : signed(+a.toFixed(dp) - +b.toFixed(dp), dp)}</div></div>`;
+  const { sex } = store.get('profile', {});
+  const perryCards = perryCard('걷기 케이던스 평균', cur.cadGrade, cur.walkCad, prev.walkCad, '걸음/분', 0, sex === 'm' ? 111 : sex === 'f' ? 117 : 113, [111, 117, 60, 160], '회색 띠 = 페리 평균 남 111~여 117 · 정상 범위 아님')
+    + perryCard('걷는 속도 평균', cur.speedGrade, cur.speed, prev.speed, 'm/s', 2, 1.37, [1.22, 1.52, 0.6, 2.0], '회색 띠 = 페리 연구별 평균 1.22~1.52 · 정상 범위 아님');   // Perry 20장 연구별 평균 73~91m/분 환산
   $('week').innerHTML = `<div class="calhead"><button data-m="-1" aria-label="지난달">‹</button><span>${y}년 ${mo + 1}월</span><button data-m="1" aria-label="다음 달">›</button></div>
     <div class="cal">${['월', '화', '수', '목', '금', '토', '일'].map(w => `<div class="dow">${w}</div>`).join('')}${cells}</div>
     <div class="legend">${Object.entries(ACT_C).map(([a, c]) => `<span><b style="background:${c}"></b>${ACT[a]}</span>`).join('')}</div>
     <div class="calsec">${sel.getMonth() + 1}월 ${sel.getDate()}일 기록</div>${stepsByDay[calSel] != null ? `<div class="sub">이날 걸음 수 <b>${stepsByDay[calSel].toLocaleString()}</b>걸음 (헬스 커넥트)</div>` : ''}${sleepByDay[calSel] ? `<div class="sub">그날 아침까지 잔 시간 <b>${Math.floor(sleepByDay[calSel] / 60)}시간 ${sleepByDay[calSel] % 60}분</b> (워치·삼성헬스)</div>` : ''}${recs}
     <div class="calsec">${thisWeek ? '이번 주' : `${shortDate(mon)}~${shortDate(sun)} 주`} 통계</div>
+    ${perryCards && `<div class="wkpt">${thisWeek ? '이번 주' : `${shortDate(mon)}~${shortDate(sun)} 주`}, 페리 기준과 비교</div>${perryCards}
+    <details class="sub weekInfo"><summary><span aria-label="설명 보기">ⓘ</span> 페리 기준이 뭔가요?</summary>Perry 『Gait Analysis』(1992) 20장의 성인 평균값이에요. 여러 사람의 평균이라, 내 값이 달라도 그것만으로 좋다·나쁘다를 뜻하지 않아요. 주간 평균은 여러 길과 조건에서 잰 값을 모은 거라 책의 측정 조건과 달라요.</details>`}
     <table class="wk"><tr class="sub"><td></td><td class="num">${thisWeek ? '이번 주' : '그 주'}</td><td class="num">전 주 대비</td></tr>
-    ${row('측정 횟수', cur.n, prev.n, '회')}${row('걷기 케이던스 평균', cur.walkCad, prev.walkCad, '걸음/분')}${row('걷는 속도 평균', cur.speed, prev.speed, 'm/s', 2)}
+    ${row('측정 횟수', cur.n, prev.n, '회')}
     ${row('러닝 케이던스 평균', cur.runCad, prev.runCad, '걸음/분')}${row('슬로우 조깅', cur.jog, prev.jog, '분')}${row('영상 분석', cur.video, prev.video, '회')}</table>
     <button class="textlike" data-sharepick>공유 카드 만들기 ›</button>
     <details class="sub weekInfo"><summary>월~일 기록 · 연습 측정 제외 <span aria-label="설명 보기">ⓘ</span></summary>월요일~일요일 기록이에요(연습 측정 제외). 점수로 바꾸지 않고 잰 숫자만 모았어요. 날짜를 누르면 그날 기록과 그 주 통계가 보여요.</details>`;   // 공유 경고는 공유 판 안 (openShare)
