@@ -238,6 +238,13 @@ console.log('모든 점검 통과');
     const holes = gps.filter(p => p.t < 125000 || p.t > 150000);             // 뛰기 구간 GPS가 절반 끊김 → 지어내지 않음
     assert.equal(walkRunSegs(d, 'pocket', holes).segs[1].speed, null, 'GPS가 끊기면 속도 없음');
   }
+  { // 구간 GPS 빈 시간: 점 사이 간격에서 2초를 뺀 합이 구간의 10% 넘으면 '-' (검수팀: 칸 수로는 구멍 양쪽 칸까지 세어 30초 구멍도 통과)
+    const line = hole => { const g = []; for (let t = 0; t <= 120; t++) if (t < 60 - hole / 2 || t > 60 + hole / 2) g.push({ t: t * 1000, lat: 37.5 + t * 1.3 / 111320, lon: 127, acc: 5 }); return g; };
+    const seg = { steadyFrom: 0, steadyTo: 120000, cadence: 110, activeS: 120 };
+    assert.ok(Math.abs(gpsSpeed(seg, line(0), 120).speed - 1.3) < 0.1, '끊김 없음');
+    assert.ok(gpsSpeed(seg, line(10), 120).speed, '10초 끊김은 통과');
+    assert.equal(gpsSpeed(seg, line(30), 120).gpsError, 'tooShort', '30초 끊김');
+  }
   console.log('걷기·뛰기 구간 점검 통과');
 }
 
