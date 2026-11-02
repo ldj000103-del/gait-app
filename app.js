@@ -978,7 +978,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v223';
+const APP_VERSION = 'v224';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -2083,10 +2083,10 @@ function rePractice(hist, date) {
 const RELAB = ['walk', 'run', 'slowrun', 'easyrun'], RELAB_KEEP = ['idleEnd', 'maxEnd', 'paused'];   // 측정 상황 경고는 다시 계산해도 그대로
 function openRelabel(date) {
   const h = store.get('history', []).find(x => x.date === date); if (!h) return;
-  const now = h.activity ?? 'walk';
+  const now = h.activity ?? 'walk', mixed = h.orig?.segs;                   // v222에서 이미 바꾼 구간 기록: 다시 세면 값이 틀려서 처음 활동으로 되돌리기만 (검수팀)
   pickFor = null; $('pickQ').textContent = '어떤 활동이었나요?';
-  $('pickList').innerHTML = `<p class="delDesc">고르면 이 기록을 그 활동 기준으로 다시 계산해요. 케이던스 같은 값이 달라질 수 있어요.${h.receipt || h.orig?.receipt ? ' 익명 결과를 보냈다면 바뀐 값도 새로 보내요. 처음 보낸 값은 ‘잘못 고른 측정’으로 표시돼 함께 남아요.' : ''}</p>`   // 법률 검토 32번
-    + RELAB.map(a => `<button data-relabel="${a}" data-date="${date}" aria-pressed="${a === now}">${svgIc(a === 'walk' ? IC.walk : IC.run)}<span>${ACT[a]}${a === now ? ' <em>✓ 지금</em>' : ''}</span></button>`).join('');
+  $('pickList').innerHTML = `<p class="delDesc">${mixed ? '걷기와 뛰기가 섞인 기록은 처음 활동으로만 되돌릴 수 있어요.' : '고르면 이 기록을 그 활동 기준으로 다시 계산해요. 케이던스 같은 값이 달라질 수 있어요.'}${!mixed && (h.receipt || h.orig?.receipt) ? ' 익명 결과를 보냈다면 바뀐 값도 새로 보내요. 처음 보낸 값은 ‘잘못 고른 측정’으로 표시돼 함께 남아요.' : ''}</p>`   // 법률 검토 32번
+    + RELAB.filter(a => !mixed || a === now || a === (h.orig.activity ?? 'walk')).map(a => `<button data-relabel="${a}" data-date="${date}" aria-pressed="${a === now}">${svgIc(a === 'walk' ? IC.walk : IC.run)}<span>${ACT[a]}${a === now ? ' <em>✓ 지금</em>' : ''}</span></button>`).join('');
   $('pickSheet').hidden = false; history.pushState({ pickSheet: 1 }, '');
   $('pickList').querySelector('[aria-pressed="true"]')?.focus();
 }
