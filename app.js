@@ -241,7 +241,7 @@ function syncPicks() {
     b.querySelector('.pIc').innerHTML = id === 'tmetric' ? '' : svgIc(it[3]); b.querySelector('.pName').textContent = it[1];
   }
 }
-let pickFor = null, pickDragY = null;
+let pickFor = null, pickDragY = null, cardMake = null;   // cardMake: 카드 만들기 판 상태 (사진은 메모리에만, 판을 닫으면 버림)
 function openPick(id) {
   const [title, items] = PICKS[id], v = $(id).value;
   pickFor = id; $('pickQ').textContent = title;
@@ -251,7 +251,8 @@ function openPick(id) {
 }
 function closePick(back = true) {
   if ($('pickSheet').hidden) return;
-  $('pickSheet').hidden = true; (pickFor ? $(`${pickFor}Btn`) : document.querySelector('[data-sharepick]'))?.focus();
+  $('pickSheet').hidden = true; (pickFor ? $(`${pickFor}Btn`) : document.querySelector(cardMake ? '.sharebtn' : '[data-sharepick]'))?.focus();
+  if (cardMake) { cardMake = null; $('pickList').innerHTML = ''; }
   if (back && history.state?.pickSheet) history.back();                  // 판을 열 때 넣은 기록 한 칸을 되돌림
 }
 document.addEventListener('click', e => { const b = e.target.closest('[data-pick]'); if (b) openPick(b.dataset.pick); });
@@ -278,7 +279,7 @@ function openShare() {
   pickFor = null; $('pickQ').textContent = '어떤 카드를 공유할까요?';
   $('pickList').innerHTML = [['week', '이 주 카드', '고른 날짜가 있는 주'], ['month', '이 달 카드', '달력에 보이는 달'], ['best', '최고 기록 카드', '지금까지 내 기록']]
     .map(([v, n, d]) => `<button data-share="${v}">${svgIc(v === 'best' ? IC.star : IC.cal)}<span>${n}<small>${d}</small></span></button>`).join('')
-    + '<p class="sub" style="margin:12px 20px 8px">카드에는 걸음·건강 숫자가 담겨요. 공유하면 받는 사람이 그 숫자를 보게 돼요.</p>';
+    + '<p class="sub" style="margin:12px 20px 8px">카드에는 걸음·건강 숫자가 담겨요. 공유하면 받는 사람이나 게시물을 보는 사람이 볼 수 있고, 올린 뒤에는 회수하기 어려워요.</p>';
   $('pickSheet').hidden = false; history.pushState({ pickSheet: 1 }, '');
   $('pickList').querySelector('button')?.focus();
 }
@@ -326,6 +327,7 @@ $('histBody').addEventListener('pointerdown', e => { const r = e.target.closest(
 for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) $('histBody').addEventListener(ev, () => clearTimeout(lpT));
 $('histBody').addEventListener('contextmenu', e => { if (e.target.closest('[data-i]')) e.preventDefault(); });
 $('pickList').addEventListener('click', e => {
+  const cm = e.target.closest('[data-cm]'); if (cm) { cardMakeAct(cm.dataset.cm); return; }
   const dl = e.target.closest('[data-del]'); if (dl) { deleteRec(dl.dataset.del); return; }
   if (e.target.closest('[data-keep]')) { closePick(); return; }
   const s = e.target.closest('[data-share]'); if (s) { closePick(); shareSummary(s.dataset.share); return; }
@@ -978,7 +980,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v227';
+const APP_VERSION = 'v228';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -1470,6 +1472,7 @@ async function shareFile(dataUrl, name, text) {
   const P = window.Capacitor?.isNativePlatform?.() ? window.Capacitor.Plugins : null;
   try {
     if (P?.Share && P?.Filesystem) {                                    // 설치형 앱: 파일로 저장해서 안드로이드 공유 창
+      await clearShareCache(P);
       const { uri } = await P.Filesystem.writeFile({ path: `${Date.now()}-${name}`, data: dataUrl.split(',')[1], directory: 'CACHE' });
       await P.Share.share({ title: '스텝미러', text, files: [uri] });
       return;
@@ -1478,11 +1481,94 @@ async function shareFile(dataUrl, name, text) {
     if (navigator.canShare?.({ files: [file] })) { await navigator.share({ files: [file], title: '스텝미러', text }); return; }
   } catch (e) { if (e?.name === 'AbortError' || /cancel/i.test(e?.message || '')) return; }
   const a = document.createElement('a'); a.href = dataUrl; a.download = name; a.click();   // 공유가 안 되면 내려받기
+  toast('공유 창을 열 수 없어 파일을 내려받았어요. 기기에 저장돼요.');
 }
+// 공유하려고 캐시에 쓴 파일(시각-이름)은 다음 공유나 앱 실행 때 지움. 공유 직후에 지우면 받는 앱이 아직 읽는 중일 수 있음 (법률 검토)
+async function clearShareCache(P) {
+  try {
+    const { files } = await P.Filesystem.readdir({ path: '', directory: 'CACHE' });
+    await Promise.all(files.map(f => f.name ?? f).filter(n => /^\d{13}-/.test(n)).map(path => P.Filesystem.deleteFile({ path, directory: 'CACHE' })));
+  } catch {}
+}
+if (window.Capacitor?.isNativePlatform?.() && window.Capacitor.Plugins.Filesystem) clearShareCache(window.Capacitor.Plugins);
 async function shareRecord(date) {
   const h = store.get('history', []).find(x => x.date === date);
-  if (h) shareCanvas(await makeCard(h), `스텝미러로 잰 내 걸음 · https://${APP_URL}/`);
+  if (!h) return;
+  if (PHOTO_CARD_ACTS.includes(h.activity ?? 'walk')) return openCardMake(h);
+  shareCanvas(await makeCard(h), `스텝미러로 잰 내 걸음 · https://${APP_URL}/`);
 }
+// 사진 + 숫자 띠 카드 (디자인 팀 시안 B). 사진은 메모리에서 그리기만 함: history·localStorage·익명 전송에 넣지 않음. 캔버스를 PNG로 내보내 사진의 EXIF(촬영 위치)도 안 따라옴 (법률 검토)
+const PHOTO_CARD_ACTS = ['walk', 'run', 'easyrun', 'slowrun'];
+async function drawPhotoCard(h, img, on) {
+  await Promise.race([document.fonts?.ready, new Promise(r => setTimeout(r, 1500))]);
+  const W = 1080, H = 1350, X = 60, c = document.createElement('canvas'); c.width = W; c.height = H;
+  const g = c.getContext('2d'), F = (w, px) => `${w} ${px}px "Pretendard Variable", Pretendard, sans-serif`;
+  const act = h.activity ?? 'walk', cad = h.cadence == null ? null : +h.cadence.toFixed(0), ink = '#121816', sub = '#69736f', lines = [];
+  const text = (t, x, y, font, color) => { g.font = font; g.fillStyle = color; g.fillText(t, x, y); return g.measureText(t).width; };
+  if (on.cad && cad != null) {
+    const name = h.segs ? `가장 긴 ${act === 'run' ? '뛰기' : '걷기'} 구간 케이던스` : act === 'walk' ? '걷기 케이던스' : act === 'slowrun' ? '조깅 케이던스' : '러닝 케이던스';
+    const grade = act === 'walk' ? cadGradeOf(h) : act !== 'slowrun' && cadGradeOf(h) === 'o' ? 'o' : 'y';   // 결과 화면과 같은 등급, 글자로만
+    lines.push([56, y => { const w = text(name, X, y, F(700, 34), ink); text(`측정 정확도: ${GRADE[grade][1]}`, X + w + 20, y, F(500, 26), sub); }]);
+    lines.push([112, y => { const w = text(String(cad), X, y + 8, F(700, 104), ink); text('걸음/분', X + w + 14, y + 8, F(500, 34), sub); }]);
+    if (on.perry && act === 'walk') {
+      const { sex } = store.get('profile', {}), norm = sex === 'm' ? 111 : sex === 'f' ? 117 : 113;
+      lines.push([54, y => text(`Perry 책 평균 ${norm} · 차이 ${signed(cad - norm)}`, X, y, F(500, 32), ink)]);
+    }
+  }
+  const time = h.diag?.durS ?? h.durS ?? h.activeS;
+  const dist = [h.distance && `거리 ${h.distance >= 1000 ? `${(h.distance / 1000).toFixed(1)}km` : `${Math.round(h.distance)}m`}`, time && `시간 ${clock(time)}`].filter(Boolean).join(' · ');
+  if (on.dist && dist) lines.push([54, y => text(dist, X, y, F(500, 32), ink)]);
+  lines.push([52, y => text('스텝미러 · 참고값, 의료 진단이 아니에요', X, y + 6, F(400, 26), sub)]);   // 항상 표시
+  const band = lines.reduce((s, [lh]) => s + lh, 44) + 16, ph = H - band, k = Math.max(W / img.naturalWidth, ph / img.naturalHeight), sw = W / k, sh = ph / k;
+  g.drawImage(img, (img.naturalWidth - sw) / 2, (img.naturalHeight - sh) / 2, sw, sh, 0, 0, W, ph);   // 가운데 자르기
+  g.fillStyle = '#fff'; g.fillRect(0, ph, W, band);
+  let y = ph + 44; lines.forEach(([lh, draw]) => { y += lh; draw(y - 16); });
+  return c;
+}
+function openCardMake(h) {
+  pickFor = null; cardMake = { h, img: null, on: { cad: true, perry: true, dist: true }, canvas: null, seq: 0 };
+  $('pickQ').textContent = '카드 만들기';
+  const sw = (id, label) => `<label class="chk" id="cmBox_${id}"><input type="checkbox" role="switch" data-cmsw="${id}" checked><span>${label}</span></label>`;
+  $('pickList').innerHTML = `<div id="cardMake"><div id="cmPrev"></div>
+    <button class="cmBtn" id="cmAdd" data-cm="add">사진 넣기 (선택)</button><input type="file" id="cmFile" accept="image/*" hidden>
+    <div id="cmHas" hidden><span>사진을 넣었어요</span><button class="chip" data-cm="del">빼기</button></div><p id="cmErr" class="sub" role="alert" hidden>이 사진은 열지 못했어요. 다른 사진을 골라 주세요.</p>
+    <div id="cmSw" hidden>${sw('cad', '케이던스·정확도')}${(h.activity ?? 'walk') === 'walk' ? sw('perry', 'Perry 평균과 차이') : ''}${sw('dist', '거리·시간')}</div>
+    <p class="sub">사진은 카드를 만들 때 이 휴대폰에서만 쓰고 앱에 저장하지 않아요. 운영자에게 보내지 않아요. 내가 공유를 고르면 고른 곳으로만 가요.</p>
+    <p class="sub">다른 사람이 보이면 먼저 물어보세요. 남이 찍은 사진이나 방송·연예인 사진은 쓰지 마세요.</p>
+    <p class="sub">카드 이미지에는 사진의 촬영 위치 정보를 넣지 않아요. 다만 사진 속 간판·건물로 장소를 알 수 있어요.</p>
+    <p class="sub">카드에는 걸음·건강 숫자가 담겨요. 공유하면 받는 사람이나 게시물을 보는 사람이 볼 수 있고, 올린 뒤에는 회수하기 어려워요.<span id="cmHide" hidden> 숨기고 싶은 숫자는 끌 수 있어요.</span></p>
+    <button class="cmBtn cmGo" id="cmGo" data-cm="share" disabled>공유하기</button></div>`;
+  $('pickSheet').hidden = false; history.pushState({ pickSheet: 1 }, '');
+  $('cmAdd').focus();
+  cardMakeDraw();
+}
+async function cardMakeDraw() {
+  const m = cardMake, seq = ++m.seq;
+  $('cmGo').disabled = true; m.canvas = null;
+  $('cmAdd').hidden = !!m.img; $('cmHas').hidden = $('cmSw').hidden = $('cmHide').hidden = !m.img;   // 사진 없으면 지금 카드 그대로라 끌 숫자도 없음
+  const pv = document.querySelector('[data-cmsw=perry]'); if (pv) { pv.disabled = !m.on.cad; pv.checked = m.on.cad && m.on.perry; }   // 케이던스를 끄면 평균·차이도 꺼짐
+  const c = await (m.img ? drawPhotoCard(m.h, m.img, m.on) : makeCard(m.h));
+  if (cardMake !== m || seq !== m.seq) return;                             // 그리는 사이 스위치를 또 눌렀거나 판을 닫음
+  m.canvas = c; c.setAttribute('role', 'img'); c.setAttribute('aria-label', '카드 미리보기');
+  $('cmPrev').replaceChildren(c); $('cmGo').disabled = false;
+}
+function cardMakeAct(what) {
+  const m = cardMake; if (!m) return;
+  if (what === 'add') return $('cmFile').click();
+  if (what === 'del') { m.img = null; cardMakeDraw(); return $('cmAdd').focus(); }
+  if (what === 'share' && m.canvas) { const c = m.canvas; closePick(); shareCanvas(c, `스텝미러로 잰 내 걸음 · https://${APP_URL}/`); }
+}
+$('pickList').addEventListener('change', async e => {
+  const m = cardMake; if (!m) return;
+  if (e.target.dataset.cmsw) { m.on[e.target.dataset.cmsw] = e.target.checked; return cardMakeDraw(); }
+  if (e.target.id !== 'cmFile' || !e.target.files[0]) return;
+  const f = e.target.files[0]; e.target.value = ''; $('cmErr').hidden = true;
+  try {
+    const img = new Image(); img.src = await shrinkPhoto(f, 2048); await img.decode();
+    if (cardMake !== m) return;
+    m.img = img; cardMakeDraw();
+  } catch { if (cardMake === m) $('cmErr').hidden = false; }
+});
 document.addEventListener('click', e => { const b = e.target.closest?.('.sharebtn'); if (b) shareRecord(b.dataset.date); });
 // 친구에게 설치 안내 링크 보내기 (카톡은 apk 파일을 막아서 링크로)
 $('invite').addEventListener('click', async () => {
@@ -1495,7 +1581,7 @@ $('invite').addEventListener('click', async () => {
   try { await navigator.clipboard.writeText(text); toast('설치 안내 링크를 복사했어요. 카톡에 붙여 넣어 보내세요.'); }
   catch { prompt('이 링크를 복사해 보내세요', url); }
 });
-const shareBtn = date => `<button class="ghost sharebtn" data-date="${date}" style="margin:4px 0 10px">결과 카드 공유하기</button><div class="sub" style="font-size:.75rem;margin:-4px 0 10px">카드에는 걸음·건강 숫자가 담겨요. 공유하면 받는 사람이 그 숫자를 보게 돼요.</div>`;   // 민감정보가 남에게 보일 수 있음을 공유 전에 알림 (개인정보 보호법 제23조 3항 취지)
+const shareBtn = date => `<button class="ghost sharebtn" data-date="${date}" style="margin:4px 0 10px">결과 카드 공유하기</button><div class="sub" style="font-size:.75rem;margin:-4px 0 10px">카드에는 걸음·건강 숫자가 담겨요. 공유하면 받는 사람이나 게시물을 보는 사람이 볼 수 있고, 올린 뒤에는 회수하기 어려워요.</div>`;   // 민감정보가 남에게 보일 수 있음을 공유 전에 알림 (개인정보 보호법 제23조 3항 취지)
 
 // ── 지도에서 경로 보기 (카카오맵, 위치정보법 검토: 노션 법률 검토 7번) ──
 // 누를 때만 지도를 불러옴. 경로 좌표는 이 휴대폰의 기록에만 저장(최근 30개)하고 운영자에게 보내지 않음 (send()에 넣지 않음)
