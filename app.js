@@ -132,7 +132,7 @@ function segCard(r) {
     <div class="msub">30초씩 나눠 구분해서 경계는 조금 다를 수 있어요. 아래 카드는 많은 쪽(${name(r.activity === 'run' ? 'run' : 'walk')})의 가장 긴 구간 값이에요.${r.distance ? ' 구간 거리의 합은 전체 거리와 조금 다를 수 있어요.' : ''}</div>
     <details class="seghow"><summary>어떻게 골랐나요?</summary><p class="sub">30초씩 나눠 달리기 방식으로 센 케이던스가 ${RUN_CAD}걸음/분 이상이고 흔들림도 크면 뛰기, 아니면 걷기로 봐요. 이웃한 같은 활동은 합치고, 30초만 달라진 칸은 앞뒤에 합쳐서 구간은 1분 이상이에요. 이 앱이 정한 기준이고 연구로 확인하지 않았어요.</p>${r.auto?.pos ? `<p class="sub">휴대폰 위치: ${POS_HOW}</p>` : ''}</details></div>`;
 }
-const canRelab = r => RELAB.includes(r.activity ?? 'walk') && !r.autoRec;
+const canRelab = r => RELAB.includes(r.activity ?? 'walk') && !r.autoRec && !r.segs;   // 구간 기록은 버튼 없음: 박자가 섞인 신호를 한 덩어리로 다시 세면 케이던스가 절반쯤으로 틀림 (검수팀). ponytail: 구간이 잘못 나뉘어도 못 고침, 건의가 오면 walkRunSegs로 다시 나눠 계산
 const relabBtn = (r, cls = 'relab') => canRelab(r) ? `<button class="textlike ${cls}" data-relab="${r.date}">활동 바꾸기 ›</button>` : '';
 const resTitle = (r, title) => `<div class="restitle"><h2>${title}</h2>${relabBtn(r)}</div>`;
 const metroNote = r => r.metro && r.cadence ? `<div class="sub" style="margin:0 0 8px">박자 소리 ${r.metro}걸음/분을 켜고 쟀어요 · 잰 케이던스 ${Math.round(r.cadence)} (차이 ${Math.round(r.cadence) - r.metro > 0 ? '+' : ''}${Math.round(r.cadence) - r.metro})</div>` : '';   // 박자에 맞춰 걸었다면 측정이 얼마나 맞는지 볼 수 있음
@@ -1006,7 +1006,7 @@ const ro = w => { const c = (w.charCodeAt(w.length - 1) - 0xac00) % 28; return w
 function autoNote(r) {
   const a = r.auto ?? {};
   if (!a.act && !a.pos) return '';
-  return `<div class="metric"><div class="sub">${a.act ? `활동: <b>${r.segs ? '걷기와 뛰기로' : ro(ACT[a.act])}</b> 자동 구분 <span class="badge b-y">참고</span><br>` : ''}${a.pos ? `휴대폰 위치: <b>${ro(POS[a.pos])}</b> 짐작 <span class="badge b-n">검증 안 됨</span><br>` : ''}다르면 맨 위 활동 바꾸기에서 고칠 수 있어요.</div>${r.segs ? '' : `
+  return `<div class="metric"><div class="sub">${a.act ? `활동: <b>${r.segs ? '걷기와 뛰기로' : ro(ACT[a.act])}</b> 자동 구분 <span class="badge b-y">참고</span><br>` : ''}${a.pos ? `휴대폰 위치: <b>${ro(POS[a.pos])}</b> 짐작 <span class="badge b-n">검증 안 됨</span><br>` : ''}${r.segs ? '' : '다르면 맨 위 활동 바꾸기에서 고칠 수 있어요.'}</div>${r.segs ? '' : `
     <details><summary>어떻게 골랐나요?</summary><ul>
     ${a.act ? `<li>달리기 방식으로 센 케이던스가 ${RUN_CAD}걸음/분 이상이고 흔들림도 크면 달리기, 아니면 걷기로 봐요. 이 선은 이 앱이 정한 것이고 연구로 확인하지 않았어요.</li>` : ''}
     ${a.pos ? `<li>${POS_HOW}</li>` : ''}</ul></details>`}</div>`;
