@@ -1,4 +1,4 @@
-import { analyzeWalk, fastMinutes, withDistance, gpsSpeed, gpsDistance, guessActivity, guessPosition, routeMarks, RUN_CAD, analyzeJog, mixActivity, stairClimb, FLOOR_M, STAIR_STEP_M, chunks, walkRunSegs } from './gait.js';
+import { analyzeWalk, fastMinutes, withDistance, gpsSpeed, gpsDistance, guessActivity, guessPosition, routeMarks, RUN_CAD, analyzeJog, mixActivity, stairClimb, FLOOR_M, STAIR_STEP_M, chunks, walkRunSegs, elevation, slopeSegs } from './gait.js';
 import { analyzeSide, analyzeFrontal, extractPose, drawSnapshot, PART_ICON } from './video.js';
 
 const $ = id => document.getElementById(id);
@@ -82,7 +82,7 @@ const REF_WHO = {
   wegner2026: '무릎 골관절염 환자 예비 연구 (인원·나이·성별은 출처에 정보 없음)',
 };
 const refLi = r => `<li>${REF[r]}${REF_WHO[r] ? `<br><span class="sub" style="font-size:.75rem">누구 자료: ${REF_WHO[r]}</span>` : ''}</li>`;
-const ACT = { walk: '걷기', run: '러닝', slowrun: '슬로우 러닝', easyrun: '천천히 달리기', cooper: '12분 달리기', stairs: '계단 오르기', video: '영상', auto: '자동' };
+const ACT = { walk: '걷기', run: '러닝', slowrun: '슬로우 러닝', easyrun: '천천히 달리기', cooper: '12분 달리기', stairs: '계단 오르기', slope: '오르막·내리막', video: '영상', auto: '자동' };
 // 달리기 활동: 시작 위 '뛰기 전 몸 풀기', 결과 아래 '뛴 뒤 정리 운동' (판은 아래 openEx)
 const RUN_ACTS = ['run', 'slowrun', 'easyrun', 'cooper'];
 const COOL_BTN = '<button class="textlike" data-ex="cool" style="margin-top:12px">뛴 뒤 정리 운동 ›</button>';
@@ -100,6 +100,9 @@ const GRADE = {
 // 오래 걷지 않을 때 (민원팀 10/28): 걷지 않는 상태가 IDLE_ASK_S 이어지면 물음, 물은 뒤 IDLE_END_S 동안 답이 없으면 저장하고 끝냄, MAX_REC_S가 되면 저장하고 끝냄
 // 설치형 앱은 GaitService.java가 같은 값으로 화면이 꺼져도 처리, 웹은 화면이 켜져 있는 동안만. 데이터분석팀이 조정
 const IDLE_ASK_S = 15 * 60, IDLE_END_S = 15 * 60, MAX_REC_S = 3 * 3600, STILL_SD = 0.6;   // STILL_SD: 5초 가속도 크기 흔들림(m/s²)이 이보다 작으면 걷지 않음
+const HEIGHT_TRIAL = true, ELEV_MIN_M = 1.5;                                 // 걷기·자동에서도 기압계를 켜서 높이를 보여 주는 시험 (사용자 11/02, 잡음을 보고 계속 둘지 정함). 끄려면 이 값만 false. 오르내림이 각각 1.5m 미만이면 '변화 거의 없음'
+const wantsBaro = a => a === 'stairs' || a === 'slope' || (HEIGHT_TRIAL && (a === 'walk' || a === 'auto'));
+const elevRec = (press, data) => { if (!HEIGHT_TRIAL) return {}; const e = elevation(press, data); return e ? { elev: { upM: +e.upM.toFixed(1), downM: +e.downM.toFixed(1) } } : {}; };   // 이 휴대폰에만 저장 (send는 정해진 칸만 보냄)
 let pendingEnd = null, metroStart = 0, metroEnd = 0, metroBroken = false;                                 // metroStart: 측정을 시작할 때 켜져 있던 박자 소리 빠르기                                                   // 이번 측정이 자동으로 끝난 이유 → 저장할 기록의 warnings에 붙임
 const WARN = {
   idleEnd: `오래 움직임이 없어 자동으로 끝냈어요. ${IDLE_ASK_S / 60}분 넘게 걷지 않아 물었고 ${IDLE_END_S / 60}분 동안 답이 없어, 그때까지 잰 기록으로 분석했어요.`,
@@ -131,6 +134,7 @@ const canRelab = r => RELAB.includes(r.activity ?? 'walk') && !r.autoRec;
 const relabBtn = (r, cls = 'relab') => canRelab(r) ? `<button class="textlike ${cls}" data-relab="${r.date}">활동 바꾸기 ›</button>` : '';
 const resTitle = (r, title) => `<div class="restitle"><h2>${title}</h2>${relabBtn(r)}</div>`;
 const metroNote = r => r.metro && r.cadence ? `<div class="sub" style="margin:0 0 8px">박자 소리 ${r.metro}걸음/분을 켜고 쟀어요 · 잰 케이던스 ${Math.round(r.cadence)} (차이 ${Math.round(r.cadence) - r.metro > 0 ? '+' : ''}${Math.round(r.cadence) - r.metro})</div>` : '';   // 박자에 맞춰 걸었다면 측정이 얼마나 맞는지 볼 수 있음
+const elevNote = r => !r.elev ? '' : `<div class="sub" style="margin:0 0 8px">높이는 시험 중이에요 ${badge('y')} ${r.elev.upM < ELEV_MIN_M && r.elev.downM < ELEV_MIN_M ? '변화 거의 없음' : `오른 높이 ↑${r.elev.upM.toFixed(0)}m · 내려간 높이 ↓${r.elev.downM.toFixed(0)}m`} · 기준값 없음</div>`;
 const warnHtml = r => r.warnings.map(w => `<div class="warn">${w === 'paused' && r.diag?.gapS >= 1 ? `<b>중간에 ${Math.round(r.diag.gapS)}초 끊겼어요.</b> ` : ''}${WARN[w]}${w === 'paused' && !Native ? ' <a href="install.html">설치형 앱 받기</a>' : ''}${w === 'walkLike' || w === 'running' ? ' ' + relabBtn(r, 'relabLink') : ''}</div>`).join('');
 
 // ── 내 정보 ──
@@ -182,7 +186,7 @@ const privSeen = store.get('privSeen', null), cons = store.get('consent', null);
     + (privSeen === '2026-10-28-delete' ? '' : (cons.share && privSeen !== '2026-10-26-quality' ? '익명 결과 수집 안내가 바뀌었어요: 측정 품질 정보와 결과가 안 나온 측정의 이유도 함께 보내요(걸음 숫자·위치는 없어요). 원하지 않으면 화면 아래 ‘동의 변경’에서 끌 수 있어요. ' : '')
     + '기록 지우기와 익명 결과 삭제 요청 방법도 추가됐어요 (2026년 10월 28일 시행).');   // 지난 안내를 아직 못 봤으면 함께
   if (cons && privSeen !== PRIV_DATE && (metro || older)) changeNote('privNote', 'privSeen', PRIV_DATE, metro + older, 'privacy.html', '처리방침 보기'); }
-const usesGps = a => a === 'cooper' || (a !== 'slowrun' && a !== 'stairs' && $('dmode').value === 'gps');   // 계단은 실내라 GPS 안 씀
+const usesGps = a => a === 'cooper' || (a !== 'slowrun' && a !== 'stairs' && a !== 'slope' && $('dmode').value === 'gps');   // 계단은 실내라 GPS 안 씀
 function showLoc() {
   const need = usesGps($('act').value);
   $('locBox').classList.toggle('hidden', !need);
@@ -211,11 +215,12 @@ const IC = {
   knee: '<path d="M9 3l2.5 8.5L9 21"/><circle cx="11.5" cy="11.5" r="2"/>',
   cal: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>',
   stairs: '<path d="M3 20h5v-5h5v-5h5V5h3"/>',
+  slope: '<path d="M3 20 10 8l4 6 2-3 5 9z"/>',
   star: '<path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/>',
 };
 const PICKS = {   // select id → 판 제목, [값, 이름, 설명, 아이콘, 표시]
   act: ['무엇을 잴까요?', [['auto', '자동', '걷기·달리기를 알아서 나눠요', IC.wand], ['walk', '걷기', '', IC.walk], ['run', '러닝', '', IC.run],
-    ['slowrun', '슬로우 러닝', '조깅 1분 + 걷기 1분', IC.loop], ['easyrun', '천천히 달리기', '걷는 속도로 쭉', IC.feather], ['cooper', '12분 달리기 테스트', '쿠퍼 테스트', IC.watch], ['stairs', '계단 오르기', '오르기만 · 높이는 설치형 앱', IC.stairs]]],
+    ['slowrun', '슬로우 러닝', '조깅 1분 + 걷기 1분', IC.loop], ['easyrun', '천천히 달리기', '걷는 속도로 쭉', IC.feather], ['cooper', '12분 달리기 테스트', '쿠퍼 테스트', IC.watch], ['stairs', '계단 오르기', '오르기만 · 높이는 설치형 앱', IC.stairs], ['slope', '오르막·내리막 걷기', '오른·내려간 높이 · 설치형 앱', IC.slope]]],
   pos: ['휴대폰을 어디에 둘까요?', [['pocket', '바지 앞주머니', '허벅지에 밀착', IC.pants, '권장'], ['waist', '허리', '벨트·밴드', IC.belt], ['hand', '손에 들고', '', IC.hand], ['auto', '자동 짐작', '검증 안 된 방법', IC.ask]]],
   dmode: ['거리는 어떻게 잴까요?', [['gps', 'GPS 자동', '야외 1분 이상', IC.pin], ['manual', '거리를 직접 입력', '', IC.ruler], ['none', '재지 않음', '케이던스만', IC.none]]],
   vview: ['어느 방향에서 찍을까요?', [['side', '옆모습', '무릎·넓적다리·발목 각도', IC.walk], ['front', '앞모습', '카메라 쪽으로 걸어오기', IC.toward], ['back', '뒷모습', '카메라에서 멀어지기', IC.away]]],
@@ -330,9 +335,11 @@ $('pickSheet').addEventListener('click', e => { if (e.target.id === 'pickSheet')
 $('pickSheet').addEventListener('keydown', e => { if (e.key === 'Escape') closePick(); });
 $('pickSheet').addEventListener('pointerdown', e => { pickDragY = e.clientY; });          // 아래로 끌면 닫기
 $('pickSheet').addEventListener('pointerup', e => { if (pickDragY != null && e.clientY - pickDragY > 60) closePick(); pickDragY = null; });
+const Native = window.Capacitor?.isNativePlatform?.() ? window.Capacitor.Plugins.GaitRecorder : null;   // showAct보다 먼저 (저장된 활동이 오르막·내리막이면 처음 그릴 때 씀)
+$('walkNote').textContent = HEIGHT_TRIAL ? "걷기·자동에서 높이는 시험 중이에요(설치형 앱, 참고). 층수를 보려면 '무엇을 할까요'에서 계단 오르기를 고르고, 계단만 따로 재요." : "걷기로 재면 올라간 높이는 세지 않아요. 층수를 보려면 '무엇을 할까요'에서 계단 오르기를 고르고, 계단만 따로 재요.";
 function showAct() { showLoc(); const a = $('act').value;
   syncPicks(); $('walkNote').classList.toggle('hidden', a !== 'walk' && a !== 'auto'); $('autoNote').classList.toggle('hidden', a !== 'auto');   // walkNote: 건의 K-CFED1B60, 걷기·자동은 기압계를 켜지 않음
-  $('easyNote').classList.toggle('hidden', a !== 'easyrun'); $('slowNote').classList.toggle('hidden', a !== 'slowrun'); $('cooperNote').classList.toggle('hidden', a !== 'cooper'); $('warmBtn').classList.toggle('hidden', !RUN_ACTS.includes(a)); $('stairsNote').classList.toggle('hidden', a !== 'stairs'); $('dmodeBox').classList.toggle('hidden', a === 'slowrun' || a === 'cooper' || a === 'stairs'); }
+  $('easyNote').classList.toggle('hidden', a !== 'easyrun'); $('slowNote').classList.toggle('hidden', a !== 'slowrun'); $('cooperNote').classList.toggle('hidden', a !== 'cooper'); $('warmBtn').classList.toggle('hidden', !RUN_ACTS.includes(a)); $('stairsNote').classList.toggle('hidden', a !== 'stairs'); $('slopeNote').classList.toggle('hidden', a !== 'slope'); $('slopeNoBaro').classList.toggle('hidden', a !== 'slope' || !!Native); $('dmodeBox').classList.toggle('hidden', a === 'slowrun' || a === 'cooper' || a === 'stairs' || a === 'slope'); }
 $('act').addEventListener('change', () => { store.set('act', $('act').value); showAct(); showSetSum(); });
 showAct();
 if (!store.get('history', []).length) $('firstGuide').open = true;   // 처음 쓰는 사람에겐 사용법을 펼쳐 둠
@@ -345,7 +352,6 @@ showDmode();
 
 // ── 측정 ──
 // 설치형 안드로이드 앱이면 네이티브 기록기(화면이 꺼져도 측정), 아니면 브라우저 센서
-const Native = window.Capacitor?.isNativePlatform?.() ? window.Capacitor.Plugins.GaitRecorder : null;
 if (Native) $('webOnly')?.remove();
 // 카톡·네이버·인스타 안의 브라우저: 다른 화면으로 가면 측정이 끊기고 설치·홈 화면 추가도 잘 안 돼서 크롬·사파리로 넘기는 안내 (검수팀 제안 a)
 {
@@ -471,7 +477,7 @@ $('start').addEventListener('click', async () => {
   const cdEnd = Date.now() + LEAD_S * 1000, lead = Native && act === 'slowrun' ? 0 : LEAD_S;
   const startWall = cdEnd - (LEAD_S - lead) * 1000;
   if (Native) {
-    Native.start({ gps: useGps && !gpsDenied, intervalSec: act === 'slowrun' ? INTERVAL_S : 0, endSec: act === 'cooper' ? COOPER_S + LEAD_S : 0, baro: act === 'stairs' });   // endSec: 달리기 12분이 되면 서비스가 진동
+    Native.start({ gps: useGps && !gpsDenied, intervalSec: act === 'slowrun' ? INTERVAL_S : 0, endSec: act === 'cooper' ? COOPER_S + LEAD_S : 0, baro: wantsBaro(act) });   // endSec: 달리기 12분이 되면 서비스가 진동
     store.set('rec', { act, startWall, native: true, lead });               // 측정 중 표시: 전화·카톡 뒤 앱이 다시 열려도 이어서 보여 주려고
     t0 = startWall;                                                         // 카운트다운 중에 끝을 눌러도 서비스를 멈추고 안내하게
   }
@@ -490,7 +496,7 @@ $('start').addEventListener('click', async () => {
 const setArc = f => { $('recArc').style.strokeDashoffset = (565.5 * (1 - Math.min(1, Math.max(0, f)))).toFixed(1); };
 function runRec(act) {
   const { startWall } = store.get('rec', {});
-  $('recTitle').textContent = { walk: '걷는 중 · 평소처럼', run: '달리는 중 · 평소 페이스로', easyrun: '천천히 달리는 중 · 걷는 속도 정도로', cooper: '12분 동안 최대한 멀리', stairs: '계단 오르는 중 · 오르기만', auto: '측정 중 · 걷거나 달려요' }[act] ?? '조깅 1분';
+  $('recTitle').textContent = { walk: '걷는 중 · 평소처럼', run: '달리는 중 · 평소 페이스로', easyrun: '천천히 달리는 중 · 걷는 속도 정도로', cooper: '12분 동안 최대한 멀리', stairs: '계단 오르는 중 · 오르기만', slope: '오르막·내리막 걷는 중', auto: '측정 중 · 걷거나 달려요' }[act] ?? '조깅 1분';
   t0 = startWall; liveSteps = 0; lastMoveAt = 0; idleAskedAt = 0; $('recAct').textContent = ACT[act] ?? '';
   for (const id of ['lvCad', 'lvSteps', 'lvDist']) $(id).textContent = '–';
   $('recFind').textContent = '걸음 신호 찾는 중…';
@@ -643,6 +649,7 @@ function finish(data, demo = false, gps = [], press = []) {
   if (act === 'slowrun') return finishSlow(data, demo, position, auto);
   if (act === 'cooper') return finishCooper(data, gps, demo, position);
   if (act === 'stairs') return finishStairs(data, demo, position, press);
+  if (act === 'slope') return finishSlope(data, demo, position, press);
   const res = stepCalc(data, act, position);
   const mainSeg = wr?.segs && !res.error ? wr.segs[wr.main] : null;        // 대표 값 = 많은 쪽 활동의 가장 긴 구간 (Perry 기준과 비교하는 이어 걸은 값), 걸음·걸은 시간 = 구간 합
   if (mainSeg) Object.assign(res, { cadence: mainSeg.cadence, regularity: mainSeg.regularity, sd: mainSeg.sd, steadyFrom: mainSeg.steadyFrom, steadyTo: mainSeg.steadyTo, steps: wr.segs.reduce((n, x) => n + x.steps, 0), activeS: wr.segs.reduce((n, x) => n + x.activeS, 0),
@@ -682,7 +689,7 @@ function finish(data, demo = false, gps = [], press = []) {
   const dist = mode === 'manual' ? parseFloat($('dist').value) || null : null;
   const d = mode === 'gps' ? (gpsDenied && !demo ? { gpsError: 'denied' } : gpsSpeed(res, gps)) : withDistance(res, dist);
   if (mainSeg && mode === 'gps' && d.gpsError !== 'denied') { const g = gpsDistance(gps); if (g && g.dist >= 50) d.distance = g.dist; }   // 거리는 속도 × 시간이 아니라 전체 경로로 (걷기·뛰기 속도가 달라서)
-  const rec = { date: new Date().toISOString(), start: Date.now() - durS * 1000, activity: act, position, auto, practice, route: packRoute(gps), ...res, distance: dist, ...d, distSource: d.speed ? mode : null, diag, diagHtml, ...(mainSeg ? { segs: packSegs(wr.segs, gps) } : {}) };
+  const rec = { date: new Date().toISOString(), start: Date.now() - durS * 1000, activity: act, position, auto, practice, route: packRoute(gps), ...res, distance: dist, ...d, distSource: d.speed ? mode : null, diag, diagHtml, ...(mainSeg ? { segs: packSegs(wr.segs, gps) } : {}), ...elevRec(press, data) };
   saveRec(rec, hist, demo, data);
   shownDate = rec.date;
   route = rec.route; routeSegs = rec.segs ?? null;
@@ -793,6 +800,40 @@ function finishStairs(data, demo, position, press) {
   shownDate = rec.date;
   renderStairs(rec);
   renderHistory();
+}
+// ── 오르막·내리막 (건의 K-CFED1B60, 디자인 팀 시안): 계단과 같은 기압계 계산으로 오른·내려간 높이를 따로. 높이는 이 휴대폰에만 저장, 익명 전송은 다른 측정과 같은 칸만 (활동 이름 slope는 warnings에) ──
+function finishSlope(data, demo, position, press) {
+  shownDate = null; route = null; routeSegs = null;
+  const durS = (data[data.length - 1].t - data[0].t) / 1000;
+  const res = analyzeWalk(data, { position, activity: 'walk' }), e = elevation(press, data);
+  if (res.error && !e) return showHtml(`<h2>다시 측정해 주세요</h2><div class="warn">걸음 신호를 찾지 못했어요. 휴대폰을 주머니에 넣고 6초 이상 걸어 주세요. 그래서 이번 측정은 기록에 저장하지 않았어요.</div>`);
+  const rec = { date: new Date().toISOString(), start: Date.now() - durS * 1000, activity: 'slope', position, practice: false, durS,
+    cadence: res.error ? null : res.cadence, steps: res.error ? null : res.steps, activeS: res.error ? durS : res.activeS, regularity: res.error ? null : res.regularity, sd: res.sd,
+    upM: e ? +e.upM.toFixed(1) : null, downM: e ? +e.downM.toFixed(1) : null, hsegs: e ? slopeSegs(data, e.moves, position) : null, warnings: e ? [] : ['noBaro'],
+    diag: { src: Native ? 'app' : 'web', n: data.length, durS, hz: data.length / Math.max(1, durS), gapS: 0, gpsGood: 0 } };
+  saveRec(rec, store.get('history', []), demo, data);
+  shownDate = rec.date;
+  renderSlope(rec);
+  renderHistory();
+}
+function renderSlope(r) {
+  const baro = r.upM != null, m = v => baro ? v.toFixed(0) : '-', name = { up: '오르막', down: '내리막', flat: '평지' };
+  const seg = x => `<li><span class="segname"><b>${name[x.type]}</b></span><span class="segval">${clock(x.durS)} · ${x.type === 'flat' ? '높이 변화 작음' : `↑${x.upM.toFixed(0)}m ↓${x.downM.toFixed(0)}m`}</span><span class="segval sub">케이던스 ${x.cadence != null ? x.cadence.toFixed(0) : '-'}</span></li>`;
+  let html = resTitle(r, `오르막·내리막 결과 ${badge('n')}`) + `<div class="sub">${[whenTxt(r.date), '오르막·내리막', `측정 ${mmss(r.durS)}`].join(' · ')}</div>
+    <div class="rgrid"><div class="mcard static"><div class="mtop"><span class="mlab">오른 높이 ↑</span></div><div class="rnum">${m(r.upM)}<small>${baro ? 'm' : ''}</small></div></div><div class="mcard static"><div class="mtop"><span class="mlab">내려간 높이 ↓</span></div><div class="rnum">${m(r.downM)}<small>${baro ? 'm' : ''}</small></div></div></div>
+    <div class="sub" style="margin:6px 0 10px">${baro ? '기준값 없음 · 휴대폰 기압계로 잰 값이에요' : r.diag?.src === 'app' ? '이 휴대폰엔 기압계가 없어 높이는 못 재요 · 걸음·시간만 쟀어요' : '웹은 높이를 못 재요 · 걸음·시간만 쟀어요 · 설치형 앱은 기압계로 재요'}</div>
+    <div class="mcard static slopestats">${statRow([{ icon: 'time', value: clock(r.durS), label: '전체 시간' }, { icon: 'steps', value: r.steps, label: '걸음' }])}</div>`;
+  if (baro && r.hsegs?.length) html += `<div class="mcard static segcard" style="margin-top:10px"><div class="mtop"><span class="mlab">구간</span>${badge('n')}</div><ol class="seglist">${r.hsegs.map(seg).join('')}</ol>
+    <details class="howto"><summary>어떻게 나눴나요?</summary><p class="sub">30초씩 나눠 높이 변화가 +0.5m 이상이면 오르막, −0.5m 이하면 내리막, 그 사이는 평지로 봐요. 이웃한 같은 방향은 합치고, 30초만 달라진 칸은 앞뒤에 합쳐요. 이 앱이 정한 기준이고 연구로 확인하지 않았어요.</p></details></div>`;
+  let body = '';
+  if (baro) body += metric({ title: '오른·내려간 높이', value: `↑${r.upM.toFixed(1)} ↓${r.downM.toFixed(1)}`, unit: 'm', grade: 'n',
+    why: [`휴대폰 기압계로 잰 기압 변화를 높이로 바꿨어요(국제표준대기 공식). 2초 평균으로 흔들림을 줄이고, 걷는 중에 ${STAIR_STEP_M}m 넘게 바뀔 때만 더해요. 가만히 있을 때 바뀐 높이는 세지 않아요`, '기압은 날씨로도 조금씩 바뀌어서, 오래 잴수록 오차가 커질 수 있어요'], refs: [], limit: '같은 길에서 잰 기록끼리 비교해 보세요. 경사 걷기 기준값은 찾지 못했어요.' });
+  body += metric({ title: '걸음·케이던스', value: r.cadence ? r.cadence.toFixed(0) : '-', unit: '걸음/분', grade: 'n',
+    why: ['걷기와 같은 방식(가속도의 반복)으로 셌어요. 경사를 걸을 때 이 방식의 정확도를 확인한 연구는 아직 찾지 못했어요', '경사 걷기 케이던스의 기준값은 찾지 못해 비교하지 않아요'], refs: [] });
+  html += more(body);
+  if (r.receipt) html += `<div class="sub" style="margin-top:12px">익명 결과를 보냈어요. 접수번호 <b>${r.receipt}</b></div>`;
+  html += `<div class="sub" style="margin-top:12px">이 결과는 의료 진단이 아니에요.</div>`;
+  showHtml(html);
 }
 function renderStairs(r) {
   const baro = r.climbM != null, perFloor = baro && r.floors >= 1 ? r.durS / r.floors : null;
@@ -934,7 +975,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v220';
+const APP_VERSION = 'v221';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -1072,7 +1113,7 @@ function render(r, prev) {
   let html = resTitle(r, `${r.segs ? '걷기 + 뛰기' : '걷기'} 결과${r.practice ? ' <span class="badge b-n">연습</span>' : ''}`);
   if (r.autoRec) html += '<div class="warn">자동으로 잰 기록이에요. 휴대폰을 둔 곳(주머니·가방·손)을 모르고 짐작해서, 직접 잰 측정보다 덜 정확할 수 있어요. 걷기를 알아채기까지 몇 초 걸려 걸음 수가 조금 적게 잡혀요.</div>';
   if (r.practice) html += `<div class="warn">오늘 첫 측정은 연습으로 저장했어요. 처음 걸을 때는 보통 7% 느리게 나와요(Perry 20장). 한 번 더 걸어 주세요.</div>`;
-  html += autoNote(r) + metroNote(r) + warnHtml(r);
+  html += autoNote(r) + metroNote(r) + elevNote(r) + warnHtml(r);
   const gps = r.distSource === 'gps';
   const short = !gps && r.distance < 20;                                   // 짧으면 출발·정지 구간 비중이 커져 느리게 나옴
   const dGrade = short || (gps && r.medAcc > 10) ? 'o' : 'y';
@@ -1230,7 +1271,7 @@ function renderRun(r, prev) {
   const c = r.cadence;
   const easy = r.activity === 'easyrun';
   const cGrade = r.warnings.includes('hand') || r.warnings.includes('irregular') ? 'o' : 'y';
-  const head = resTitle(r, `${r.segs ? '걷기 + 뛰기' : easy ? '천천히 달리기' : '러닝'} 결과`) + autoNote(r) + metroNote(r) + warnHtml(r)
+  const head = resTitle(r, `${r.segs ? '걷기 + 뛰기' : easy ? '천천히 달리기' : '러닝'} 결과`) + autoNote(r) + metroNote(r) + elevNote(r) + warnHtml(r)
     + segCard(r) + topCards(r, { label: '케이던스', value: c.toFixed(0), unit: '걸음/분', grade: cGrade, sub: prev ? `기준선 없음 · 지난 러닝보다 ${signed(c - prev.cadence)}` : '기준선 없음 · 내 기록의 변화만 봐요',
       stats: [...timeStats(r), { icon: 'dist', value: r.distance && (r.distance / 1000).toFixed(2), label: '거리 km' },
         { icon: 'pace', value: r.speed && paceText(r.speed), label: '페이스 /km' }, { icon: 'steps', value: r.steps, label: '걸음' }] }, [
@@ -1338,6 +1379,9 @@ function cardRows(h) {
   } else if (act === 'cooper') {
     push('12분 달린 거리', Math.round(h.distance).toLocaleString(), 'm', `평균 페이스 ${paceText(h.speed)}/km · GPS로 잰 참고값`);
     if (h.cadence) push('러닝 케이던스', f(h.cadence), '걸음/분', '주머니 스마트폰으로 잰 참고값');
+  } else if (act === 'slope') {
+    if (h.upM != null) push('오른·내려간 높이', `↑${f(h.upM)} ↓${f(h.downM)}`, 'm', '기압계로 잰 값 · 기준값 없음');
+    push('시간', clock(h.durS), '', h.steps != null ? `${h.steps}걸음 · 경사 걸음 수는 검증 안 됨` : '');
   } else if (act === 'stairs') {
     if (h.climbM != null) push('올라간 높이', f(h.climbM), 'm', `${h.floors ? `약 ${h.floors}층` : '1층 미만'} · 기압계로 잰 참고값`);
     push('시간', clock(h.durS), '', h.steps != null ? `${h.steps}걸음 · 계단 걸음 수는 검증 안 됨` : '');
@@ -1686,6 +1730,7 @@ function renderHistory() {
 function histNum(h) {
   const m = h.r?.m, r0 = v => Math.round(v);
   if (h.activity === 'cooper') return h.distance ? `${r0(h.distance).toLocaleString()}m` : '';
+  if (h.activity === 'slope') return h.upM != null ? `↑${r0(h.upM)}m ↓${r0(h.downM)}m` : h.steps != null ? `${h.steps}걸음` : '';
   if (h.activity === 'stairs') return h.climbM != null ? `${r0(h.climbM)}m 오름` : h.steps != null ? `${h.steps}걸음` : '';
   if (h.activity === 'video') return h.view === 'side' ? (m?.kneeSwingMax != null ? `무릎 ${r0(m.kneeSwingMax)}°` : '')
     : (m?.dropL != null || m?.dropR != null ? `골반 ${r0(Math.max(m.dropL ?? -Infinity, m.dropR ?? -Infinity))}°` : '');
@@ -1757,7 +1802,7 @@ function weekSummary(hist, mon = monOf(new Date())) {
   return { cur: statOf(inRange(hist, mon, next)), prev: statOf(inRange(hist, prevMon, mon)) };
 }
 // 기록 달력: 날짜마다 활동 종류별 점, 누르면 그날 기록 + 그 주 통계
-const ACT_C = { walk: 'var(--c-walk)', stairs: 'var(--c-walk)', run: 'var(--c-run)', slowrun: 'var(--c-slow)', video: 'var(--c-video)' };
+const ACT_C = { walk: 'var(--c-walk)', stairs: 'var(--c-walk)', slope: 'var(--c-slope)', run: 'var(--c-run)', slowrun: 'var(--c-slow)', video: 'var(--c-video)' };
 let calMonth = new Date(); calMonth.setDate(1); let calSel = dayKey(new Date());
 function renderWeek() {
   const hist = store.get('history', []), byDay = {};
@@ -1772,7 +1817,7 @@ function renderWeek() {
   }
   // 고른 날의 기록
   const sel = new Date(calSel + 'T00:00'), selList = byDay[calSel] ?? [];
-  const val = h => h.activity === 'video' ? `${VIEW[h.view]}모습 영상` : h.activity === 'cooper' ? `${Math.round(h.distance)} m` : h.activity === 'stairs' ? histNum(h) : h.cadence != null ? `${h.cadence.toFixed(0)} 걸음/분` : '';
+  const val = h => h.activity === 'video' ? `${VIEW[h.view]}모습 영상` : h.activity === 'cooper' ? `${Math.round(h.distance)} m` : h.activity === 'stairs' || h.activity === 'slope' ? histNum(h) : h.cadence != null ? `${h.cadence.toFixed(0)} 걸음/분` : '';
   const recs = selList.length ? selList.map(i => { const h = hist[i];
       return `<button class="dayrec" data-i="${i}"><span>${ACT[h.activity ?? 'walk']}${h.practice ? ' <span class="sub">(연습)</span>' : ''}${h.autoRec ? ' <span class="sub">(자동)</span>' : ''}</span>
         <span>${val(h)} <span class="sub">${new Date(h.date).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })} ›</span></span></button>`; }).join('')
@@ -2016,7 +2061,7 @@ function showRecord(i) {
 }
 function renderAny(hist, i) {
   const h = hist[i], act = h.activity ?? 'walk', prev = hist.slice(i + 1).find(x => !x.practice && !x.autoRec && (x.activity ?? 'walk') === act);
-  if (act === 'slowrun') renderSlow(h, hist); else if (act === 'cooper') renderCooper(h); else if (act === 'stairs') renderStairs(h); else if (act === 'walk') render(h, prev); else renderRun(h, prev);
+  if (act === 'slowrun') renderSlow(h, hist); else if (act === 'cooper') renderCooper(h); else if (act === 'stairs') renderStairs(h); else if (act === 'slope') renderSlope(h); else if (act === 'walk') render(h, prev); else renderRun(h, prev);
 }
 
 // ── 활동 바꾸기 (건의 K-5D73A0A1 '걷기인데 러닝으로 잘못 누름', 디자인 팀 시안 A) ──
@@ -2048,7 +2093,7 @@ async function relabel(date, act) {
     const rows = await rawGet(date);
     if (!rows) return toast('이 기록은 센서 원본이 없어 바꿀 수 없어요');   // 원본은 최근 측정 몇 개만 이 휴대폰에 남음
     const data = rows.map(([t, x, y, z]) => ({ t, x, y, z })), position = base.position;
-    const keep = { date: base.date, start: base.start, position, ctx: h.ctx, hr: h.hr, metro: base.metro,   // 측정 뒤에 붙인 메모·심박은 지금 값 그대로 (검수팀)
+    const keep = { date: base.date, start: base.start, position, ctx: h.ctx, hr: h.hr, metro: base.metro, elev: base.elev,   // 측정 뒤에 붙인 메모·심박은 지금 값 그대로 (검수팀)
       auto: base.auto?.pos ? { pos: base.auto.pos } : {}, route: h.route, diag: base.diag, diagHtml: base.diagHtml, autoRec: base.autoRec };
     const kw = (base.warnings ?? []).filter(w => RELAB_KEEP.includes(w));
     if (act === 'slowrun') {
@@ -2600,8 +2645,8 @@ if (new URLSearchParams(location.search).has('demo')) {
     // 걷기 108, 러닝 165, 슬로우 러닝은 1분마다 조깅 165 / 걷기 110을 번갈아. 자동은 주소의 ?demo=walk|run (없으면 슬로우 러닝 신호)
     const sel = $('act').value, want = new URLSearchParams(location.search).get('demo');
     const act = sel === 'auto' ? (['walk', 'run'].includes(want) ? want : 'slowrun') : sel;
-    const walkS = act === 'slowrun' ? 240 : 75, s = [], g = [];
-    const cadAt = t => act === 'walk' ? 108 : act === 'slowrun' ? (Math.floor(t / 60) % 2 ? 110 : 165) : 165;
+    const walkS = act === 'slowrun' ? 240 : act === 'slope' ? 240 : 75, s = [], g = [];
+    const cadAt = t => act === 'walk' || act === 'slope' ? 108 : act === 'slowrun' ? (Math.floor(t / 60) % 2 ? 110 : 165) : 165;
     let kk = 0;
     for (let i = 0; i < (walkS + 6) * 60; i++) {
       const t = i / 60, walking = t > 3 && t < 3 + walkS;
@@ -2617,7 +2662,9 @@ if (new URLSearchParams(location.search).has('demo')) {
       g.push({ t: t * 1000, lat: 37.5 + north / 111320, lon: 127 + (Math.random() - .5) * 10 / 88300, acc: 6 });
     }
     metroEnd = metroIv ? metroBpm() : 0; metroOff();                     // 측정 끝과 같게 (박자 소리 기록 확인용)
-    finish(s, true, g);
+    const hAt = t => act !== 'slope' ? 0 : t < 90 ? t * 0.2 : t < 150 ? 18 : t < 240 ? 18 - (t - 150) * 0.15 : 4.5;   // 오르막 18m · 평지 · 내리막 13.5m
+    const noBaro = new URLSearchParams(location.search).has('nobaro'), pr = noBaro || !['walk', 'slope', 'stairs'].includes(act) ? [] : Array.from({ length: (walkS + 6) * 5 }, (_, i) => ({ t: i * 200, hpa: 1013 * (1 - hAt(Math.max(0, i / 5 - 3)) / 44330) ** (1 / 0.1903) + (Math.random() - .5) * .04 }));
+    finish(s, true, g, pr);
   });
 }
 

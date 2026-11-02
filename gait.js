@@ -216,7 +216,8 @@ export function mergeWalkRun(labels) {
   for (let i = 0; i < runs.length && runs.length > 1;) {                    // 앞에서부터: 짧은 조각은 앞 구간에(맨 앞이면 뒤 구간에) 합치고, 같은 활동끼리 이음
     if (runs[i].n > 1) { i++; continue; }
     if (i === 0) { runs[1].from = 0; runs[1].n += 1; runs.shift(); continue; }
-    runs[i - 1].n += 1 + (runs[i + 1]?.n ?? 0); runs.splice(i, runs[i + 1] ? 2 : 1); i = Math.max(0, i - 1);
+    const same = runs[i + 1]?.type === runs[i - 1].type;                    // 양쪽이 같은 활동이면 셋을 잇고, 다르면(오르막·평지·내리막) 앞 구간에만
+    runs[i - 1].n += 1 + (same ? runs[i + 1].n : 0); runs.splice(i, same ? 2 : 1); i = Math.max(0, i - 1);
   }
   return runs;
 }
@@ -318,6 +319,11 @@ export function withDistance(result, distanceM) {
 // ponytail: 걸으면서 바뀐 날씨 기압은 여전히 섞임(1hPa/시간 ≈ 10분에 1.4m) → 계단은 짧게 재는 걸 전제
 export const STAIR_STEP_M = 0.5, FLOOR_M = 3, STAIR_MOVE_SD = 0.6;   // 한 층 높이는 아파트 보통 값으로 가정 (참고)
 export function stairClimb(press, samples) {
+  const e = elevation(press, samples);
+  return e && { climbM: e.upM, floors: Math.floor(e.upM / FLOOR_M + 0.3) };   // 2.1m부터 1층으로 셈 (층 높이가 2.8~3m라서)
+}
+// 기압계 높이 변화: 2초 평균이 기준에서 STAIR_STEP_M 넘게 바뀌면 걷는 중일 때만 오른·내려간 높이에 더함 (건의 K-CFED1B60). moves = 더한 변화 [{t, d}] (d: + 오름, − 내림)
+export function elevation(press, samples) {
   const p = (press ?? []).filter(x => x.hpa > 300 && x.hpa < 1100);
   if (p.length < 10) return null;
   const B = new Map();                                                     // 1초 칸마다 가속도 크기 합·제곱합·개수
@@ -329,14 +335,27 @@ export function stairClimb(press, samples) {
     return n > 10 && Math.sqrt(Math.max(0, q / n - (a / n) ** 2)) >= STAIR_MOVE_SD;
   };
   const h = p.map(x => 44330 * (1 - (x.hpa / p[0].hpa) ** 0.1903));
-  let ref = null, gain = 0, j = 0, sum = 0;
+  let ref = null, upM = 0, downM = 0, j = 0, sum = 0; const moves = [];
   for (let i = 0; i < p.length; i++) {                                     // 지난 2초 평균
     sum += h[i];
     while (p[i].t - p[j].t > 2000) sum -= h[j++];
     const v = sum / (i - j + 1);
     if (ref == null) ref = v;
-    else if (v - ref >= STAIR_STEP_M) { if (moving(p[i].t)) gain += v - ref; ref = v; }
-    else if (v < ref - STAIR_STEP_M) ref = v;
+    else if (Math.abs(v - ref) >= STAIR_STEP_M) {
+      if (moving(p[i].t)) { const d = v - ref; moves.push({ t: p[i].t, d }); if (d > 0) upM += d; else downM -= d; }
+      ref = v;
+    }
   }
-  return { climbM: gain, floors: Math.floor(gain / FLOOR_M + 0.3) };       // 2.1m부터 1층으로 셈 (층 높이가 2.8~3m라서)
+  return { upM, downM, moves };
+}
+// 오르막·내리막 구간: 30초 칸의 높이 변화 합이 +0.5m 이상이면 오르막, −0.5m 이하면 내리막, 그 사이는 평지. 이웃한 같은 방향은 합치고 한 칸만 튄 건 합침 (mergeWalkRun)
+// 이 앱이 정한 기준이고 연구로 확인하지 않음. 구간 케이던스는 그 구간을 걷기 방식으로 다시 셈 (못 세면 null)
+export function slopeSegs(data, moves, position) {
+  const t0 = data[0].t, tEnd = data[data.length - 1].t, n = Math.ceil((tEnd - t0) / 30000);
+  const net = new Array(n).fill(0);
+  for (const m of moves) net[Math.min(n - 1, Math.max(0, Math.floor((m.t - t0) / 30000)))] += m.d;
+  return mergeWalkRun(net.map(d => d >= STAIR_STEP_M ? 'up' : d <= -STAIR_STEP_M ? 'down' : 'flat')).map(r => {
+    const from = t0 + r.from * 30000, to = Math.min(tEnd + 1, from + r.n * 30000), res = analyzeWalk(data.filter(p => p.t >= from && p.t < to), { position, activity: 'walk' }), own = moves.filter(m => m.t >= from && m.t < to);
+    return { type: r.type, durS: Math.round((Math.min(to, tEnd) - from) / 1000), upM: +own.reduce((s, m) => s + Math.max(0, m.d), 0).toFixed(1), downM: +own.reduce((s, m) => s - Math.min(0, m.d), 0).toFixed(1), cadence: res.error ? null : +res.cadence.toFixed(1), steps: res.error ? null : res.steps };
+  });
 }

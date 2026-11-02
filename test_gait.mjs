@@ -1,7 +1,7 @@
 // 걸음 분석 자체 점검: node test_gait.mjs
 // 가짜 걷기 신호(앞뒤 3초 서 있기 포함)를 만들어 케이던스를 2% 안으로 맞히는지 확인
 import assert from 'node:assert/strict';
-import { analyzeWalk, fastMinutes, withDistance, gpsSpeed, gpsDistance, guessActivity, guessPosition, routeMarks, analyzeJog, mixActivity, stairClimb, mergeWalkRun, walkRunSegs } from './gait.js';
+import { analyzeWalk, fastMinutes, withDistance, gpsSpeed, gpsDistance, guessActivity, guessPosition, routeMarks, analyzeJog, mixActivity, stairClimb, mergeWalkRun, walkRunSegs, elevation, slopeSegs } from './gait.js';
 
 function fakeWalk({ cadence, walkS = 20, position, hz = 60, seed = 1, amp = 1, odd = 0.4, sw = 2.0 }) {   // amp: 달리기는 흔들림이 큼
   let r = seed;
@@ -211,6 +211,7 @@ console.log('모든 점검 통과');
   assert.equal(shape([W, W, W, R]), 'w4', '맨 끝 한 조각');
   assert.equal(shape([W, null, W, R, R]), 'w3 r2', '신호 못 찾은 조각은 앞에 붙임');
   assert.equal(shape([null, null]), '');
+  assert.equal(shape(['up', 'up', 'flat', 'down', 'down']), 'u3 d2', '양쪽이 다르면 앞 구간에만 합침');
   assert.equal(mergeWalkRun([W, R, W, R, W]).length, 1, '번갈아 튀면 한 구간으로');
   let r = 9; const rand = () => ((r = (r * 16807) % 2147483647) / 2147483647 - 0.5);
   const mk = plan => { const hz = 50, out = []; let t0 = 0, kk = 0; for (const [cad, dur] of plan) { for (let i = 0; i < dur * hz; i++) { kk += cad / 60 / hz; const n = Math.floor(kk), ph = kk - n, amp = cad >= 140 ? 4 : 1;
@@ -228,4 +229,26 @@ console.log('모든 점검 통과');
   const runMajor = walkRunSegs(mk([[165, 240], [110, 60]]), 'pocket');
   assert.equal(runMajor.major, 'run'); assert.equal(runMajor.segs[runMajor.main].type, 'run');
   console.log('걷기·뛰기 구간 점검 통과');
+}
+
+// 오르막·내리막 (건의 K-CFED1B60): 오른·내려간 높이를 따로, 구간은 30초 칸 높이 변화로
+{
+  let r = 13; const rand = () => ((r = (r * 16807) % 2147483647) / 2147483647 - 0.5);
+  const hz = 50, cad = 108, acc = [], press = [];
+  const hAt = t => t < 120 ? t * 0.1 : t < 180 ? 12 : t < 300 ? 12 - (t - 180) * 0.1 : 0;   // 2분 오름 12m · 1분 평지 · 2분 내림 12m · 1분 평지
+  for (let i = 0; i < 360 * hz; i++) { const k = (i / hz) * cad / 60, n = Math.floor(k), ph = k - n; acc.push({ t: i * 20, x: 0, y: 9.81 + (n % 2 ? 0.4 : 3.2) * Math.exp(-(((ph - 0.15) / 0.07) ** 2)) + 2 * Math.sin(Math.PI * k) + rand() * 0.3, z: 0 }); }
+  for (let i = 0; i < 360 * 5; i++) { const t = i / 5; press.push({ t: i * 200, hpa: 1013 * (1 - hAt(t) / 44330) ** (1 / 0.1903) + rand() * 0.04 }); }
+  const e = elevation(press, acc);
+  console.log(`오르막·내리막: 오름 ${e.upM.toFixed(1)}m, 내림 ${e.downM.toFixed(1)}m`);
+  assert.ok(Math.abs(e.upM - 12) < 1.5, `오름 ${e.upM}`); assert.ok(Math.abs(e.downM - 12) < 1.5, `내림 ${e.downM}`);
+  const segs = slopeSegs(acc, e.moves, 'pocket');
+  console.log('구간:', segs.map(s => `${s.type} ${s.durS}초 ↑${s.upM} ↓${s.downM} ${s.cadence}`).join(' / '));
+  assert.deepEqual(segs.map(s => s.type).slice(0, 3), ['up', 'flat', 'down'], '경계 30초는 합쳐질 수 있어 앞 3구간만 봄');
+  assert.ok(segs.every(s => Math.abs(s.cadence - cad) / cad < 0.03), '구간 케이던스');
+  const flatP = Array.from({ length: 300 * 5 }, (_, i) => ({ t: i * 200, hpa: 1013 + rand() * 0.04 }));   // 평지 걷기 + 기압 잡음 → 높이가 쌓이지 않아야 함 (걷기 시험 표시)
+  const f = elevation(flatP, acc.slice(0, 300 * hz));
+  console.log(`평지 잡음: 오름 ${f.upM.toFixed(1)}m, 내림 ${f.downM.toFixed(1)}m`);
+  assert.ok(f.upM < 1.5 && f.downM < 1.5, '평지 잡음');
+  assert.equal(elevation([], acc), null);
+  console.log('오르막·내리막 점검 통과');
 }
