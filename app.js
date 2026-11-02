@@ -147,7 +147,7 @@ const store = {
 const prof = store.get('profile', { sex: '', age: '' });
 // 내 정보: 성별은 큰 버튼 3개(숨은 #sex에 값), 나이는 큰 숫자 칸 (이름·사진·생년월일은 받지 않음)
 // 바꾸는 즉시 저장: 화면의 '만 14세 미만은 보내지 않아요' 안내와 실제 전송(send)이 늘 같은 나이를 보게 (개인정보 보호법 제22조의2). '저장'은 확인용
-const saveProf = () => store.set('profile', { sex: $('sex').value, age: $('age').value });
+const saveProf = () => { store.set('profile', { sex: $('sex').value, age: $('age').value }); renderSum(); };   // 나이에 따라 요약값 줄을 숨김
 const setSex = v => { $('sex').value = v; for (const b of $('sexBtns').children) b.setAttribute('aria-pressed', b.dataset.sex === v); $('profMsg').textContent = ''; };
 setSex(prof.sex ?? ''); $('age').value = prof.age ?? '';
 const under14 = age => +age > 0 && +age < 14;
@@ -209,7 +209,7 @@ const privSeen = store.get('privSeen', null), cons = store.get('consent', null),
   const older = !cons || seenPriv('2026-10-30-auto') ? '' : '걷기 자동 측정(선택 기능)과, 켠 사람만 따로 동의하는 자동 측정 결과 전송 내용을 처리방침에 보탰어요. 켜지 않으면 달라지는 게 없어요 (2026년 10월 30일 시행). '
     + (seenPriv('2026-10-28-delete') ? '' : (cons.share && !seenPriv('2026-10-26-quality') ? '익명 결과 수집 안내가 바뀌었어요: 측정 품질 정보와 결과가 안 나온 측정의 이유도 함께 보내요(걸음 숫자·위치는 없어요). 원하지 않으면 화면 아래 ‘동의 변경’에서 끌 수 있어요. ' : '')
     + '기록 지우기와 익명 결과 삭제 요청 방법도 추가됐어요 (2026년 10월 28일 시행).');   // 지난 안내를 아직 못 봤으면 함께
-  const noteText = backup + summary + actKind + metro + photoLoc + older;
+  const noteText = summary + backup + actKind + metro + photoLoc + older;
   if (cons && privSeen !== PRIV_DATE && noteText) changeNote('privNote', 'privSeen', PRIV_DATE, noteText, 'privacy.html', '처리방침 보기'); }
 const usesGps = a => a === 'cooper' || (a !== 'slowrun' && a !== 'stairs' && a !== 'slope' && $('dmode').value === 'gps');   // 계단은 실내라 GPS 안 씀
 function showLoc() {
