@@ -998,7 +998,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v229';
+const APP_VERSION = 'v230';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -1132,6 +1132,7 @@ function metric({ title, value, unit, grade, body = '', why = [], refs = [], cmp
 }
 
 function render(r, prev) {
+  r = segFix(r);
   const { sex, age } = store.get('profile', {});
   const norm = sex === 'm' ? 111 : sex === 'f' ? 117 : 113;
   const c = r.cadence;
@@ -1300,6 +1301,7 @@ function weekSlowJogMin(hist) {
 }
 
 function renderRun(r, prev) {
+  r = segFix(r);
   const { age } = store.get('profile', {});
   const c = r.cadence;
   const easy = r.activity === 'easyrun';
@@ -1386,6 +1388,7 @@ const ctxText = c => c ? Object.keys(CTX).map(k => c[k]).filter(Boolean).join(' 
 // ── 결과 카드 공유: 내가 고른 결과만 이미지로 만들어 카톡·인스타 등으로 (서버 없음) ──
 const APP_URL = 'ldj000103-del.github.io/gait-app';
 function cardRows(h) {
+  h = segFix(h);
   const { sex, age } = store.get('profile', {});
   const norm = sex === 'm' ? 111 : sex === 'f' ? 117 : 113;
   const f = (x, d = 0) => x == null || Number.isNaN(x) ? null : x.toFixed(d);
@@ -1911,7 +1914,10 @@ const monOf = d => { const m = new Date(d); m.setHours(0, 0, 0, 0); m.setDate(m.
 const avgOf = xs => xs.length ? xs.reduce((s, x) => s + x, 0) / xs.length : null;
 const inRange = (hist, a, b) => hist.filter(h => { const t = new Date(h.date); return !h.practice && !h.autoRec && t >= a && t < b; });
 // 구간 기록의 걷기 속도 = 가장 긴 걷기 구간 값. v222 기록의 h.speed는 걷기·뛰기가 섞인 평균일 수 있어 쓰지 않음 (법률검토·디자인 팀)
-const walkSpeedOf = h => !h.segs ? h.speed : h.segs.filter(s => s.type === 'walk').reduce((a, s) => !a || s.durS > a.durS ? s : a, null)?.speed;
+const longSegSpeed = (h, type) => h.segs.filter(s => s.type === type).reduce((a, s) => !a || s.durS > a.durS ? s : a, null)?.speed;
+const walkSpeedOf = h => !h.segs ? h.speed : longSegSpeed(h, 'walk');
+// 결과 화면·공유 카드도 같은 값으로: v222 구간 기록만 달라지고, 그 뒤 기록은 h.speed가 이미 가장 긴 구간 값이라 그대로 (검수팀)
+const segFix = h => { if (!h.segs) return h; const s = longSegSpeed(h, isRun(h) ? 'run' : 'walk'); return s === h.speed ? h : { ...h, speed: s, stepLength: s ? s * 60 / h.cadence : undefined }; };
 const mixedRelab = h => h.orig?.segs;                                      // v222에서 활동을 바꿔 섞인 신호를 한 덩어리로 다시 센 기록은 평균·대표 값에서 뺌
 const isWalkRec = h => (h.activity ?? 'walk') === 'walk' && !mixedRelab(h) && h.cadence != null;
 function statOf(list) {
@@ -2023,7 +2029,7 @@ function bestRows() {
   if (sp) rows.push({ k: '가장 빠른 걷는 속도', v: walkSpeedOf(sp).toFixed(2), u: 'm/s', n: `${md(sp.date)} · 페리의 보행 분석 성인 평균 1.37` });
   const lg = top(walk, h => h.activeS);
   if (lg) rows.push({ k: '가장 오래 걸은 측정', v: (lg.activeS / 60).toFixed(1), u: '분', n: `${md(lg.date)} · 케이던스 ${lg.cadence.toFixed(0)}걸음/분` });
-  const rn = top(hist.filter(h => isRun(h) && !mixedRelab(h) && h.speed), h => h.speed);
+  const rn = top(hist.filter(h => isRun(h) && !mixedRelab(h)).map(segFix).filter(h => h.speed), h => h.speed);
   if (rn) rows.push({ k: '가장 빠른 러닝 페이스', v: paceText(rn.speed), u: '/km', n: `${md(rn.date)} · GPS로 잰 참고값` });
   const wk = {}; for (const h of hist.filter(h => h.activity === 'slowrun')) { const k = dayKey(monOf(h.date)); wk[k] = (wk[k] ?? 0) + h.activeS / 60; }
   const bw = Object.entries(wk).sort((a, b) => b[1] - a[1])[0];
