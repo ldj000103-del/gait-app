@@ -1525,7 +1525,9 @@ async function drawPhotoCard(h, img, on) {
   if (on.cad && cad != null) {
     const name = h.segs ? `가장 긴 ${act === 'run' ? '뛰기' : '걷기'} 구간 케이던스` : act === 'walk' ? '걷기 케이던스' : act === 'slowrun' ? '조깅 케이던스' : '러닝 케이던스';
     const grade = act === 'walk' ? cadGradeOf(h) : act !== 'slowrun' && cadGradeOf(h) === 'o' ? 'o' : 'y';   // 결과 화면과 같은 등급, 글자로만
-    lines.push([56, y => { const w = text(name, X, y, F(700, 34), ink); text(`측정 정확도: ${GRADE[grade][1]}`, X + w + 20, y, F(500, 26), sub); }]);
+    const acc = `측정 정확도: ${GRADE[grade][1]}`; g.font = F(700, 34); const nameW = g.measureText(name).width; g.font = F(500, 32);   // 법률 조건이라 게시물에서도 읽히게 32px (디자인 팀)
+    if (nameW + 20 + g.measureText(acc).width <= W - 2 * X) lines.push([56, y => text(acc, X + nameW + 20, y, F(500, 32), sub) + text(name, X, y, F(700, 34), ink)]);
+    else lines.push([56, y => text(name, X, y, F(700, 34), ink)], [50, y => text(acc, X, y, F(500, 32), sub)]);   // 한 줄에 안 들어가면 나눔
     lines.push([112, y => { const w = text(String(cad), X, y + 8, F(700, 104), ink); text('걸음/분', X + w + 14, y + 8, F(500, 34), sub); }]);
     if (on.perry && act === 'walk') {
       const { sex } = store.get('profile', {}), norm = sex === 'm' ? 111 : sex === 'f' ? 117 : 113;
@@ -1535,7 +1537,7 @@ async function drawPhotoCard(h, img, on) {
   const time = h.diag?.durS ?? h.durS ?? h.activeS;
   const dist = [h.distance && `거리 ${h.distance >= 1000 ? `${(h.distance / 1000).toFixed(1)}km` : `${Math.round(h.distance)}m`}`, time && `시간 ${clock(time)}`].filter(Boolean).join(' · ');
   if (on.dist && dist) lines.push([54, y => text(dist, X, y, F(500, 32), ink)]);
-  lines.push([52, y => text('스텝미러 · 참고값, 의료 진단이 아니에요', X, y + 6, F(400, 26), sub)]);   // 항상 표시
+  lines.push([56, y => text('스텝미러 · 참고값, 의료 진단이 아니에요', X, y + 6, F(500, 32), sub)]);   // 항상 표시
   const band = lines.reduce((s, [lh]) => s + lh, 44) + 16, ph = H - band, k = Math.max(W / img.naturalWidth, ph / img.naturalHeight), sw = W / k, sh = ph / k;
   g.drawImage(img, (img.naturalWidth - sw) / 2, (img.naturalHeight - sh) / 2, sw, sh, 0, 0, W, ph);   // 가운데 자르기
   g.fillStyle = '#fff'; g.fillRect(0, ph, W, band);
