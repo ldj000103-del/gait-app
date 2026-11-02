@@ -690,9 +690,9 @@ function finish(data, demo = false, gps = [], press = []) {
   const hist = store.get('history', []);
   const practice = act === 'walk' && !hist.some(h => !h.autoRec && (h.activity ?? 'walk') === 'walk' && new Date(h.date).toLocaleDateString('sv-SE') === today);   // 그날 첫 걷기 측정 = 연습 (Perry 20장)
   const dist = mode === 'manual' ? parseFloat($('dist').value) || null : null;
-  const d = mode === 'gps' ? (gpsDenied && !demo ? { gpsError: 'denied' } : mainSeg ? { ...mainSeg.gps } : gpsSpeed(res, gps)) : withDistance(res, dist);
+  const d = mode === 'gps' ? (gpsDenied && !demo ? { gpsError: 'denied' } : mainSeg ? { ...mainSeg.gps } : gpsSpeed(res, gps)) : mainSeg ? {} : withDistance(res, dist);   // 직접 넣은 거리는 구간별로 못 나눔 → 섞인 평균을 Perry 걷기와 비교하지 않고 거리만 저장 (검수팀)
   if (mainSeg && mode === 'gps' && d.gpsError !== 'denied') { const g = gpsDistance(gps); if (g && g.dist >= 50) d.distance = g.dist; }   // 거리는 속도 × 시간이 아니라 전체 경로로 (걷기·뛰기 속도가 달라서)
-  const rec = { date: new Date().toISOString(), start: Date.now() - durS * 1000, activity: act, position, auto, practice, route: packRoute(gps), ...res, distance: dist, ...d, distSource: d.speed ? mode : null, diag, diagHtml, ...(mainSeg ? { segs: packSegs(wr.segs, gps) } : {}), ...elevRec(press, data) };
+  const rec = { date: new Date().toISOString(), start: Date.now() - durS * 1000, activity: act, position, auto, practice, route: packRoute(gps), ...res, distance: dist, ...d, distSource: d.speed || d.distance || (mainSeg && dist) ? mode : null, diag, diagHtml, ...(mainSeg ? { segs: packSegs(wr.segs, gps) } : {}), ...elevRec(press, data) };
   saveRec(rec, hist, demo, data);
   shownDate = rec.date;
   route = rec.route; routeSegs = rec.segs ?? null;
@@ -1052,6 +1052,7 @@ function topCards(r, hero, cells) {
 }
 // 구간 결과: 케이던스·속도는 가장 긴 구간, 시간·거리·걸음은 전체 값이라 무엇의 값인지 적음 (디자인 팀)
 const segNote = r => r.segs ? `가장 긴 ${r.activity === 'run' ? '뛰기' : '걷기'} 구간 · ` : '';
+const noSpeedSub = (r, plain) => !r.segs ? plain : r.gpsError === 'denied' ? '위치 권한 없음' : r.gpsError ? 'GPS 조건 안 됨' : r.distance ? '구간이 섞여 비교하지 않아요' : 'GPS·거리 입력 필요';
 const wholeStats = (r, stats) => r.segs ? stats.map(s => /^전체|걸은/.test(s.label) ? s : { ...s, label: `전체 ${s.label}` }) : stats;
 const more = inner => `<details class="more"><summary>자세히 보기 <span class="sub">(근거·읽는 법)</span></summary>${inner}</details>`;
 function cmpCells({ unit, dp = 0, rows }) {
@@ -1129,9 +1130,9 @@ function render(r, prev) {
     sub: `${segNote(r)}페리의 보행 분석 기준 ${norm} · 차이 ${signed(+c.toFixed(0) - norm)}${prev ? ` · 지난번보다 ${signed(c - prev.cadence)}` : ''}`,
     stats: wholeStats(r, [...timeStats(r), { icon: 'dist', value: r.distance && (r.distance / 1000).toFixed(2), label: '거리 km' },
       { icon: 'steps', value: r.steps, label: '걸음' }]) }, [   // 걸음 길이·속도는 기준값이 있는 작은 카드에만 (같은 값이 두 번 안 보이게)
-    { label: '걷기 속도', value: r.speed ? r.speed.toFixed(2) : '-', unit: 'm/s', grade: dGrade, sub: r.speed ? `페리 1.37 · 차이 ${signed(+r.speed.toFixed(2) - 1.37, 2)}` : r.segs ? 'GPS 조건 안 됨' : 'GPS·거리 입력 필요',
+    { label: '걷기 속도', value: r.speed ? r.speed.toFixed(2) : '-', unit: 'm/s', grade: dGrade, sub: r.speed ? `페리 1.37 · 차이 ${signed(+r.speed.toFixed(2) - 1.37, 2)}` : noSpeedSub(r, 'GPS·거리 입력 필요'),
       bar: r.speed ? rangeBar(r.speed, 1.22, 1.52, 0.6, 2.0, 2, 'Perry 연구별 평균') : '' },   // Perry 20장: 연구별 평균 73~91m/분
-    { label: '걸음 길이', value: r.stepLength ? (r.stepLength * 100).toFixed(0) : '-', unit: 'cm', grade: dGrade, bar: r.stepLength ? rangeBar(r.stepLength * 100, 64, 73, 30, 100, 0, 'Perry 평균 여~남') : '', sub: !r.stepLength ? (r.segs ? 'GPS 조건 안 됨' : 'GPS·거리 입력 필요') : ideal ? `효율 기준 약 ${(ideal * c * 100).toFixed(0)}cm` : '성별을 넣으면 기준이 보여요' },   // 걸음 길이 Perry 범위: 20장 한 주기 남 1.46·여 1.28m의 절반
+    { label: '걸음 길이', value: r.stepLength ? (r.stepLength * 100).toFixed(0) : '-', unit: 'cm', grade: dGrade, bar: r.stepLength ? rangeBar(r.stepLength * 100, 64, 73, 30, 100, 0, 'Perry 평균 여~남') : '', sub: !r.stepLength ? noSpeedSub(r, 'GPS·거리 입력 필요') : ideal ? `효율 기준 약 ${(ideal * c * 100).toFixed(0)}cm` : '성별을 넣으면 기준이 보여요' },   // 걸음 길이 Perry 범위: 20장 한 주기 남 1.46·여 1.28m의 절반
   ]);   // 걸음 수·거리는 위 아이콘 줄에 있어서 작은 카드에서 뺌 (등급·근거는 자세히 보기에)
   const head = html; html = '';
 
@@ -1191,7 +1192,7 @@ function render(r, prev) {
       refs: ['neumann15', 'perry20'],
     });
   } else if (r.gpsError) {
-    const msg = { tooShort: `짧은 거리는 GPS 오차(보통 수 m)가 거리의 큰 부분을 차지해 속도가 크게 틀릴 수 있어요. 그래서 꾸준히 걸은 시간이 1분 이상이고 50m 이상 이동해야 계산해요 (이번 약 ${Math.round(r.gpsDurS ?? 0)}초). 야외에서 더 오래 걸어 주세요.`,
+    const msg = { tooShort: r.segs ? '가장 긴 구간에서 GPS가 끊겼거나 1분·50m 조건이 안 돼 속도를 계산하지 않았어요.' : `짧은 거리는 GPS 오차(보통 수 m)가 거리의 큰 부분을 차지해 속도가 크게 틀릴 수 있어요. 그래서 꾸준히 걸은 시간이 1분 이상이고 50m 이상 이동해야 계산해요 (이번 약 ${Math.round(r.gpsDurS ?? 0)}초). 야외에서 더 오래 걸어 주세요.`,
       noFix: 'GPS 신호가 약해서 속도는 계산하지 않았어요. 실내였다면 야외에서 다시 재 보세요.', denied: '위치 권한을 허용하지 않아 속도는 계산하지 않았어요.', noWalk: '' }[r.gpsError];
     if (msg) html += `<div class="sub" style="margin-top:12px">${msg} 케이던스와 걸음 수는 GPS 없이도 정확해요.</div>`;
   }
@@ -1281,7 +1282,7 @@ function renderRun(r, prev) {
     + segCard(r) + topCards(r, { label: '케이던스', value: c.toFixed(0), unit: '걸음/분', grade: cGrade, sub: segNote(r) + (prev ? `기준선 없음 · 지난 러닝보다 ${signed(c - prev.cadence)}` : '기준선 없음 · 내 기록의 변화만 봐요'),
       stats: wholeStats(r, [...timeStats(r), { icon: 'dist', value: r.distance && (r.distance / 1000).toFixed(2), label: '거리 km' },
         ...(r.segs ? [] : [{ icon: 'pace', value: r.speed && paceText(r.speed), label: '페이스 /km' }]), { icon: 'steps', value: r.steps, label: '걸음' }]) }, [
-      { label: '속도', value: r.speed ? r.speed.toFixed(2) : '-', unit: 'm/s', grade: r.medAcc > 10 ? 'o' : 'y', sub: r.speed ? `페이스 ${paceText(r.speed)}/km` : 'GPS 조건 안 됨' },
+      { label: '속도', value: r.speed ? r.speed.toFixed(2) : '-', unit: 'm/s', grade: r.medAcc > 10 ? 'o' : 'y', sub: r.speed ? `페이스 ${paceText(r.speed)}/km` : noSpeedSub(r, 'GPS 조건 안 됨') },
     ]);
   let html = metric({ title: '케이던스 (분당 걸음 수)', value: c.toFixed(0), unit: '걸음/분', grade: cGrade,
     body: `<div class="sub">${prev ? `지난 러닝 ${prev.cadence.toFixed(0)} → ${c >= prev.cadence ? '+' : ''}${(c - prev.cadence).toFixed(0)}` : '러닝 케이던스는 사람·속도마다 달라 기준값 하나로 비교하지 않아요.'}</div>`,
