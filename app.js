@@ -1032,12 +1032,14 @@ $('cOk').addEventListener('click', () => {
   // 요약값: 새로 전송에 동의하면 함께 켜짐. 이미 전송 동의자면 체크가 미리 채워져 있으니 그대로 둠 (아직 안 정했으면 다음에 판을 띄움, 법률 검토 42번)
   const summary = !share ? false : consent?.share ? consent.summary : true;
   if (!summary) store.set('sumDel', null);
+  const reOn = summary && consent?.summary === false;                       // 전에 꺼졌거나 거절한 사람이 다시 켜면 알림 (법률 검토)
   consent = { autoShare: consent?.autoShare ?? null, date: new Date().toISOString(), version: 1, share, summary };   // 자동 측정 결과 동의는 따로 (설정)
   store.set('consent', consent); store.set('privSeen', PRIV_DATE);          // 지금 처리방침을 보고 동의함
   $('privNote')?.remove();
   document.body.classList.remove('needConsent');
   $('consentState').textContent = consent.share ? '익명 결과 보내기: 동의함' : '익명 결과 보내기: 동의 안 함';
   renderSum();
+  if (reOn) toast('측정 요약값도 함께 보내요. 설정 → 개인정보·동의에서 끌 수 있어요.');
 });
 $('cEdit').addEventListener('click', e => { e.preventDefault(); closeAllSub(); showConsent(); scrollTo(0, 0); });   // 동의 화면은 설정 화면 뒤에 있어서 먼저 닫음
 if (!consent) showConsent();
