@@ -5,6 +5,15 @@
 export function dropRoute(h) { delete h.route; if (h.orig) delete h.orig.route; }
 // 최근 keep개만 경로 보관. 경로를 이미 지운 기록에 orig 경로만 남아 있으면 그것도 정리
 export function pruneRoutes(hist, keep) { hist.forEach((h, i) => { if (i >= keep || !h.route) dropRoute(h); }); }
+// 측정 요약값 (법률 검토 42번): 번호 없이 폰 기록으로 계산한 구간만. hist는 이번 기록 포함, 최신순. 자동 측정·데모는 계산에서 뺌
+export function sumTags(hist, rec, first) {
+  const act = h => h.activity ?? 'walk';
+  const same = hist.filter(h => !h.autoRec && !h.demo && act(h) === act(rec));
+  const cads = same.slice(0, 5).filter(h => h.cadence != null && !h.orig?.segs).map(h => h.cadence);   // 활동을 바꿔 섞인 신호를 다시 센 구간 기록은 값으로 안 씀
+  const half = (Math.max(...cads) - Math.min(...cads)) / 2;                 // ±변동폭 = (최대 − 최소) / 2
+  return [same.length < 2 ? 'rep1' : same.length < 5 ? 'rep2_4' : 'rep5p',
+    rec.cadence != null && cads.length >= 3 && (half <= 2 ? 'cvr2' : half <= 5 ? 'cvr5' : 'cvr5p'), first && 'first'].filter(Boolean);
+}
 export const HZ = 50;          // 분석용 재샘플링 주기
 const TRIM_S = 2;              // 시작·끝에서 버리는 시간 (Perry 20장: 앞뒤 2m 제외)
 const ACTIVE_STD = 0.6;        // m/s², 이보다 흔들리면 '걷는 중'으로 봄 (현장 보정 필요)

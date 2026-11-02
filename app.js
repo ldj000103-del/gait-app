@@ -1,4 +1,4 @@
-import { analyzeWalk, fastMinutes, withDistance, gpsSpeed, gpsDistance, guessActivity, guessPosition, routeMarks, RUN_CAD, analyzeJog, mixActivity, stairClimb, FLOOR_M, STAIR_STEP_M, chunks, walkRunSegs, elevation, slopeSegs, dropRoute, pruneRoutes } from './gait.js';
+import { analyzeWalk, fastMinutes, withDistance, gpsSpeed, gpsDistance, guessActivity, guessPosition, routeMarks, RUN_CAD, analyzeJog, mixActivity, stairClimb, FLOOR_M, STAIR_STEP_M, chunks, walkRunSegs, elevation, slopeSegs, dropRoute, pruneRoutes, sumTags } from './gait.js';
 import { analyzeSide, analyzeFrontal, extractPose, drawSnapshot, PART_ICON } from './video.js';
 
 const $ = id => document.getElementById(id);
@@ -198,15 +198,18 @@ function changeNote(id, seenKey, date, text, href, view) {
 if (store.get('locConsent', null) && store.get('locTermsSeen', null) !== LOC_TERMS)
   changeNote('locNote', 'locTermsSeen', LOC_TERMS, '위치 동의를 해제하면 저장된 경로도 함께 지우도록 바꿨어요. 약관 6번을 보세요.', 'location-terms.html', '약관 보기');
 // 처리방침 10번 "바꾸면 앱에 미리 알립니다". 바꿀 때마다 새 값. 익명 결과 전송 동의자에게는 수집 항목이 바뀐 안내를, 나머지 동의자에게는 지난 안내(사진 첨부)를
-const PRIV_DATE = '2026-11-02-photo';
+const PRIV_DATE = '2026-11-05-summary';
+const SUMMARY_FROM = Date.parse('2026-11-05T00:00:00+09:00');   // 측정 요약값 전송 시작 = 처리방침 시행일. 문서와 판이 먼저 나가고 이 날부터 보냄 (법률 검토 42번)
 const privSeen = store.get('privSeen', null), cons = store.get('consent', null), seenPriv = d => privSeen >= d;   // 값 앞이 날짜라 글자 비교 = 날짜 비교, 못 본 안내만 골라 함께 보여 줌
-{ const photoLoc = '결과 카드에 넣는 사진과, 위치 동의를 해제할 때 경로를 지우는 내용을 처리방침에 보탰어요. 이 내용으로 운영자가 새로 받는 정보는 없어요. ';
+{ const summary = cons && !cons.share && !seenPriv(PRIV_DATE) ? '익명 결과에 보낼 수 있는 항목을 처리방침에 보탰어요. 결과 보내기에 동의하지 않았다면 달라지는 것은 없어요. ' : '';   // 전송 동의자에게는 안내 대신 재동의 판 (openSumSheet)
+  const photoLoc = seenPriv('2026-11-02-photo') ? '' : '결과 카드에 넣는 사진과, 위치 동의를 해제할 때 경로를 지우는 내용을 처리방침에 보탰어요. 이 내용으로 운영자가 새로 받는 정보는 없어요. ';
   const actKind = cons?.share && !seenPriv('2026-11-02-activity') ? '익명 결과 항목에 활동 종류(걷기·달리기·계단·오르막과 내리막 등)를 적었어요. 그동안 함께 보내던 값인데 안내에 빠져 있었어요. 원하지 않으면 화면 아래 ‘동의 변경’에서 끌 수 있어요 (2026년 11월 2일 시행). ' : '';   // 익명 전송 동의자만 (법률 검토 34번)
   const metro = cons?.share && !seenPriv('2026-10-31-metro') ? '익명 결과에 측정하는 동안 켜 둔 박자 소리 빠르기(걸음/분)도 함께 보내요. 원하지 않으면 화면 아래 ‘동의 변경’에서 끌 수 있어요 (2026년 10월 31일 시행). ' : '';   // 익명 전송 동의자만 (법률 검토 33번)
   const older = !cons || seenPriv('2026-10-30-auto') ? '' : '걷기 자동 측정(선택 기능)과, 켠 사람만 따로 동의하는 자동 측정 결과 전송 내용을 처리방침에 보탰어요. 켜지 않으면 달라지는 게 없어요 (2026년 10월 30일 시행). '
     + (seenPriv('2026-10-28-delete') ? '' : (cons.share && !seenPriv('2026-10-26-quality') ? '익명 결과 수집 안내가 바뀌었어요: 측정 품질 정보와 결과가 안 나온 측정의 이유도 함께 보내요(걸음 숫자·위치는 없어요). 원하지 않으면 화면 아래 ‘동의 변경’에서 끌 수 있어요. ' : '')
     + '기록 지우기와 익명 결과 삭제 요청 방법도 추가됐어요 (2026년 10월 28일 시행).');   // 지난 안내를 아직 못 봤으면 함께
-  if (cons && privSeen !== PRIV_DATE) changeNote('privNote', 'privSeen', PRIV_DATE, actKind + metro + photoLoc + older, 'privacy.html', '처리방침 보기'); }
+  const noteText = summary + actKind + metro + photoLoc + older;
+  if (cons && privSeen !== PRIV_DATE && noteText) changeNote('privNote', 'privSeen', PRIV_DATE, noteText, 'privacy.html', '처리방침 보기'); }
 const usesGps = a => a === 'cooper' || (a !== 'slowrun' && a !== 'stairs' && a !== 'slope' && $('dmode').value === 'gps');   // 계단은 실내라 GPS 안 씀
 function showLoc() {
   const need = usesGps($('act').value), agreed = !!store.get('locConsent', null);
@@ -350,6 +353,8 @@ $('pickList').addEventListener('click', e => {
   if (e.target.closest('[data-locoff]')) { closePick(); revokeLoc(); $(subOpen ? 'cEdit' : 'locOk').focus({ preventScroll: true }); return; }
   const dl = e.target.closest('[data-del]'); if (dl) { deleteRec(dl.dataset.del); return; }
   if (e.target.closest('[data-keep]')) { closePick(); return; }
+  if (e.target.closest('[data-sumyes]')) { setSum(true); closePick(); toast('측정 요약값도 함께 보낼게요.'); return; }
+  if (e.target.closest('[data-sumno]')) { setSum(false); closePick(); return; }
   const s = e.target.closest('[data-share]'); if (s) { closePick(); shareSummary(s.dataset.share); return; }
   const rl = e.target.closest('[data-relabel]'); if (rl) { closePick(); relabel(rl.dataset.date, rl.dataset.relabel); return; }
   const b = e.target.closest('[data-val]'); if (!b) return;
@@ -908,15 +913,21 @@ function saveRec(rec, hist, demo, raw) {
   if (pendingEnd) { rec.warnings = [...(rec.warnings ?? []), pendingEnd]; pendingEnd = null; }
   if (metroEnd) rec.metro = metroEnd;                                       // 박자 소리를 켜고 시작해 끝까지 박을 놓치지 않음 (중간에 앱이 다시 열리면 안 남김)
   metroStart = metroEnd = 0;   // 결과·기록·익명 전송에 '자동으로 끝냄'
+  if (demo) rec.demo = true;                                                // 측정 요약값 계산에서 빼려고
   if (raw && !demo && !raw[0]?.mag) rawPut(rec.date, raw.map(p => [Math.round(p.t * 10) / 10, +p.x.toFixed(3), +p.y.toFixed(3), +p.z.toFixed(3)])).catch(() => {});
   hist.unshift(rec);
   pruneRoutes(hist, ROUTE_KEEP);     // ponytail: 휴대폰 저장 공간(약 5MB) 때문에 최근 30개만. 더 필요하면 IndexedDB로
   store.set('history', keepHist(hist));
   if (demo || !consent?.share || !ENDPOINT) return;
-  try { rec.receipt = send(rec); store.set('history', keepHist(hist)); } catch {}
+  try {
+    const first = !store.get('sentOnce', false) && !hist.some(h => h !== rec && !h.autoRec && h.receipt);   // 이 설치에서 처음 보내는 결과. 요약값을 끈 동안 보낸 것도 전송으로 침
+    rec.receipt = send(rec, consent.summary && Date.now() >= SUMMARY_FROM ? sumTags(hist, rec, first) : []);
+    if (rec.receipt) store.set('sentOnce', true);
+    store.set('history', keepHist(hist));
+  } catch {}
 }
 const osName = () => /iPhone|iPad/.test(navigator.userAgent) ? 'iOS' : /Android/.test(navigator.userAgent) ? 'Android' : '기타';
-function send(r) {
+function send(r, extra = []) {
   const { sex, age } = store.get('profile', {});
   if (under14(age) || under14($('age').value)) return null;                  // 화면 칸도 함께 확인 (안내와 동작이 어긋나지 않게)
   const receipt = (crypto.randomUUID?.() ?? Math.random().toString(16).slice(2) + Date.now().toString(16)).slice(0, 8);   // 오래된 폰은 randomUUID가 없음                       // 삭제 요청용 접수번호, 개인과 연결 안 됨
@@ -927,7 +938,7 @@ function send(r) {
     speed: r.speed ? +r.speed.toFixed(2) : '', stepLength: r.stepLength ? +r.stepLength.toFixed(2) : '', distance: r.distance ? +r.distance.toFixed(1) : '',
     // ponytail: 시트 칸을 늘리려면 Apps Script 재배포가 필요해서 거리 출처(gps)는 warnings 칸에 붙여 보냄
     position: r.position, practice: r.practice, warnings: [r.activity !== 'walk' && r.activity, r.autoRec && 'auto', r.segs && 'segs', ...r.warnings, r.distSource === 'gps' && 'gps', r.metro && `metro${r.metro}`, r.sd != null && `sd${r.sd.toFixed(1)}`,   // 흔들림 세기(m/s²): 걷기·달리기 구분 기준 RUN_SD를 실제 기록으로 보정하려고
-      r.diag && `d:${r.diag.src}/${r.diag.durS.toFixed(0)}s/${r.diag.hz.toFixed(0)}hz/gap${r.diag.gapS.toFixed(1)}/gps${r.diag.gpsGood}`].filter(Boolean).join(' '),
+      r.diag && `d:${r.diag.src}/${r.diag.durS.toFixed(0)}s/${r.diag.hz.toFixed(0)}hz/gap${r.diag.gapS.toFixed(1)}/gps${r.diag.gpsGood}`, ...extra].filter(Boolean).join(' '),
     ageGroup: +age ? Math.floor(+age / 10) * 10 : '', sex: sex || '',
     os: osName(),
   };
@@ -1000,7 +1011,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v230';
+const APP_VERSION = 'v231';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -1012,15 +1023,46 @@ function updateConsentBtn() { $('cOk').disabled = !$('cMust').checked; }
 $('cMust').addEventListener('change', updateConsentBtn);
 $('cAll').addEventListener('click', () => { $('cMust').checked = $('cShare').checked = $('cHealth').checked = true; updateConsentBtn(); });
 $('cOk').addEventListener('click', () => {
-  consent = { autoShare: consent?.autoShare ?? null, date: new Date().toISOString(), version: 1, share: $('cShare').checked && $('cHealth').checked };   // 자동 측정 결과 동의는 따로 (설정)
+  const share = $('cShare').checked && $('cHealth').checked;
+  // 요약값: 새로 전송에 동의하면 함께 켜짐. 이미 전송 동의자면 체크가 미리 채워져 있으니 그대로 둠 (아직 안 정했으면 다음에 판을 띄움, 법률 검토 42번)
+  const summary = !share ? false : consent?.share ? consent.summary : true;
+  consent = { autoShare: consent?.autoShare ?? null, date: new Date().toISOString(), version: 1, share, summary };   // 자동 측정 결과 동의는 따로 (설정)
   store.set('consent', consent); store.set('privSeen', PRIV_DATE);          // 지금 처리방침을 보고 동의함
   $('privNote')?.remove();
   document.body.classList.remove('needConsent');
   $('consentState').textContent = consent.share ? '익명 결과 보내기: 동의함' : '익명 결과 보내기: 동의 안 함';
+  renderSum();
 });
 $('cEdit').addEventListener('click', e => { e.preventDefault(); closeAllSub(); showConsent(); scrollTo(0, 0); });   // 동의 화면은 설정 화면 뒤에 있어서 먼저 닫음
 if (!consent) showConsent();
 else $('consentState').textContent = consent.share ? '익명 결과 보내기: 동의함' : '익명 결과 보내기: 동의 안 함';
+// 측정 요약값 따로 동의 (법률 검토 42번 문구 그대로): 이미 전송에 동의한 사람은 두 칸을 직접 체크해야 켜짐. '보내지 않기'는 다시 안 물음, 그냥 닫으면 아직 안 정한 것
+function renderSum() {
+  $('sumBtn').classList.toggle('hidden', !consent?.share);
+  $('sumTxt').textContent = consent?.summary ? '켜짐' : '꺼짐';
+}
+function setSum(on) {
+  consent = { ...consent, summary: on }; store.set('consent', consent); renderSum();
+  if (!$('privNote')) store.set('privSeen', PRIV_DATE);
+}
+function openSumSheet() {
+  pickFor = subOpen ? 'sum' : null; $('pickQ').textContent = '익명 결과에 세 가지를 더 보내도 될까요?';
+  $('pickList').innerHTML = `<p class="delDesc">같은 활동을 몇 번째 쟀는지(1회·2~4회·5회 이상), 최근 측정의 케이던스 변동폭 구간, 이 설치에서 처음 보내는 결과인지를 함께 보내요. 이 휴대폰의 기록(동의 전 기록 포함)으로 앱이 계산하고, 기록 원본이나 사람을 구분하는 번호는 보내지 않아요. 측정 오차를 확인하고 참여 규모를 파악하는 데 쓰며, 다른 결과와 함께 받은 날부터 3년 뒤 파기하고 Google(미국 등)에 보관해요. 동의하지 않아도 앱의 모든 기능을 똑같이 쓸 수 있고, 지금까지 동의한 결과 전송도 그대로예요.</p>
+    <label class="chk"><input type="checkbox" data-sumchk><span><b>[선택]</b> 위 항목 수집·이용에 동의해요</span></label>
+    <label class="chk"><input type="checkbox" data-sumchk><span><b>[선택]</b> 건강정보(민감정보)에 해당할 수 있는 위 값의 수집·이용에 별도로 동의해요</span></label>
+    <div class="delActs"><button data-sumyes disabled>동의하고 보내기</button><button data-sumno>보내지 않기</button></div>`;
+  $('pickSheet').hidden = false; history.pushState({ pickSheet: 1 }, '');
+  $('pickList').querySelector('[data-sumchk]').focus();
+}
+$('pickList').addEventListener('change', e => {
+  if (e.target.matches('[data-sumchk]')) $('pickList').querySelector('[data-sumyes]').disabled = [...$('pickList').querySelectorAll('[data-sumchk]')].some(c => !c.checked);
+});
+$('sumBtn').addEventListener('click', () => {
+  if (!consent?.summary) return openSumSheet();
+  setSum(false); toast('측정 요약값을 더 보내지 않아요.');
+});
+renderSum();
+if (consent?.share && consent.summary === undefined && !under14(store.get('profile', {}).age)) openSumSheet();
 
 // ── 결과 화면 ──
 // 자동으로 고른 활동·휴대폰 위치 표시 (검증 안 된 규칙이라 등급을 함께)

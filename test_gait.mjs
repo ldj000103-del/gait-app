@@ -1,7 +1,7 @@
 // 걸음 분석 자체 점검: node test_gait.mjs
 // 가짜 걷기 신호(앞뒤 3초 서 있기 포함)를 만들어 케이던스를 2% 안으로 맞히는지 확인
 import assert from 'node:assert/strict';
-import { analyzeWalk, fastMinutes, withDistance, gpsSpeed, gpsDistance, guessActivity, guessPosition, routeMarks, analyzeJog, mixActivity, stairClimb, mergeWalkRun, walkRunSegs, elevation, slopeSegs, chunks, dropRoute, pruneRoutes } from './gait.js';
+import { analyzeWalk, fastMinutes, withDistance, gpsSpeed, gpsDistance, guessActivity, guessPosition, routeMarks, analyzeJog, mixActivity, stairClimb, mergeWalkRun, walkRunSegs, elevation, slopeSegs, chunks, dropRoute, pruneRoutes, sumTags } from './gait.js';
 
 function fakeWalk({ cadence, walkS = 20, position, hz = 60, seed = 1, amp = 1, odd = 0.4, sw = 2.0 }) {   // amp: 달리기는 흔들림이 큼
   let r = seed;
@@ -268,6 +268,21 @@ console.log('모든 점검 통과');
   assert.ok(f.upM < 1.5 && f.downM < 1.5, '평지 잡음');
   assert.equal(elevation([], acc), null);
   console.log('오르막·내리막 점검 통과');
+}
+{ // 측정 요약값: 구간만, 자동·데모·다른 활동은 계산에서 뺌
+  const w = (cadence, more) => ({ activity: 'walk', cadence, ...more });
+  assert.deepEqual(sumTags([w(100)], w(100), true), ['rep1', 'first'], '1회는 변동폭 비움');
+  assert.deepEqual(sumTags([w(100), w(104)], w(100), false), ['rep2_4'], '2회도 변동폭 비움');
+  assert.deepEqual(sumTags([w(100), w(104), w(102)], w(100), false), ['rep2_4', 'cvr2'], '최대−최소 4 = ±2');
+  assert.deepEqual(sumTags([w(100), w(105), w(110)], w(100), false), ['rep2_4', 'cvr5'], '±5');
+  assert.deepEqual(sumTags([w(100), w(105), w(111)], w(100), false), ['rep2_4', 'cvr5p'], '±5 초과');
+  const old = [w(100), w(100), w(100), w(100), w(100), w(150)];
+  assert.deepEqual(sumTags(old, old[0], false), ['rep5p', 'cvr2'], '6번째 전 값은 최근 5회 밖');
+  const mix = [w(100), w(150, { autoRec: true }), w(150, { demo: true }), { activity: 'jog', cadence: 170 }, { cadence: 150, orig: { segs: [] } }];
+  assert.deepEqual(sumTags(mix, mix[0], false), ['rep2_4'], '자동·데모·다른 활동 제외, 섞인 값은 횟수만');
+  const noCad = { activity: 'cooper', cadence: null };
+  assert.deepEqual(sumTags([noCad, { activity: 'cooper', cadence: 150 }, { activity: 'cooper', cadence: 150 }, { activity: 'cooper', cadence: 150 }], noCad, false), ['rep2_4'], '이번 케이던스가 없으면 변동폭 비움');
+  console.log('측정 요약값 점검 통과');
 }
 { // 경로 지우기: 활동을 바꾼 기록의 원래 기록(orig) 경로도 함께, 다른 값은 그대로
   const rt = [[37.5, 127], [37.6, 127]];

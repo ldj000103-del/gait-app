@@ -334,7 +334,8 @@
   /* 지표 사전 설명 카드: 아래에서 올라오는 판, 옆으로 넘기기(scroll-snap) */
   #srcOv { position:fixed; inset:0; z-index:50; background:rgba(0,0,0,.45); display:flex; align-items:flex-end; } #srcOv .sub { word-break:break-all; }   /* 출처 보기: 그 자리에서 아래 판 (운동 창 위에도) */
   .noteBar { display:flex; align-items:center; gap:4px; margin:0 0 10px; padding:6px 6px 6px 12px; background:var(--card); border:1px solid var(--line); border-radius:var(--r-md); font-size:.8125rem; }
-  #locOffBtn.hidden { display:none; } #locBox .chk { justify-content:flex-start; margin-top:0; }
+  #locOffBtn.hidden, #sumBtn.hidden { display:none; }
+  #pickList .chk { margin:8px 20px 0; justify-content:flex-start; } #locBox .chk { justify-content:flex-start; margin-top:0; }
   #privNote span, #locNote span { white-space:normal; }   /* 법적 안내라 전문이 보여야 함 (법률검토팀) */
   .noteBar span { flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; } .noteBar button { flex:none; width:auto; margin:0; padding:8px; min-height:36px; background:none; color:var(--accent); font-size:.8125rem; } .noteBar [data-n=close] { color:var(--sub); }   /* 약관·처리방침 변경 알림: 홈 맨 위 한 줄 띠 */
   #permOv, #dictOv, #fbOv, #lessonOv, #exOv, #autoOv { position:fixed; inset:0; z-index:40; background:rgba(0,0,0,.45); display:flex; align-items:flex-end; }
@@ -438,9 +439,10 @@
 
     <label class="chk"><input type="checkbox" id="cShare"><span><b>[선택]</b> 익명 측정 결과 수집·이용에 동의해요</span></label>
     <div class="terms">
-      <p>· 항목: 케이던스, 걸음 수, 걷는 시간, 속도, 걸음 길이, 걸은 거리(숫자만, 위치 좌표 아님), 휴대폰을 둔 곳, 경고 종류, 나이대(10살 단위), 성별, 운영체제(iOS·Android), 측정 날짜, 측정 품질 정보(센서 측정 수·끊김 등, 위치 좌표 아님), 결과가 안 나온 측정의 이유, 측정 중 켜 둔 박자 소리 빠르기, 활동 종류</p>
-      <p>· 이름·연락처·위치·정확한 나이·측정 시각은 받지 않아요.</p>
-      <p>· 목적: 측정 정확도 개선(실패 원인 분석 포함), 한국인 보행 통계 연구</p>
+      <p>· 항목: 케이던스, 걸음 수, 걷는 시간, 속도, 걸음 길이, 걸은 거리(숫자만, 위치 좌표 아님), 휴대폰을 둔 곳, 경고 종류, 나이대(10살 단위), 성별, 운영체제(iOS·Android), 측정 날짜, 측정 품질 정보(센서 측정 수·끊김 등, 위치 좌표 아님), 결과가 안 나온 측정의 이유, 측정 중 켜 둔 박자 소리 빠르기, 활동 종류, 같은 활동을 몇 번째 쟀는지(구간), 최근 측정의 케이던스 변동폭(구간), 이 설치의 첫 전송 여부</p>
+      <p>· 위 세 값은 이 휴대폰의 기록(동의 전 기록 포함)으로 앱이 계산해요. 기록 원본이나 사람을 구분하는 번호는 보내지 않아요.</p>
+      <p>· 이름·연락처·위치·정확한 나이·측정 시각, 사람이나 휴대폰을 구분하는 번호는 받지 않아요.</p>
+      <p>· 목적: 측정 정확도 개선(실패 원인과 반복 측정 오차 분석 포함), 한국인 보행 통계 연구(참여 규모 파악 포함)</p>
       <p>· 보관: 받은 날부터 3년 뒤 파기</p>
       <p>· 동의하지 않아도 앱의 모든 기능을 똑같이 쓸 수 있어요.</p>
     </div>
@@ -718,6 +720,7 @@
   <div class="subpage" id="spSetPriv" hidden role="dialog" aria-label="개인정보·동의"><div class="sphead"><button class="spBack" aria-label="뒤로">‹</button><h2>개인정보·동의</h2></div>
     <div class="card rows">
       <button class="dayrec" id="cEdit"><span>동의 변경</span><span class="sub">›</span></button>
+      <button class="dayrec hidden" id="sumBtn"><span>측정 요약값 보내기<small id="sumTxt"></small></span><span class="sub">›</span></button>
       <button class="dayrec hidden" id="locOffBtn"><span>위치 동의 해제</span><span class="sub">›</span></button>
       <a class="dayrec" href="privacy.html"><span>개인정보 처리방침</span><span class="sub">›</span></a>
       <a class="dayrec" href="location-terms.html"><span>위치기반서비스 이용약관</span><span class="sub">›</span></a>
