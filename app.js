@@ -306,12 +306,14 @@ function openShare() {
   $('pickList').querySelector('button')?.focus();
 }
 // 기록 지우기: 공용 판에 확인 → 휴대폰 기록(localStorage)과 그 측정의 센서 원본(IndexedDB)에서 그 기록 하나만 뺌. 익명으로 보낸 결과는 운영자에게 삭제 요청 (처리방침 6번)
+const sumDelMark = h => consent?.summary && !h.autoRec && !h.demo && !h.view && h.activity !== 'video';   // 요약값을 켠 뒤 직접 잰 기록을 지울 때만
 function openDelete(date) {
   const h = store.get('history', []).find(x => x.date === date); if (!h) return;
   const what = h.view ? `영상 ${{ side: '옆모습', front: '앞모습', back: '뒷모습' }[h.view]}` : ACT[h.activity ?? 'walk'];
   pickFor = null; $('pickQ').textContent = '이 기록을 지울까요?';
   $('pickList').innerHTML = `<p class="delDesc">${whenTxt(h.date)} ${what} · 지우면 되살릴 수 없어요. 달력·그래프·한 달 점검에서도 빠져요.</p>`
     + (h.receipt || h.orig?.receipt ? `<p class="delDesc">이 기록은 익명 결과로도 보냈어요(접수번호 <b>${h.receipt || h.orig.receipt}</b>).</p><label class="delAsk"><input type="checkbox" id="delAsk"> 운영자에게 보낸 익명 결과도 지워 달라고 요청하기</label>` : '')   // 법률 검토 21번: 지우면 접수번호도 사라지니 지우기 전에 요청 기회
+    + (sumDelMark(h) ? '<p class="delDesc">측정 요약값을 켜 두어서, 앞으로 보내는 결과에 ‘기록을 지운 적 있음’ 표시만 붙을 수 있어요. 지운 기록의 내용·날짜·횟수는 남기거나 보내지 않아요.</p>' : '')
     + `<div class="delActs"><button data-del="${h.date}">지우기</button><button data-keep>그대로 두기</button></div>`;
   $('pickSheet').hidden = false; history.pushState({ pickSheet: 1 }, '');
   $('pickList').querySelector('[data-keep]').focus();
@@ -323,7 +325,7 @@ function toast(msg) { const t = $('toast'); t.textContent = msg; t.hidden = fals
 const askDelete = receipt => fetch(ENDPOINT, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ kind: 'delete', receipt }) }).then(() => true, () => false);
 async function deleteRec(date) {
   const hist = store.get('history', []), i = hist.findIndex(x => x.date === date); if (i < 0) return closePick();
-  const ask = $('delAsk')?.checked && (hist[i].receipt || hist[i].orig?.receipt);
+  const ask = $('delAsk')?.checked && (hist[i].receipt || hist[i].orig?.receipt), mark = sumDelMark(hist[i]);
   if (ask) {
     const b = $('pickList').querySelector('[data-del]'); b.disabled = true;
     const ok = await askDelete(hist[i].receipt || hist[i].orig?.receipt); b.disabled = false;   // 바꾼 뒤 동의를 껐으면 지금 기록엔 접수번호가 없음 (검수팀)
@@ -335,6 +337,7 @@ async function deleteRec(date) {
       return;
     }
   }
+  if (mark) store.set('sumDel', true);                                     // 있음·없음만. 내용·날짜·횟수는 안 남김 (법률 검토 43번)
   hist.splice(i, 1); rePractice(hist, date); store.set('history', hist); rawDel(date).catch(() => {});   // 지운 게 그날 연습이었으면 다음 걷기가 연습
   closePick();
   if (shownDate === date) { shownDate = null; route = null; routeSegs = null; $('result').classList.add('hidden'); $('vresult').classList.add('hidden'); }   // 지운 기록 화면은 닫음
@@ -922,7 +925,7 @@ function saveRec(rec, hist, demo, raw) {
   if (demo || !consent?.share || !ENDPOINT) return;
   try {
     const first = !store.get('sentOnce', false) && !hist.some(h => h !== rec && !h.autoRec && h.receipt);   // 이 설치에서 처음 보내는 결과. 요약값을 끈 동안 보낸 것도 전송으로 침
-    rec.receipt = send(rec, consent.summary && Date.now() >= SUMMARY_FROM ? sumTags(hist, rec, first) : []);
+    rec.receipt = send(rec, consent.summary && Date.now() >= SUMMARY_FROM ? sumTags(hist, rec, first, store.get('sumDel', false)) : []);
     if (rec.receipt) store.set('sentOnce', true);
     store.set('history', keepHist(hist));
   } catch {}
@@ -1027,6 +1030,7 @@ $('cOk').addEventListener('click', () => {
   const share = $('cShare').checked && $('cHealth').checked;
   // 요약값: 새로 전송에 동의하면 함께 켜짐. 이미 전송 동의자면 체크가 미리 채워져 있으니 그대로 둠 (아직 안 정했으면 다음에 판을 띄움, 법률 검토 42번)
   const summary = !share ? false : consent?.share ? consent.summary : true;
+  if (!summary) store.set('sumDel', null);
   consent = { autoShare: consent?.autoShare ?? null, date: new Date().toISOString(), version: 1, share, summary };   // 자동 측정 결과 동의는 따로 (설정)
   store.set('consent', consent); store.set('privSeen', PRIV_DATE);          // 지금 처리방침을 보고 동의함
   $('privNote')?.remove();
@@ -1044,11 +1048,12 @@ function renderSum() {
 }
 function setSum(on) {
   consent = { ...consent, summary: on }; store.set('consent', consent); renderSum();
+  if (!on) store.set('sumDel', null);                                       // 끄면 지운 적 있음 표시도 지움. 다시 켜면 없음에서 시작
   if (!$('privNote')) store.set('privSeen', PRIV_DATE);
 }
 function openSumSheet() {
-  pickFor = subOpen ? 'sum' : null; $('pickQ').textContent = '익명 결과에 세 가지를 더 보내도 될까요?';
-  $('pickList').innerHTML = `<p class="delDesc">같은 활동을 몇 번째 쟀는지(1회·2~4회·5회 이상), 최근 측정의 케이던스 변동폭 구간, 이 설치에서 처음 보내는 결과인지를 함께 보내요. 이 휴대폰의 기록(동의 전 기록 포함)으로 앱이 계산하고, 기록 원본이나 사람을 구분하는 번호는 보내지 않아요. 측정 오차를 확인하고 참여 규모를 파악하는 데 쓰며, 다른 결과와 함께 받은 날부터 3년 뒤 파기하고 Google(미국 등)에 보관해요. 동의하지 않아도 앱의 모든 기능을 똑같이 쓸 수 있고, 지금까지 동의한 결과 전송도 그대로예요.</p>
+  pickFor = subOpen ? 'sum' : null; $('pickQ').textContent = '익명 결과에 네 가지를 더 보내도 될까요?';
+  $('pickList').innerHTML = `<p class="delDesc">같은 활동을 몇 번째 쟀는지(1회·2~4회·5회 이상), 최근 측정의 케이던스 변동폭 구간, 이 설치에서 처음 보내는 결과인지, 동의한 뒤 이 앱에서 기록을 지운 적이 있는지(측정 횟수가 5회 미만일 때 있음·없음만)를 함께 보내요. 이 휴대폰의 기록(동의 전 기록 포함)으로 앱이 계산하고, 기록 원본, 지운 기록의 내용·날짜·횟수, 사람을 구분하는 번호는 보내지 않아요. 측정 오차를 확인하고 참여 규모를 파악하는 데 쓰며, 다른 결과와 함께 받은 날부터 3년 뒤 파기하고 Google(미국 등)에 보관해요. 동의하지 않아도 앱의 모든 기능을 똑같이 쓸 수 있고, 지금까지 동의한 결과 전송도 그대로예요.</p>
     <label class="chk"><input type="checkbox" data-sumchk><span><b>[선택]</b> 위 항목 수집·이용에 동의해요</span></label>
     <label class="chk"><input type="checkbox" data-sumchk><span><b>[선택]</b> 건강정보(민감정보)에 해당할 수 있는 위 값의 수집·이용에 별도로 동의해요</span></label>
     <div class="delActs"><button data-sumyes disabled>동의하고 보내기</button><button data-sumno>보내지 않기</button></div>`;

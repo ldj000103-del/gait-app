@@ -282,6 +282,9 @@ console.log('모든 점검 통과');
   assert.deepEqual(sumTags(mix, mix[0], false), ['rep2_4'], '자동·데모·다른 활동 제외, 섞인 값은 횟수만');
   const noCad = { activity: 'cooper', cadence: null };
   assert.deepEqual(sumTags([noCad, { activity: 'cooper', cadence: 150 }, { activity: 'cooper', cadence: 150 }, { activity: 'cooper', cadence: 150 }], noCad, false), ['rep2_4'], '이번 케이던스가 없으면 변동폭 비움');
+  assert.deepEqual(sumTags([w(100), w(100)], w(100), false, true), ['rep2_4', 'del'], '5회 미만은 지운 적 있음 표시');
+  assert.deepEqual(sumTags([w(100)], w(100), false, true), ['rep1', 'del']);
+  assert.deepEqual(sumTags(old, old[0], false, true), ['rep5p', 'cvr2'], '5회 이상은 안 붙음');
   console.log('측정 요약값 점검 통과');
 }
 { // 경로 지우기: 활동을 바꾼 기록의 원래 기록(orig) 경로도 함께, 다른 값은 그대로
