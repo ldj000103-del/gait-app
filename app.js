@@ -116,6 +116,7 @@ const WARN = {
   paused: '측정 중에 화면이 꺼지거나 다른 앱(카톡·전화)으로 가서 센서가 잠시 멈췄어요. 설치형 안드로이드 앱은 다른 앱을 써도 계속 측정돼요. 끊기지 않고 가장 길게 걸은 구간만으로 계산해서 걸음 수가 실제보다 적을 수 있어요. 다음엔 전원 버튼을 누르지 말고 주머니 모드 그대로 넣어 주세요.',
 };
 // 결과 제목 줄: 왼쪽 '○○ 결과', 오른쪽 끝 '활동 바꾸기 ›' (건의 K-5D73A0A1, 디자인 팀 시안 A). 자동 측정 기록은 센서 원본을 남기지 않아 다시 계산할 수 없어서 버튼 없음
+const POS_HOW = '화면이 하늘을 보고 있으면 손, 같은 다리가 돌아올 때만 신호가 크게 반복되면 바지 앞주머니(허벅지), 걸음마다 비슷하면 허리로 짐작해요(Perry 7장: 몸통 움직임은 걸음마다 반복). 정확도를 확인한 연구가 없어요.';
 // 걷기 + 뛰기 구간 카드 (디자인 팀 시안 A): 시간 비율 띠(걷기 단색·뛰기 빗금, 색만으로 구분하지 않음) + 전체 한 줄 + 구간 목록. GPS 조건이 안 되는 구간의 속도·거리는 '-'
 function segCard(r) {
   if (!r.segs) return '';
@@ -129,7 +130,7 @@ function segCard(r) {
     <div class="msub">전체 ${clock(r.diag?.durS ?? sumS)}${r.distance ? ` · ${(r.distance / 1000).toFixed(2)}km` : ''} · 케이던스 평균 ${sumS ? (steps / sumS * 60).toFixed(0) : '-'}</div>
     <ol class="seglist">${r.segs.map(row).join('')}</ol>
     <div class="msub">30초씩 나눠 구분해서 경계는 조금 다를 수 있어요. 아래 카드는 많은 쪽(${name(r.activity === 'run' ? 'run' : 'walk')})의 가장 긴 구간 값이에요.${r.distance ? ' 구간 거리의 합은 전체 거리와 조금 다를 수 있어요.' : ''}</div>
-    <details class="seghow"><summary>어떻게 골랐나요?</summary><p class="sub">30초씩 나눠 달리기 방식으로 센 케이던스가 ${RUN_CAD}걸음/분 이상이고 흔들림도 크면 뛰기, 아니면 걷기로 봐요. 이웃한 같은 활동은 합치고, 30초만 달라진 칸은 앞뒤에 합쳐서 구간은 1분 이상이에요. 이 앱이 정한 기준이고 연구로 확인하지 않았어요.</p></details></div>`;
+    <details class="seghow"><summary>어떻게 골랐나요?</summary><p class="sub">30초씩 나눠 달리기 방식으로 센 케이던스가 ${RUN_CAD}걸음/분 이상이고 흔들림도 크면 뛰기, 아니면 걷기로 봐요. 이웃한 같은 활동은 합치고, 30초만 달라진 칸은 앞뒤에 합쳐서 구간은 1분 이상이에요. 이 앱이 정한 기준이고 연구로 확인하지 않았어요.</p>${r.auto?.pos ? `<p class="sub">휴대폰 위치: ${POS_HOW}</p>` : ''}</details></div>`;
 }
 const canRelab = r => RELAB.includes(r.activity ?? 'walk') && !r.autoRec;
 const relabBtn = (r, cls = 'relab') => canRelab(r) ? `<button class="textlike ${cls}" data-relab="${r.date}">활동 바꾸기 ›</button>` : '';
@@ -1005,10 +1006,10 @@ const ro = w => { const c = (w.charCodeAt(w.length - 1) - 0xac00) % 28; return w
 function autoNote(r) {
   const a = r.auto ?? {};
   if (!a.act && !a.pos) return '';
-  return `<div class="metric"><div class="sub">${a.act ? `활동: <b>${r.segs ? '걷기와 뛰기로' : ro(ACT[a.act])}</b> 자동 구분 <span class="badge b-y">참고</span><br>` : ''}${a.pos ? `휴대폰 위치: <b>${ro(POS[a.pos])}</b> 짐작 <span class="badge b-n">검증 안 됨</span><br>` : ''}다르면 맨 위 활동 바꾸기에서 고칠 수 있어요.</div>
+  return `<div class="metric"><div class="sub">${a.act ? `활동: <b>${r.segs ? '걷기와 뛰기로' : ro(ACT[a.act])}</b> 자동 구분 <span class="badge b-y">참고</span><br>` : ''}${a.pos ? `휴대폰 위치: <b>${ro(POS[a.pos])}</b> 짐작 <span class="badge b-n">검증 안 됨</span><br>` : ''}다르면 맨 위 활동 바꾸기에서 고칠 수 있어요.</div>${r.segs ? '' : `
     <details><summary>어떻게 골랐나요?</summary><ul>
     ${a.act ? `<li>달리기 방식으로 센 케이던스가 ${RUN_CAD}걸음/분 이상이고 흔들림도 크면 달리기, 아니면 걷기로 봐요. 이 선은 이 앱이 정한 것이고 연구로 확인하지 않았어요.</li>` : ''}
-    ${a.pos ? '<li>화면이 하늘을 보고 있으면 손, 같은 다리가 돌아올 때만 신호가 크게 반복되면 바지 앞주머니(허벅지), 걸음마다 비슷하면 허리로 짐작해요(Perry 7장: 몸통 움직임은 걸음마다 반복). 정확도를 확인한 연구가 없어요.</li>' : ''}</ul></details></div>`;
+    ${a.pos ? `<li>${POS_HOW}</li>` : ''}</ul></details>`}</div>`;
 }
 const READ_GUIDE = `<details class="howto"><summary>이 숫자 읽는 법</summary><ul>
   <li>큰 숫자가 <b>이번에 잰 값</b>이고, 그 아래 작은 글씨가 책·연구에 나온 <b>기준값</b>이에요.</li>
