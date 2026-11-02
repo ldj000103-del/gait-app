@@ -1,4 +1,4 @@
-import { analyzeWalk, fastMinutes, withDistance, gpsSpeed, gpsDistance, guessActivity, guessPosition, routeMarks, RUN_CAD, analyzeJog, mixActivity, stairClimb, FLOOR_M, STAIR_STEP_M, chunks, walkRunSegs, elevation, slopeSegs } from './gait.js';
+import { analyzeWalk, fastMinutes, withDistance, gpsSpeed, gpsDistance, guessActivity, guessPosition, routeMarks, RUN_CAD, analyzeJog, mixActivity, stairClimb, FLOOR_M, STAIR_STEP_M, chunks, walkRunSegs, elevation, slopeSegs, dropRoute, pruneRoutes } from './gait.js';
 import { analyzeSide, analyzeFrontal, extractPose, drawSnapshot, PART_ICON } from './video.js';
 
 const $ = id => document.getElementById(id);
@@ -180,7 +180,7 @@ function openLocOff() {
 }
 function revokeLoc() {
   const hist = store.get('history', []);
-  hist.forEach(h => { delete h.route; if (h.orig) delete h.orig.route; });   // 활동을 바꾼 기록은 원래 기록(orig)에도 경로가 있음. segs의 r0은 점 번호라 좌표가 아님
+  hist.forEach(dropRoute);                                                 // segs의 r0은 점 번호라 좌표가 아님
   store.set('history', hist); store.set('locConsent', null); store.set('recSnap', null);
   $('locOk').checked = false; route = routeSegs = null; $('routeBox')?.remove();
   toast('위치 동의를 해제하고 저장된 경로를 지웠어요.');
@@ -197,14 +197,15 @@ function changeNote(id, seenKey, date, text, href, view) {
 if (store.get('locConsent', null) && store.get('locTermsSeen', null) !== LOC_TERMS)
   changeNote('locNote', 'locTermsSeen', LOC_TERMS, '위치 동의를 해제하면 저장된 경로도 함께 지우도록 바꿨어요. 약관 6번을 보세요.', 'location-terms.html', '약관 보기');
 // 처리방침 10번 "바꾸면 앱에 미리 알립니다". 바꿀 때마다 새 값. 익명 결과 전송 동의자에게는 수집 항목이 바뀐 안내를, 나머지 동의자에게는 지난 안내(사진 첨부)를
-const PRIV_DATE = '2026-11-02-activity';
-const privSeen = store.get('privSeen', null), cons = store.get('consent', null);
-{ const actKind = cons?.share ? '익명 결과 항목에 활동 종류(걷기·달리기·계단·오르막과 내리막 등)를 적었어요. 그동안 함께 보내던 값인데 안내에 빠져 있었어요. 원하지 않으면 화면 아래 ‘동의 변경’에서 끌 수 있어요 (2026년 11월 2일 시행). ' : '';   // 익명 전송 동의자만 (법률 검토 34번)
-  const metro = cons?.share && privSeen !== '2026-10-31-metro' ? '익명 결과에 측정하는 동안 켜 둔 박자 소리 빠르기(걸음/분)도 함께 보내요. 원하지 않으면 화면 아래 ‘동의 변경’에서 끌 수 있어요 (2026년 10월 31일 시행). ' : '';   // 익명 전송 동의자만 (법률 검토 33번)
-  const older = !cons || privSeen === '2026-10-30-auto' || privSeen === '2026-10-31-metro' ? '' : '걷기 자동 측정(선택 기능)과, 켠 사람만 따로 동의하는 자동 측정 결과 전송 내용을 처리방침에 보탰어요. 켜지 않으면 달라지는 게 없어요 (2026년 10월 30일 시행). '
-    + (privSeen === '2026-10-28-delete' ? '' : (cons.share && privSeen !== '2026-10-26-quality' ? '익명 결과 수집 안내가 바뀌었어요: 측정 품질 정보와 결과가 안 나온 측정의 이유도 함께 보내요(걸음 숫자·위치는 없어요). 원하지 않으면 화면 아래 ‘동의 변경’에서 끌 수 있어요. ' : '')
+const PRIV_DATE = '2026-11-02-photo';
+const privSeen = store.get('privSeen', null), cons = store.get('consent', null), seenPriv = d => privSeen >= d;   // 값 앞이 날짜라 글자 비교 = 날짜 비교, 못 본 안내만 골라 함께 보여 줌
+{ const photoLoc = '결과 카드에 넣는 사진과, 위치 동의를 해제할 때 경로를 지우는 내용을 처리방침에 보탰어요. 운영자가 새로 받는 정보는 없어요. ';
+  const actKind = cons?.share && !seenPriv('2026-11-02-activity') ? '익명 결과 항목에 활동 종류(걷기·달리기·계단·오르막과 내리막 등)를 적었어요. 그동안 함께 보내던 값인데 안내에 빠져 있었어요. 원하지 않으면 화면 아래 ‘동의 변경’에서 끌 수 있어요 (2026년 11월 2일 시행). ' : '';   // 익명 전송 동의자만 (법률 검토 34번)
+  const metro = cons?.share && !seenPriv('2026-10-31-metro') ? '익명 결과에 측정하는 동안 켜 둔 박자 소리 빠르기(걸음/분)도 함께 보내요. 원하지 않으면 화면 아래 ‘동의 변경’에서 끌 수 있어요 (2026년 10월 31일 시행). ' : '';   // 익명 전송 동의자만 (법률 검토 33번)
+  const older = !cons || seenPriv('2026-10-30-auto') ? '' : '걷기 자동 측정(선택 기능)과, 켠 사람만 따로 동의하는 자동 측정 결과 전송 내용을 처리방침에 보탰어요. 켜지 않으면 달라지는 게 없어요 (2026년 10월 30일 시행). '
+    + (seenPriv('2026-10-28-delete') ? '' : (cons.share && !seenPriv('2026-10-26-quality') ? '익명 결과 수집 안내가 바뀌었어요: 측정 품질 정보와 결과가 안 나온 측정의 이유도 함께 보내요(걸음 숫자·위치는 없어요). 원하지 않으면 화면 아래 ‘동의 변경’에서 끌 수 있어요. ' : '')
     + '기록 지우기와 익명 결과 삭제 요청 방법도 추가됐어요 (2026년 10월 28일 시행).');   // 지난 안내를 아직 못 봤으면 함께
-  if (cons && privSeen !== PRIV_DATE && (actKind || metro || older)) changeNote('privNote', 'privSeen', PRIV_DATE, actKind + metro + older, 'privacy.html', '처리방침 보기'); }
+  if (cons && privSeen !== PRIV_DATE) changeNote('privNote', 'privSeen', PRIV_DATE, photoLoc + actKind + metro + older, 'privacy.html', '처리방침 보기'); }
 const usesGps = a => a === 'cooper' || (a !== 'slowrun' && a !== 'stairs' && a !== 'slope' && $('dmode').value === 'gps');   // 계단은 실내라 GPS 안 씀
 function showLoc() {
   const need = usesGps($('act').value);
@@ -428,7 +429,7 @@ document.addEventListener('visibilitychange', () => {
   else { store.set('recSnap', null); if (!Native) navigator.wakeLock?.request('screen').then(w => { if (t0) wakeLock = w; else w.release(); }, () => {}); }   // 브라우저는 다른 앱에 가면 화면 켜짐을 풀어 버림 → 돌아오면 다시 요청
 });
 addEventListener('pagehide', saveSnap);
-// 위치 좌표는 이 휴대폰 안에서 거리 계산에만 쓰고 저장·전송하지 않음
+// 위치 좌표는 이 휴대폰 안에서 거리·속도·경로 계산에 쓰고, 경로만 이 휴대폰 기록에 저장. 전송하지 않음
 function startGps() {
   gpsPts = []; gpsDenied = false;
   if (($('dmode').value !== 'gps' && $('act').value !== 'cooper') || !navigator.geolocation) return;   // 12분 테스트는 늘 GPS
@@ -907,7 +908,7 @@ function saveRec(rec, hist, demo, raw) {
   metroStart = metroEnd = 0;   // 결과·기록·익명 전송에 '자동으로 끝냄'
   if (raw && !demo && !raw[0]?.mag) rawPut(rec.date, raw.map(p => [Math.round(p.t * 10) / 10, +p.x.toFixed(3), +p.y.toFixed(3), +p.z.toFixed(3)])).catch(() => {});
   hist.unshift(rec);
-  hist.forEach((h, i) => { if (i >= ROUTE_KEEP) delete h.route; });     // ponytail: 휴대폰 저장 공간(약 5MB) 때문에 최근 30개만. 더 필요하면 IndexedDB로
+  pruneRoutes(hist, ROUTE_KEEP);     // ponytail: 휴대폰 저장 공간(약 5MB) 때문에 최근 30개만. 더 필요하면 IndexedDB로
   store.set('history', keepHist(hist));
   if (demo || !consent?.share || !ENDPOINT) return;
   try { rec.receipt = send(rec); store.set('history', keepHist(hist)); } catch {}
@@ -1632,7 +1633,7 @@ function loadKakao() {
 document.addEventListener('click', e => {
   if (!e.target.closest?.('#routeDel') || !confirm('이 기록의 경로를 지울까요? 다른 결과는 그대로 남아요.')) return;
   const hist = store.get('history', []), h = hist.find(x => x.date === shownDate);
-  if (h) { delete h.route; store.set('history', hist); }
+  if (h) { dropRoute(h); store.set('history', hist); }
   route = null; $('routeBox')?.remove();
 });
 // 경로 그리기 (디자인 팀 10/27): 흰 테두리 초록 선, 출발·도착(측정 중엔 '지금') 점과 말풍선, 1km(10km 넘으면 2km)마다 숫자, 경로 전체 보기 버튼

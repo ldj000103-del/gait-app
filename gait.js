@@ -1,6 +1,10 @@
 // 걸음 분석 계산 (화면·센서와 분리된 순수 계산 → Node로 테스트 가능)
 // 근거: Perry 7장(몸통 움직임은 걸음마다 반복), 20장(시작·끝 가속/감속 구간 제외)
 
+// 기록의 경로 지우기: 활동을 바꾼 기록은 원래 기록(orig)에도 경로가 있어 함께 지움 (되돌려도 안 돌아오게, 법률검토팀)
+export function dropRoute(h) { delete h.route; if (h.orig) delete h.orig.route; }
+// 최근 keep개만 경로 보관. 경로를 이미 지운 기록에 orig 경로만 남아 있으면 그것도 정리
+export function pruneRoutes(hist, keep) { hist.forEach((h, i) => { if (i >= keep || !h.route) dropRoute(h); }); }
 export const HZ = 50;          // 분석용 재샘플링 주기
 const TRIM_S = 2;              // 시작·끝에서 버리는 시간 (Perry 20장: 앞뒤 2m 제외)
 const ACTIVE_STD = 0.6;        // m/s², 이보다 흔들리면 '걷는 중'으로 봄 (현장 보정 필요)

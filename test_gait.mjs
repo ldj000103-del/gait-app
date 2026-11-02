@@ -1,7 +1,7 @@
 // 걸음 분석 자체 점검: node test_gait.mjs
 // 가짜 걷기 신호(앞뒤 3초 서 있기 포함)를 만들어 케이던스를 2% 안으로 맞히는지 확인
 import assert from 'node:assert/strict';
-import { analyzeWalk, fastMinutes, withDistance, gpsSpeed, gpsDistance, guessActivity, guessPosition, routeMarks, analyzeJog, mixActivity, stairClimb, mergeWalkRun, walkRunSegs, elevation, slopeSegs, chunks } from './gait.js';
+import { analyzeWalk, fastMinutes, withDistance, gpsSpeed, gpsDistance, guessActivity, guessPosition, routeMarks, analyzeJog, mixActivity, stairClimb, mergeWalkRun, walkRunSegs, elevation, slopeSegs, chunks, dropRoute, pruneRoutes } from './gait.js';
 
 function fakeWalk({ cadence, walkS = 20, position, hz = 60, seed = 1, amp = 1, odd = 0.4, sw = 2.0 }) {   // amp: 달리기는 흔들림이 큼
   let r = seed;
@@ -268,4 +268,20 @@ console.log('모든 점검 통과');
   assert.ok(f.upM < 1.5 && f.downM < 1.5, '평지 잡음');
   assert.equal(elevation([], acc), null);
   console.log('오르막·내리막 점검 통과');
+}
+{ // 경로 지우기: 활동을 바꾼 기록의 원래 기록(orig) 경로도 함께, 다른 값은 그대로
+  const rt = [[37.5, 127], [37.6, 127]];
+  const h = { cadence: 100, route: rt, orig: { activity: 'walk', cadence: 110, route: rt, segs: [{ r0: 0 }] } };
+  dropRoute(h);
+  const back = { ...h.orig };                                              // 활동 되돌리기 = orig를 그대로 씀
+  assert.equal(back.route, undefined, '되돌려도 경로가 안 돌아옴');
+  assert.equal(back.cadence, 110); assert.equal(h.cadence, 100); assert.deepEqual(back.segs, [{ r0: 0 }]);
+  dropRoute({ cadence: 1 });                                               // orig가 없어도 오류 없음
+  const hist = Array.from({ length: 32 }, () => ({ route: rt, orig: { route: rt } }));
+  hist[1] = { orig: { route: rt } };                                       // 예전 '이 경로 지우기'로 orig에만 남은 기록
+  pruneRoutes(hist, 30);
+  assert.equal(hist[0].route, rt, '30개 안은 경로 유지'); assert.equal(hist[0].orig.route, rt, '30개 안의 orig 유지'); assert.equal(hist[29].route, rt);
+  assert.equal(hist[30].route, undefined, '30개 초과는 지움'); assert.equal(hist[31].orig.route, undefined, '30개 초과 orig도');
+  assert.equal(hist[1].orig.route, undefined, '남아 있던 orig 경로 정리');
+  console.log('경로 지우기 점검 통과');
 }
