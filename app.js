@@ -163,7 +163,7 @@ $('act').value = store.get('act', 'auto');
 // 위치기반서비스 이용 동의 (위치정보법 제19조): GPS를 쓰는 측정에만 필요, 체크를 풀면 철회
 // 위치 약관이 바뀌면 이미 동의한 사람에게만 앱을 열 때 안내 (재동의 아님). '약관 보기'나 '닫기'를 누르면 다시 안 뜸.
 // 새로 동의하는 사람은 지금 약관을 보고 동의하니 본 것으로 둠. 다음 개정 땐 날짜·문구만 바꿈
-const LOC_TERMS = '2026-11-02';
+const LOC_TERMS = '2026-11-05';
 $('locOk').checked = !!store.get('locConsent', null);
 $('locOk').addEventListener('change', () => {
   if (!$('locOk').checked) { $('locOk').checked = true; return openLocOff(); }   // 확인 전까지는 동의 그대로. 판을 그냥 닫아도 아무것도 안 바뀜
@@ -196,7 +196,7 @@ function changeNote(id, seenKey, date, text, href, view) {
   });
 }
 if (store.get('locConsent', null) && store.get('locTermsSeen', null) !== LOC_TERMS)
-  changeNote('locNote', 'locTermsSeen', LOC_TERMS, '위치 동의를 해제하면 저장된 경로도 함께 지우도록 바꿨어요. 약관 6번을 보세요.', 'location-terms.html', '약관 보기');
+  changeNote('locNote', 'locTermsSeen', LOC_TERMS, '휴대폰의 Google 백업이 켜져 있으면 경로도 본인 계정 백업에 저장될 수 있다는 내용을 약관 3번에 적었어요. 운영자는 볼 수 없어요.', 'location-terms.html', '약관 보기');
 // 처리방침 10번 "바꾸면 앱에 미리 알립니다". 바꿀 때마다 새 값. 익명 결과 전송 동의자에게는 수집 항목이 바뀐 안내를, 나머지 동의자에게는 지난 안내(사진 첨부)를
 const PRIV_DATE = '2026-11-05-summary';
 const SUMMARY_FROM = Date.parse('2026-11-05T00:00:00+09:00');   // 측정 요약값 전송 시작 = 처리방침 시행일. 문서와 판이 먼저 나가고 이 날부터 보냄 (법률 검토 42번)
@@ -366,6 +366,7 @@ $('pickSheet').addEventListener('keydown', e => { if (e.key === 'Escape') closeP
 $('pickSheet').addEventListener('pointerdown', e => { pickDragY = e.clientY; });          // 아래로 끌면 닫기
 $('pickSheet').addEventListener('pointerup', e => { if (pickDragY != null && e.clientY - pickDragY > 60) closePick(); pickDragY = null; });
 const Native = window.Capacitor?.isNativePlatform?.() ? window.Capacitor.Plugins.GaitRecorder : null;   // showAct보다 먼저 (저장된 활동이 오르막·내리막이면 처음 그릴 때 씀)
+if (Native) document.querySelectorAll('.appOnly').forEach(e => { e.hidden = false; });   // 설치형 앱만 해당하는 안내 (자동 백업, 법률검토팀)
 $('walkNote').textContent = HEIGHT_TRIAL ? "걷기·자동에서 높이는 시험 중이에요(설치형 앱, 검증 안 됨). 층수를 보려면 '무엇을 할까요'에서 계단 오르기를 고르고, 계단만 따로 재요." : "걷기로 재면 올라간 높이는 세지 않아요. 층수를 보려면 '무엇을 할까요'에서 계단 오르기를 고르고, 계단만 따로 재요.";
 function showAct() { showLoc(); const a = $('act').value;
   syncPicks(); $('walkNote').classList.toggle('hidden', a !== 'walk' && a !== 'auto'); $('autoNote').classList.toggle('hidden', a !== 'auto');   // walkNote: 건의 K-CFED1B60, 걷기·자동은 기압계를 켜지 않음
