@@ -168,11 +168,12 @@ $('locOk').checked = !!store.get('locConsent', null);
 $('locOk').addEventListener('change', () => {
   if (!$('locOk').checked) { $('locOk').checked = true; return openLocOff(); }   // 확인 전까지는 동의 그대로. 판을 그냥 닫아도 아무것도 안 바뀜
   store.set('locConsent', { date: new Date().toISOString(), version: 1 });
-  store.set('locTermsSeen', LOC_TERMS);
+  store.set('locTermsSeen', LOC_TERMS); showLoc();
 });
+$('locOffBtn').addEventListener('click', openLocOff);
 // 동의 철회 = 저장된 경로도 파기 (위치정보법 제24조 4항, 법률검토팀). 측정 중에는 탭·설정이 숨겨져 해제할 수 없음. 휴대폰 위치 권한만 끈 경우는 철회로 보지 않음
 function openLocOff() {
-  pickFor = null; $('pickQ').textContent = '위치 동의를 해제할까요?';
+  pickFor = subOpen ? 'locOff' : null; $('pickQ').textContent = '위치 동의를 해제할까요?';
   $('pickList').innerHTML = `<p class="delDesc">동의를 해제하면 위치를 더 쓰지 않고, 이 휴대폰에 저장된 경로도 모두 지워져요. 지우면 되살릴 수 없어요. 거리·속도·걸음 수 같은 기록은 그대로 남아요.</p>
     <div class="delActs"><button data-locoff>해제하고 지우기</button><button data-keep>취소</button></div>`;
   $('pickSheet').hidden = false; history.pushState({ pickSheet: 1 }, '');
@@ -183,7 +184,7 @@ function revokeLoc() {
   hist.forEach(dropRoute);                                                 // segs의 r0은 점 번호라 좌표가 아님
   store.set('history', hist); store.set('locConsent', null); store.set('recSnap', null);
   $('locOk').checked = false; route = routeSegs = null; $('routeBox')?.remove();
-  toast('위치 동의를 해제하고 저장된 경로를 지웠어요.');
+  showLoc(); toast('위치 동의를 해제하고 저장된 경로를 지웠어요.');
 }
 // 약관·처리방침이 바뀌면 이미 동의한 사람에게 앱을 열 때 한 번 안내 (재동의 아님). '보기'나 '닫기'를 누르면 다시 안 뜸
 function changeNote(id, seenKey, date, text, href, view) {
@@ -208,9 +209,10 @@ const privSeen = store.get('privSeen', null), cons = store.get('consent', null),
   if (cons && privSeen !== PRIV_DATE) changeNote('privNote', 'privSeen', PRIV_DATE, actKind + metro + photoLoc + older, 'privacy.html', '처리방침 보기'); }
 const usesGps = a => a === 'cooper' || (a !== 'slowrun' && a !== 'stairs' && a !== 'slope' && $('dmode').value === 'gps');   // 계단은 실내라 GPS 안 씀
 function showLoc() {
-  const need = usesGps($('act').value);
-  $('locBox').classList.toggle('hidden', !need);
-  if (need && !store.get('locConsent', null)) openSet(true);                 // 위치 약관 동의가 필요하면 시작 전에 꼭 보이게 펼침
+  const need = usesGps($('act').value), agreed = !!store.get('locConsent', null);
+  $('locBox').classList.toggle('hidden', !need && !agreed);                  // 동의한 사람은 어떤 설정에서도 철회할 수 있게 늘 보임 (위치정보법 제24조, 법률검토팀)
+  $('locOffBtn').classList.toggle('hidden', !agreed);
+  if (need && !agreed) openSet(true);                 // 위치 약관 동의가 필요하면 시작 전에 꼭 보이게 펼침
 }
 // 고르기 판 (디자인 팀 시안 C, 5곳이 판 하나를 같이 씀): 숨긴 select가 값의 원본, 판에서 고르면 select 값을 바꾸고 change를 보냄 → 기존 동작 그대로
 // select 앞에 '아이콘 + 이름 + ›' 줄(#<select id>Btn)을 만들고, 줄 이름·아이콘은 syncPicks()가 select 값에서 다시 읽음 (코드로 값을 바꾼 곳도 따라오게)
@@ -345,7 +347,7 @@ for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) $('histBody').a
 $('histBody').addEventListener('contextmenu', e => { if (e.target.closest('[data-i]')) e.preventDefault(); });
 $('pickList').addEventListener('click', e => {
   const cm = e.target.closest('[data-cm]'); if (cm) { cardMakeAct(cm.dataset.cm); return; }
-  if (e.target.closest('[data-locoff]')) { closePick(); revokeLoc(); $('locOk').focus({ preventScroll: true }); return; }
+  if (e.target.closest('[data-locoff]')) { closePick(); revokeLoc(); $(subOpen ? 'cEdit' : 'locOk').focus({ preventScroll: true }); return; }
   const dl = e.target.closest('[data-del]'); if (dl) { deleteRec(dl.dataset.del); return; }
   if (e.target.closest('[data-keep]')) { closePick(); return; }
   const s = e.target.closest('[data-share]'); if (s) { closePick(); shareSummary(s.dataset.share); return; }
