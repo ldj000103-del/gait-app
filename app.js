@@ -202,13 +202,14 @@ const PRIV_DATE = '2026-11-05-summary';
 const SUMMARY_FROM = Date.parse('2026-11-05T00:00:00+09:00');   // 측정 요약값 전송 시작 = 처리방침 시행일. 문서와 판이 먼저 나가고 이 날부터 보냄 (법률 검토 42번)
 const privSeen = store.get('privSeen', null), cons = store.get('consent', null), seenPriv = d => privSeen >= d;   // 값 앞이 날짜라 글자 비교 = 날짜 비교, 못 본 안내만 골라 함께 보여 줌
 { const summary = cons && !cons.share && !seenPriv(PRIV_DATE) ? '익명 결과에 보낼 수 있는 항목을 처리방침에 보탰어요. 결과 보내기에 동의하지 않았다면 달라지는 것은 없어요. ' : '';   // 전송 동의자에게는 안내 대신 재동의 판 (openSumSheet)
+  const backup = cons && !seenPriv(PRIV_DATE) ? '휴대폰의 Google 백업이 켜져 있으면 설치형 앱의 측정 기록과 경로가 본인 계정 백업에 저장될 수 있다는 내용을 처리방침에 적었어요. 운영자는 볼 수 없어요 (2026년 11월 5일 시행). ' : '';   // 모든 동의자에게 (검수팀)
   const photoLoc = seenPriv('2026-11-02-photo') ? '' : '결과 카드에 넣는 사진과, 위치 동의를 해제할 때 경로를 지우는 내용을 처리방침에 보탰어요. 이 내용으로 운영자가 새로 받는 정보는 없어요. ';
   const actKind = cons?.share && !seenPriv('2026-11-02-activity') ? '익명 결과 항목에 활동 종류(걷기·달리기·계단·오르막과 내리막 등)를 적었어요. 그동안 함께 보내던 값인데 안내에 빠져 있었어요. 원하지 않으면 화면 아래 ‘동의 변경’에서 끌 수 있어요 (2026년 11월 2일 시행). ' : '';   // 익명 전송 동의자만 (법률 검토 34번)
   const metro = cons?.share && !seenPriv('2026-10-31-metro') ? '익명 결과에 측정하는 동안 켜 둔 박자 소리 빠르기(걸음/분)도 함께 보내요. 원하지 않으면 화면 아래 ‘동의 변경’에서 끌 수 있어요 (2026년 10월 31일 시행). ' : '';   // 익명 전송 동의자만 (법률 검토 33번)
   const older = !cons || seenPriv('2026-10-30-auto') ? '' : '걷기 자동 측정(선택 기능)과, 켠 사람만 따로 동의하는 자동 측정 결과 전송 내용을 처리방침에 보탰어요. 켜지 않으면 달라지는 게 없어요 (2026년 10월 30일 시행). '
     + (seenPriv('2026-10-28-delete') ? '' : (cons.share && !seenPriv('2026-10-26-quality') ? '익명 결과 수집 안내가 바뀌었어요: 측정 품질 정보와 결과가 안 나온 측정의 이유도 함께 보내요(걸음 숫자·위치는 없어요). 원하지 않으면 화면 아래 ‘동의 변경’에서 끌 수 있어요. ' : '')
     + '기록 지우기와 익명 결과 삭제 요청 방법도 추가됐어요 (2026년 10월 28일 시행).');   // 지난 안내를 아직 못 봤으면 함께
-  const noteText = summary + actKind + metro + photoLoc + older;
+  const noteText = backup + summary + actKind + metro + photoLoc + older;
   if (cons && privSeen !== PRIV_DATE && noteText) changeNote('privNote', 'privSeen', PRIV_DATE, noteText, 'privacy.html', '처리방침 보기'); }
 const usesGps = a => a === 'cooper' || (a !== 'slowrun' && a !== 'stairs' && a !== 'slope' && $('dmode').value === 'gps');   // 계단은 실내라 GPS 안 씀
 function showLoc() {
@@ -1043,13 +1044,12 @@ if (!consent) showConsent();
 else $('consentState').textContent = consent.share ? '익명 결과 보내기: 동의함' : '익명 결과 보내기: 동의 안 함';
 // 측정 요약값 따로 동의 (법률 검토 42번 문구 그대로): 이미 전송에 동의한 사람은 두 칸을 직접 체크해야 켜짐. '보내지 않기'는 다시 안 물음, 그냥 닫으면 아직 안 정한 것
 function renderSum() {
-  $('sumBtn').classList.toggle('hidden', !consent?.share);
+  $('sumBtn').classList.toggle('hidden', !consent?.share || under14(store.get('profile', {}).age));
   $('sumTxt').textContent = consent?.summary ? '켜짐' : '꺼짐';
 }
 function setSum(on) {
   consent = { ...consent, summary: on }; store.set('consent', consent); renderSum();
   if (!on) store.set('sumDel', null);                                       // 끄면 지운 적 있음 표시도 지움. 다시 켜면 없음에서 시작
-  if (!$('privNote')) store.set('privSeen', PRIV_DATE);
 }
 function openSumSheet() {
   pickFor = subOpen ? 'sum' : null; $('pickQ').textContent = '익명 결과에 네 가지를 더 보내도 될까요?';
@@ -1068,7 +1068,6 @@ $('sumBtn').addEventListener('click', () => {
   setSum(false); toast('측정 요약값을 더 보내지 않아요.');
 });
 renderSum();
-if (consent?.share && consent.summary === undefined && !under14(store.get('profile', {}).age)) openSumSheet();
 
 // ── 결과 화면 ──
 // 자동으로 고른 활동·휴대폰 위치 표시 (검증 안 된 규칙이라 등급을 함께)
@@ -3093,6 +3092,7 @@ function closeSub(back = true) {
 document.addEventListener('click', e => { const s = e.target.closest('[data-sub]'), b = e.target.closest('.spBack'); if (s) openSub(s.dataset.sub); else if (b) closeSub(); });
 function closeAllSub() { const n = (subOpen ? 1 : 0) + subStack.length; while (subOpen) closeSub(false); if (n && history.state?.sub) history.go(-n); }
 addEventListener('popstate', () => { while (subOpen && history.state?.sub !== subOpen) closeSub(false); });   // 새로고침 전에 남은 다른 {sub} 칸으로 돌아가도 닫히게 (검수팀)
+if (consent?.share && consent.summary === undefined && !under14(store.get('profile', {}).age)) setTimeout(openSumSheet);   // 아래에서 남은 기록 칸을 비운 뒤에 열어야 판의 칸이 지워지지 않음
 if (history.state?.sub || history.state?.pickSheet) history.replaceState(null, '');   // 새로고침하면 판·하위 화면은 닫힌 채라 남은 기록 칸을 비움 (뒤로 가기가 한 번 헛돌지 않게)
 // 걸음 수업 판: 발 모형 3D(footpress.glb, 한 주기 8초) + 주기에 맞는 자막·단계 막대, 단계 버튼은 그 순간으로 (디자인 팀 10/28·10/30, 법률 검토 20번). 홈 '배워 보기' 카드 그림(assets/learn 50장)도 같은 모형
 // 투명 WebP를 캔버스에 그려 밝은·어두운 화면 모두 바탕이 자연스럽고 사파리에서도 재생됨. 이용자 측정값과는 연결하지 않음
