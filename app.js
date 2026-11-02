@@ -163,12 +163,28 @@ $('act').value = store.get('act', 'auto');
 // 위치기반서비스 이용 동의 (위치정보법 제19조): GPS를 쓰는 측정에만 필요, 체크를 풀면 철회
 // 위치 약관이 바뀌면 이미 동의한 사람에게만 앱을 열 때 안내 (재동의 아님). '약관 보기'나 '닫기'를 누르면 다시 안 뜸.
 // 새로 동의하는 사람은 지금 약관을 보고 동의하니 본 것으로 둠. 다음 개정 땐 날짜·문구만 바꿈
-const LOC_TERMS = '2026-10-26';
+const LOC_TERMS = '2026-11-02';
 $('locOk').checked = !!store.get('locConsent', null);
 $('locOk').addEventListener('change', () => {
-  store.set('locConsent', $('locOk').checked ? { date: new Date().toISOString(), version: 1 } : null);
-  if ($('locOk').checked) store.set('locTermsSeen', LOC_TERMS);
+  if (!$('locOk').checked) { $('locOk').checked = true; return openLocOff(); }   // 확인 전까지는 동의 그대로. 판을 그냥 닫아도 아무것도 안 바뀜
+  store.set('locConsent', { date: new Date().toISOString(), version: 1 });
+  store.set('locTermsSeen', LOC_TERMS);
 });
+// 동의 철회 = 저장된 경로도 파기 (위치정보법 제24조 4항, 법률검토팀). 측정 중에는 탭·설정이 숨겨져 해제할 수 없음. 휴대폰 위치 권한만 끈 경우는 철회로 보지 않음
+function openLocOff() {
+  pickFor = null; $('pickQ').textContent = '위치 동의를 해제할까요?';
+  $('pickList').innerHTML = `<p class="delDesc">동의를 해제하면 위치를 더 쓰지 않고, 이 휴대폰에 저장된 경로도 모두 지워져요. 지우면 되살릴 수 없어요. 거리·속도·걸음 수 같은 기록은 그대로 남아요.</p>
+    <div class="delActs"><button data-locoff>해제하고 지우기</button><button data-keep>취소</button></div>`;
+  $('pickSheet').hidden = false; history.pushState({ pickSheet: 1 }, '');
+  $('pickList').querySelector('[data-keep]').focus();
+}
+function revokeLoc() {
+  const hist = store.get('history', []);
+  hist.forEach(h => { delete h.route; if (h.orig) delete h.orig.route; });   // 활동을 바꾼 기록은 원래 기록(orig)에도 경로가 있음. segs의 r0은 점 번호라 좌표가 아님
+  store.set('history', hist); store.set('locConsent', null); store.set('recSnap', null);
+  $('locOk').checked = false; route = routeSegs = null; $('routeBox')?.remove();
+  toast('위치 동의를 해제하고 저장된 경로를 지웠어요.');
+}
 // 약관·처리방침이 바뀌면 이미 동의한 사람에게 앱을 열 때 한 번 안내 (재동의 아님). '보기'나 '닫기'를 누르면 다시 안 뜸
 function changeNote(id, seenKey, date, text, href, view) {
   document.querySelector('main > .sub').insertAdjacentHTML('afterend', `<div class="noteBar" id="${id}" data-tab="home" role="status"><span title="${text}">${text}</span><button data-n="view" aria-label="${view}">보기 ›</button><button data-n="close" aria-label="알림 닫기">✕</button></div>`);   // 홈 맨 위 한 줄 띠 (디자인 팀 B안 10/30), 알릴 의무가 있어 없애지 않음
@@ -179,7 +195,7 @@ function changeNote(id, seenKey, date, text, href, view) {
   });
 }
 if (store.get('locConsent', null) && store.get('locTermsSeen', null) !== LOC_TERMS)
-  changeNote('locNote', 'locTermsSeen', LOC_TERMS, '위치기반서비스 이용약관이 바뀌었어요 (2026년 10월 26일 시행). 위치를 받는 방법, 기록 보관, 다른 사람에게 주지 않는다는 설명을 보탰어요. 동의하신 내용은 그대로라 다시 동의할 필요는 없어요.', 'location-terms.html', '약관 보기');
+  changeNote('locNote', 'locTermsSeen', LOC_TERMS, '위치 동의를 해제하면 저장된 경로도 함께 지우도록 바꿨어요. 약관 6번을 보세요.', 'location-terms.html', '약관 보기');
 // 처리방침 10번 "바꾸면 앱에 미리 알립니다". 바꿀 때마다 새 값. 익명 결과 전송 동의자에게는 수집 항목이 바뀐 안내를, 나머지 동의자에게는 지난 안내(사진 첨부)를
 const PRIV_DATE = '2026-11-02-activity';
 const privSeen = store.get('privSeen', null), cons = store.get('consent', null);
@@ -279,7 +295,7 @@ function openShare() {
   pickFor = null; $('pickQ').textContent = '어떤 카드를 공유할까요?';
   $('pickList').innerHTML = [['week', '이 주 카드', '고른 날짜가 있는 주'], ['month', '이 달 카드', '달력에 보이는 달'], ['best', '최고 기록 카드', '지금까지 내 기록']]
     .map(([v, n, d]) => `<button data-share="${v}">${svgIc(v === 'best' ? IC.star : IC.cal)}<span>${n}<small>${d}</small></span></button>`).join('')
-    + '<p class="sub" style="margin:12px 20px 8px">카드에는 걸음·건강 숫자가 담겨요. 공유하면 받는 사람이나 게시물을 보는 사람이 볼 수 있고, 올린 뒤에는 회수하기 어려워요.</p>';
+    + '<p class="sub" style="margin:12px 20px 8px">카드에는 걸음·건강 숫자가 담겨요. 공유하면 받는 사람이나 게시물을 보는 사람이 볼 수 있고, 올린 뒤에는 회수하기 어려워요. 공유하지 않으면 아무에게도 보이지 않아요.</p>';
   $('pickSheet').hidden = false; history.pushState({ pickSheet: 1 }, '');
   $('pickList').querySelector('button')?.focus();
 }
@@ -328,6 +344,7 @@ for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) $('histBody').a
 $('histBody').addEventListener('contextmenu', e => { if (e.target.closest('[data-i]')) e.preventDefault(); });
 $('pickList').addEventListener('click', e => {
   const cm = e.target.closest('[data-cm]'); if (cm) { cardMakeAct(cm.dataset.cm); return; }
+  if (e.target.closest('[data-locoff]')) { closePick(); revokeLoc(); $('locOk').focus({ preventScroll: true }); return; }
   const dl = e.target.closest('[data-del]'); if (dl) { deleteRec(dl.dataset.del); return; }
   if (e.target.closest('[data-keep]')) { closePick(); return; }
   const s = e.target.closest('[data-share]'); if (s) { closePick(); shareSummary(s.dataset.share); return; }
@@ -980,7 +997,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v228';
+const APP_VERSION = 'v229';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -1536,7 +1553,7 @@ function openCardMake(h) {
     <p class="sub">사진은 카드를 만들 때 이 휴대폰에서만 쓰고 앱에 저장하지 않아요. 운영자에게 보내지 않아요. 내가 공유를 고르면 고른 곳으로만 가요.</p>
     <p class="sub">다른 사람이 보이면 먼저 물어보세요. 남이 찍은 사진이나 방송·연예인 사진은 쓰지 마세요.</p>
     <p class="sub">카드 이미지에는 사진의 촬영 위치 정보를 넣지 않아요. 다만 사진 속 간판·건물로 장소를 알 수 있어요.</p>
-    <p class="sub">카드에는 걸음·건강 숫자가 담겨요. 공유하면 받는 사람이나 게시물을 보는 사람이 볼 수 있고, 올린 뒤에는 회수하기 어려워요.<span id="cmHide" hidden> 숨기고 싶은 숫자는 끌 수 있어요.</span></p>
+    <p class="sub">카드에는 걸음·건강 숫자가 담겨요. 공유하면 받는 사람이나 게시물을 보는 사람이 볼 수 있고, 올린 뒤에는 회수하기 어려워요.<span id="cmHide" hidden> 숨기고 싶은 숫자는 끌 수 있어요.</span><span id="cmNoHide"> 공유하지 않으면 아무에게도 보이지 않아요.</span></p>
     <button class="cmBtn cmGo" id="cmGo" data-cm="share" disabled>공유하기</button></div>`;
   $('pickSheet').hidden = false; history.pushState({ pickSheet: 1 }, '');
   $('cmAdd').focus();
@@ -1545,7 +1562,7 @@ function openCardMake(h) {
 async function cardMakeDraw() {
   const m = cardMake, seq = ++m.seq;
   $('cmGo').disabled = true; m.canvas = null;
-  $('cmAdd').hidden = !!m.img; $('cmHas').hidden = $('cmSw').hidden = $('cmHide').hidden = !m.img;   // 사진 없으면 지금 카드 그대로라 끌 숫자도 없음
+  $('cmNoHide').hidden = $('cmAdd').hidden = !!m.img; $('cmHas').hidden = $('cmSw').hidden = $('cmHide').hidden = !m.img;   // 사진 없으면 지금 카드 그대로라 끌 숫자도 없음
   const pv = document.querySelector('[data-cmsw=perry]'); if (pv) { pv.disabled = !m.on.cad; pv.checked = m.on.cad && m.on.perry; }   // 케이던스를 끄면 평균·차이도 꺼짐
   const c = await (m.img ? drawPhotoCard(m.h, m.img, m.on) : makeCard(m.h));
   if (cardMake !== m || seq !== m.seq) return;                             // 그리는 사이 스위치를 또 눌렀거나 판을 닫음
@@ -1581,7 +1598,7 @@ $('invite').addEventListener('click', async () => {
   try { await navigator.clipboard.writeText(text); toast('설치 안내 링크를 복사했어요. 카톡에 붙여 넣어 보내세요.'); }
   catch { prompt('이 링크를 복사해 보내세요', url); }
 });
-const shareBtn = date => `<button class="ghost sharebtn" data-date="${date}" style="margin:4px 0 10px">결과 카드 공유하기</button><div class="sub" style="font-size:.75rem;margin:-4px 0 10px">카드에는 걸음·건강 숫자가 담겨요. 공유하면 받는 사람이나 게시물을 보는 사람이 볼 수 있고, 올린 뒤에는 회수하기 어려워요.</div>`;   // 민감정보가 남에게 보일 수 있음을 공유 전에 알림 (개인정보 보호법 제23조 3항 취지)
+const shareBtn = date => `<button class="ghost sharebtn" data-date="${date}" style="margin:4px 0 10px">결과 카드 공유하기</button><div class="sub" style="font-size:.75rem;margin:-4px 0 10px">카드에는 걸음·건강 숫자가 담겨요. 공유하면 받는 사람이나 게시물을 보는 사람이 볼 수 있고, 올린 뒤에는 회수하기 어려워요. 공유하지 않으면 아무에게도 보이지 않아요.</div>`;   // 민감정보가 남에게 보일 수 있음을 공유 전에 알림 (개인정보 보호법 제23조 3항 취지)
 
 // ── 지도에서 경로 보기 (카카오맵, 위치정보법 검토: 노션 법률 검토 7번) ──
 // 누를 때만 지도를 불러옴. 경로 좌표는 이 휴대폰의 기록에만 저장(최근 30개)하고 운영자에게 보내지 않음 (send()에 넣지 않음)
