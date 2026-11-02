@@ -128,13 +128,14 @@ function segCard(r) {
     <div class="seglegend"><span><i class="segsw walk" aria-hidden="true"></i>걷기</span><span><i class="segsw run" aria-hidden="true"></i>뛰기</span></div>
     <div class="msub">전체 ${clock(r.diag?.durS ?? sumS)}${r.distance ? ` · ${(r.distance / 1000).toFixed(2)}km` : ''} · 케이던스 평균 ${sumS ? (steps / sumS * 60).toFixed(0) : '-'}</div>
     <ol class="seglist">${r.segs.map(row).join('')}</ol>
-    <div class="msub">30초씩 나눠 구분해서 경계는 조금 다를 수 있어요. 아래 카드는 많은 쪽(${name(r.activity === 'run' ? 'run' : 'walk')})의 가장 긴 구간 값이에요.</div></div>`;
+    <div class="msub">30초씩 나눠 구분해서 경계는 조금 다를 수 있어요. 아래 카드는 많은 쪽(${name(r.activity === 'run' ? 'run' : 'walk')})의 가장 긴 구간 값이에요.${r.distance ? ' 구간 거리의 합은 전체 거리와 조금 다를 수 있어요.' : ''}</div>
+    <details class="seghow"><summary>어떻게 골랐나요?</summary><p class="sub">30초씩 나눠 달리기 방식으로 센 케이던스가 ${RUN_CAD}걸음/분 이상이고 흔들림도 크면 뛰기, 아니면 걷기로 봐요. 이웃한 같은 활동은 합치고, 30초만 달라진 칸은 앞뒤에 합쳐서 구간은 1분 이상이에요. 이 앱이 정한 기준이고 연구로 확인하지 않았어요.</p></details></div>`;
 }
 const canRelab = r => RELAB.includes(r.activity ?? 'walk') && !r.autoRec;
 const relabBtn = (r, cls = 'relab') => canRelab(r) ? `<button class="textlike ${cls}" data-relab="${r.date}">활동 바꾸기 ›</button>` : '';
 const resTitle = (r, title) => `<div class="restitle"><h2>${title}</h2>${relabBtn(r)}</div>`;
 const metroNote = r => r.metro && r.cadence ? `<div class="sub" style="margin:0 0 8px">박자 소리 ${r.metro}걸음/분을 켜고 쟀어요 · 잰 케이던스 ${Math.round(r.cadence)} (차이 ${Math.round(r.cadence) - r.metro > 0 ? '+' : ''}${Math.round(r.cadence) - r.metro})</div>` : '';   // 박자에 맞춰 걸었다면 측정이 얼마나 맞는지 볼 수 있음
-const elevNote = r => !r.elev ? '' : `<div class="sub" style="margin:0 0 8px">높이는 시험 중이에요 ${badge('y')} ${r.elev.upM < ELEV_MIN_M && r.elev.downM < ELEV_MIN_M ? '변화 거의 없음' : `오른 높이 ↑${r.elev.upM.toFixed(0)}m · 내려간 높이 ↓${r.elev.downM.toFixed(0)}m`} · 기준값 없음</div>`;
+const elevNote = r => !r.elev ? '' : `<div class="sub" style="margin:0 0 8px">높이는 시험 중이에요 ${badge('n')} ${r.elev.upM < ELEV_MIN_M && r.elev.downM < ELEV_MIN_M ? '변화 거의 없음' : `오른 높이 ↑${r.elev.upM.toFixed(0)}m · 내려간 높이 ↓${r.elev.downM.toFixed(0)}m`} · 기준값 없음 · 오래 걸으면 날씨로 기압이 바뀌어 값이 조금 달라질 수 있어요</div>`;
 const warnHtml = r => r.warnings.map(w => `<div class="warn">${w === 'paused' && r.diag?.gapS >= 1 ? `<b>중간에 ${Math.round(r.diag.gapS)}초 끊겼어요.</b> ` : ''}${WARN[w]}${w === 'paused' && !Native ? ' <a href="install.html">설치형 앱 받기</a>' : ''}${w === 'walkLike' || w === 'running' ? ' ' + relabBtn(r, 'relabLink') : ''}</div>`).join('');
 
 // ── 내 정보 ──
@@ -179,13 +180,14 @@ function changeNote(id, seenKey, date, text, href, view) {
 if (store.get('locConsent', null) && store.get('locTermsSeen', null) !== LOC_TERMS)
   changeNote('locNote', 'locTermsSeen', LOC_TERMS, '위치기반서비스 이용약관이 바뀌었어요 (2026년 10월 26일 시행). 위치를 받는 방법, 기록 보관, 다른 사람에게 주지 않는다는 설명을 보탰어요. 동의하신 내용은 그대로라 다시 동의할 필요는 없어요.', 'location-terms.html', '약관 보기');
 // 처리방침 10번 "바꾸면 앱에 미리 알립니다". 바꿀 때마다 새 값. 익명 결과 전송 동의자에게는 수집 항목이 바뀐 안내를, 나머지 동의자에게는 지난 안내(사진 첨부)를
-const PRIV_DATE = '2026-10-31-metro';
+const PRIV_DATE = '2026-11-02-activity';
 const privSeen = store.get('privSeen', null), cons = store.get('consent', null);
-{ const metro = cons?.share ? '익명 결과에 측정하는 동안 켜 둔 박자 소리 빠르기(걸음/분)도 함께 보내요. 원하지 않으면 화면 아래 ‘동의 변경’에서 끌 수 있어요 (2026년 10월 31일 시행). ' : '';   // 익명 전송 동의자만 (법률 검토 33번)
-  const older = !cons || privSeen === '2026-10-30-auto' ? '' : '걷기 자동 측정(선택 기능)과, 켠 사람만 따로 동의하는 자동 측정 결과 전송 내용을 처리방침에 보탰어요. 켜지 않으면 달라지는 게 없어요 (2026년 10월 30일 시행). '
+{ const actKind = cons?.share ? '익명 결과 항목에 활동 종류(걷기·달리기·계단·오르막과 내리막 등)를 적었어요. 그동안 함께 보내던 값인데 안내에 빠져 있었어요. 원하지 않으면 화면 아래 ‘동의 변경’에서 끌 수 있어요 (2026년 11월 2일 시행). ' : '';   // 익명 전송 동의자만 (법률 검토 34번)
+  const metro = cons?.share && privSeen !== '2026-10-31-metro' ? '익명 결과에 측정하는 동안 켜 둔 박자 소리 빠르기(걸음/분)도 함께 보내요. 원하지 않으면 화면 아래 ‘동의 변경’에서 끌 수 있어요 (2026년 10월 31일 시행). ' : '';   // 익명 전송 동의자만 (법률 검토 33번)
+  const older = !cons || privSeen === '2026-10-30-auto' || privSeen === '2026-10-31-metro' ? '' : '걷기 자동 측정(선택 기능)과, 켠 사람만 따로 동의하는 자동 측정 결과 전송 내용을 처리방침에 보탰어요. 켜지 않으면 달라지는 게 없어요 (2026년 10월 30일 시행). '
     + (privSeen === '2026-10-28-delete' ? '' : (cons.share && privSeen !== '2026-10-26-quality' ? '익명 결과 수집 안내가 바뀌었어요: 측정 품질 정보와 결과가 안 나온 측정의 이유도 함께 보내요(걸음 숫자·위치는 없어요). 원하지 않으면 화면 아래 ‘동의 변경’에서 끌 수 있어요. ' : '')
     + '기록 지우기와 익명 결과 삭제 요청 방법도 추가됐어요 (2026년 10월 28일 시행).');   // 지난 안내를 아직 못 봤으면 함께
-  if (cons && privSeen !== PRIV_DATE && (metro || older)) changeNote('privNote', 'privSeen', PRIV_DATE, metro + older, 'privacy.html', '처리방침 보기'); }
+  if (cons && privSeen !== PRIV_DATE && (actKind || metro || older)) changeNote('privNote', 'privSeen', PRIV_DATE, actKind + metro + older, 'privacy.html', '처리방침 보기'); }
 const usesGps = a => a === 'cooper' || (a !== 'slowrun' && a !== 'stairs' && a !== 'slope' && $('dmode').value === 'gps');   // 계단은 실내라 GPS 안 씀
 function showLoc() {
   const need = usesGps($('act').value);
@@ -336,7 +338,7 @@ $('pickSheet').addEventListener('keydown', e => { if (e.key === 'Escape') closeP
 $('pickSheet').addEventListener('pointerdown', e => { pickDragY = e.clientY; });          // 아래로 끌면 닫기
 $('pickSheet').addEventListener('pointerup', e => { if (pickDragY != null && e.clientY - pickDragY > 60) closePick(); pickDragY = null; });
 const Native = window.Capacitor?.isNativePlatform?.() ? window.Capacitor.Plugins.GaitRecorder : null;   // showAct보다 먼저 (저장된 활동이 오르막·내리막이면 처음 그릴 때 씀)
-$('walkNote').textContent = HEIGHT_TRIAL ? "걷기·자동에서 높이는 시험 중이에요(설치형 앱, 참고). 층수를 보려면 '무엇을 할까요'에서 계단 오르기를 고르고, 계단만 따로 재요." : "걷기로 재면 올라간 높이는 세지 않아요. 층수를 보려면 '무엇을 할까요'에서 계단 오르기를 고르고, 계단만 따로 재요.";
+$('walkNote').textContent = HEIGHT_TRIAL ? "걷기·자동에서 높이는 시험 중이에요(설치형 앱, 검증 안 됨). 층수를 보려면 '무엇을 할까요'에서 계단 오르기를 고르고, 계단만 따로 재요." : "걷기로 재면 올라간 높이는 세지 않아요. 층수를 보려면 '무엇을 할까요'에서 계단 오르기를 고르고, 계단만 따로 재요.";
 function showAct() { showLoc(); const a = $('act').value;
   syncPicks(); $('walkNote').classList.toggle('hidden', a !== 'walk' && a !== 'auto'); $('autoNote').classList.toggle('hidden', a !== 'auto');   // walkNote: 건의 K-CFED1B60, 걷기·자동은 기압계를 켜지 않음
   $('easyNote').classList.toggle('hidden', a !== 'easyrun'); $('slowNote').classList.toggle('hidden', a !== 'slowrun'); $('cooperNote').classList.toggle('hidden', a !== 'cooper'); $('warmBtn').classList.toggle('hidden', !RUN_ACTS.includes(a)); $('stairsNote').classList.toggle('hidden', a !== 'stairs'); $('slopeNote').classList.toggle('hidden', a !== 'slope'); $('slopeNoBaro').classList.toggle('hidden', a !== 'slope' || !!Native); $('dmodeBox').classList.toggle('hidden', a === 'slowrun' || a === 'cooper' || a === 'stairs' || a === 'slope'); }
@@ -818,13 +820,13 @@ function finishSlope(data, demo, position, press) {
 }
 function renderSlope(r) {
   const baro = r.upM != null, m = v => baro ? v.toFixed(0) : '-', name = { up: '오르막', down: '내리막', flat: '평지' };
-  const seg = x => `<li><span class="segname"><b>${name[x.type]}</b></span><span class="segval">${clock(x.durS)} · ${x.type === 'flat' ? '높이 변화 작음' : `↑${x.upM.toFixed(0)}m ↓${x.downM.toFixed(0)}m`}</span><span class="segval sub">케이던스 ${x.cadence != null ? x.cadence.toFixed(0) : '-'}</span></li>`;
+  const seg = x => `<li><span class="segname"><b>${name[x.type]}</b></span><span class="segval">${clock(x.durS)} · ${x.type === 'flat' ? '높이 변화 거의 없음' : x.type === 'up' ? `↑${x.upM.toFixed(0)}m` : `↓${x.downM.toFixed(0)}m`}</span><span class="segval sub">케이던스 ${x.cadence != null ? x.cadence.toFixed(0) : '-'}</span></li>`;
   let html = resTitle(r, `오르막·내리막 결과 ${badge('n')}`) + `<div class="sub">${[whenTxt(r.date), '오르막·내리막', `측정 ${mmss(r.durS)}`].join(' · ')}</div>
     <div class="rgrid"><div class="mcard static"><div class="mtop"><span class="mlab">오른 높이 ↑</span></div><div class="rnum">${m(r.upM)}<small>${baro ? 'm' : ''}</small></div></div><div class="mcard static"><div class="mtop"><span class="mlab">내려간 높이 ↓</span></div><div class="rnum">${m(r.downM)}<small>${baro ? 'm' : ''}</small></div></div></div>
     <div class="sub" style="margin:6px 0 10px">${baro ? '기준값 없음 · 휴대폰 기압계로 잰 값이에요' : r.diag?.src === 'app' ? '이 휴대폰엔 기압계가 없어 높이는 못 재요 · 걸음·시간만 쟀어요' : '웹은 높이를 못 재요 · 걸음·시간만 쟀어요 · 설치형 앱은 기압계로 재요'}</div>
     <div class="mcard static slopestats">${statRow([{ icon: 'time', value: clock(r.durS), label: '전체 시간' }, { icon: 'steps', value: r.steps, label: '걸음' }])}</div>`;
   if (baro && r.hsegs?.length) html += `<div class="mcard static segcard" style="margin-top:10px"><div class="mtop"><span class="mlab">구간</span>${badge('n')}</div><ol class="seglist">${r.hsegs.map(seg).join('')}</ol>
-    <details class="howto"><summary>어떻게 나눴나요?</summary><p class="sub">30초씩 나눠 높이 변화가 +0.5m 이상이면 오르막, −0.5m 이하면 내리막, 그 사이는 평지로 봐요. 이웃한 같은 방향은 합치고, 30초만 달라진 칸은 앞뒤에 합쳐요. 이 앱이 정한 기준이고 연구로 확인하지 않았어요.</p></details></div>`;
+    <details class="seghow"><summary>어떻게 나눴나요?</summary><p class="sub">30초씩 나눠 높이 변화가 +0.5m 이상이면 오르막, −0.5m 이하면 내리막, 그 사이는 평지로 봐요. 이웃한 같은 방향은 합치고, 30초만 달라진 칸은 앞뒤에 합쳐요. 이 앱이 정한 기준이고 연구로 확인하지 않았어요.</p></details></div>`;
   let body = '';
   if (baro) body += metric({ title: '오른·내려간 높이', value: `↑${r.upM.toFixed(1)} ↓${r.downM.toFixed(1)}`, unit: 'm', grade: 'n',
     why: [`휴대폰 기압계로 잰 기압 변화를 높이로 바꿨어요(국제표준대기 공식). 2초 평균으로 흔들림을 줄이고, 걷는 중에 ${STAIR_STEP_M}m 넘게 바뀔 때만 더해요. 가만히 있을 때 바뀐 높이는 세지 않아요`, '기압은 날씨로도 조금씩 바뀌어서, 오래 잴수록 오차가 커질 수 있어요'], refs: [], limit: '같은 길에서 잰 기록끼리 비교해 보세요. 경사 걷기 기준값은 찾지 못했어요.' });
@@ -975,7 +977,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v221';
+const APP_VERSION = 'v222';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -1003,9 +1005,9 @@ const ro = w => { const c = (w.charCodeAt(w.length - 1) - 0xac00) % 28; return w
 function autoNote(r) {
   const a = r.auto ?? {};
   if (!a.act && !a.pos) return '';
-  return `<div class="metric"><div class="sub">${a.act ? `활동: <b>${ro(ACT[a.act])}</b> 자동 구분 <span class="badge b-y">참고</span><br>` : ''}${a.pos ? `휴대폰 위치: <b>${ro(POS[a.pos])}</b> 짐작 <span class="badge b-n">검증 안 됨</span><br>` : ''}다르면 맨 위 활동 바꾸기에서 고칠 수 있어요.</div>
+  return `<div class="metric"><div class="sub">${a.act ? `활동: <b>${r.segs ? '걷기와 뛰기로' : ro(ACT[a.act])}</b> 자동 구분 <span class="badge b-y">참고</span><br>` : ''}${a.pos ? `휴대폰 위치: <b>${ro(POS[a.pos])}</b> 짐작 <span class="badge b-n">검증 안 됨</span><br>` : ''}다르면 맨 위 활동 바꾸기에서 고칠 수 있어요.</div>
     <details><summary>어떻게 골랐나요?</summary><ul>
-    ${a.act ? `<li>달리기 방식으로 센 케이던스가 ${RUN_CAD}걸음/분 이상이고 흔들림도 크면 달리기, 아니면 걷기로 봐요. 이 선은 이 앱이 정한 것이고 연구로 확인하지 않았어요.</li><li>30초씩 나눠 보고 걷기와 달리기가 각각 1분 넘게 섞여 있으면, 많은 쪽 활동으로 저장하고 구간으로 나눠 보여 줘요.</li>` : ''}
+    ${a.act ? `<li>달리기 방식으로 센 케이던스가 ${RUN_CAD}걸음/분 이상이고 흔들림도 크면 달리기, 아니면 걷기로 봐요. 이 선은 이 앱이 정한 것이고 연구로 확인하지 않았어요.</li>` : ''}
     ${a.pos ? '<li>화면이 하늘을 보고 있으면 손, 같은 다리가 돌아올 때만 신호가 크게 반복되면 바지 앞주머니(허벅지), 걸음마다 비슷하면 허리로 짐작해요(Perry 7장: 몸통 움직임은 걸음마다 반복). 정확도를 확인한 연구가 없어요.</li>' : ''}</ul></details></div>`;
 }
 const READ_GUIDE = `<details class="howto"><summary>이 숫자 읽는 법</summary><ul>
@@ -3482,7 +3484,7 @@ function openAutoSheet() {
       <li>켜져 있는 동안 휴대폰 위쪽에 알림이 떠 있어요. 알림의 [끄기]나 설정에서 언제든 끌 수 있어요.</li>
       <li>자동으로 잰 기록은 이 휴대폰에 저장되고, 기록 목록에 '자동' 표시가 붙어요.</li></ul>
     <label class="chk" style="justify-content:flex-start"><input type="checkbox" id="aoS1"><span><b>[선택]</b> 자동으로 잰 결과도 익명으로 보내는 것에 동의해요</span></label>
-    <div class="pcard sub">· 항목: 수동 측정과 같은 항목(케이던스, 걸음 수, 걷는 시간, 걸음 신호 규칙성, 휴대폰을 둔 곳, 경고 종류, 측정 품질 정보, 나이대(10살 단위), 성별, 운영체제, 측정 날짜)에 '자동 측정' 표시를 더해요. 측정 시각·위치·이름은 받지 않아요.<br>· 목적: 자동 측정 기능 시험, 측정 정확도 개선, 익명 걸음 통계·연구. 연구 결과는 여러 사람을 모은 숫자로만 쓰고, 한 사람의 기록을 알아볼 수 있게 공개하지 않아요.<br>· 보관: 받은 날부터 3년 뒤 파기<br>· 동의하지 않아도 자동 측정은 똑같이 쓸 수 있어요. 결과가 이 휴대폰에만 남아요.</div>
+    <div class="pcard sub">· 항목: 수동 측정과 같은 항목(케이던스, 걸음 수, 걷는 시간, 걸음 신호 규칙성, 휴대폰을 둔 곳, 경고 종류, 활동 종류, 측정 품질 정보, 나이대(10살 단위), 성별, 운영체제, 측정 날짜)에 '자동 측정' 표시를 더해요. 측정 시각·위치·이름은 받지 않아요.<br>· 목적: 자동 측정 기능 시험, 측정 정확도 개선, 익명 걸음 통계·연구. 연구 결과는 여러 사람을 모은 숫자로만 쓰고, 한 사람의 기록을 알아볼 수 있게 공개하지 않아요.<br>· 보관: 받은 날부터 3년 뒤 파기<br>· 동의하지 않아도 자동 측정은 똑같이 쓸 수 있어요. 결과가 이 휴대폰에만 남아요.</div>
     <label class="chk" style="justify-content:flex-start"><input type="checkbox" id="aoS2"><span><b>[선택]</b> 위 자동 측정 결과의 건강정보(민감정보) 수집·이용에 별도로 동의해요</span></label>
     <div class="pcard sub">· 걸음 측정값은 개인정보 보호법 제23조의 '건강'에 관한 정보(민감정보)에 해당할 수 있어요.<br>· 항목·목적·보관 기간은 위와 같아요. 거부해도 불이익이 없어요.</div>
     <p class="sub" style="font-size:.75rem;margin:8px 0 0">두 칸에 모두 동의해야 자동 측정 결과를 보내요. 동의하신 날부터 잰 결과만 보내고, 그 전 기록은 보내지 않아요. 만 14세 미만은 보내지 않아요.</p>

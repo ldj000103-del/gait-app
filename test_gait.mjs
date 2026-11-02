@@ -229,6 +229,15 @@ console.log('모든 점검 통과');
   const runMajor = walkRunSegs(mk([[165, 240], [110, 60]]), 'pocket');
   assert.equal(runMajor.major, 'run'); assert.equal(runMajor.segs[runMajor.main].type, 'run');
   { const d = Array.from({ length: 3000 }, (_, i) => ({ t: i * 20 })), c = chunks(d, 30); assert.deepEqual(c.map(x => [x.k, x.s.length]), [[0, 1500], [1, 1500]], '30초 조각'); }
+  { // 뛰기 1분 끼어듦: 안쪽 경계는 빼지 않아 1분 구간도 속도·거리가 나옴. 조건을 낮추지는 않음 (50초 뛰기 쪽은 GPS가 끊기면 '-')
+    const d = mk([[110, 120], [165, 60], [110, 120]]), gps = []; let n = 0; for (let t = 0; t <= 300; t++) { n += t < 120 || t >= 180 ? 1.3 : 3; gps.push({ t: t * 1000, lat: 37.5 + n / 111320, lon: 127, acc: 5 }); }
+    const m = walkRunSegs(d, 'pocket', gps);
+    console.log('구간 GPS:', m.segs.map(s => `${s.type} ${s.speed?.toFixed(2)}m/s ${s.distance?.toFixed(0)}m`).join(' / '));
+    assert.ok(Math.abs(m.segs[1].speed - 3) < 0.3, `뛰기 속도 ${m.segs[1].speed}`); assert.ok(Math.abs(m.segs[1].distance - 180) < 30, `뛰기 거리 ${m.segs[1].distance}`);
+    assert.ok(Math.abs(m.segs[0].speed - 1.3) < 0.2, `걷기 속도 ${m.segs[0].speed}`);
+    const holes = gps.filter(p => p.t < 125000 || p.t > 150000);             // 뛰기 구간 GPS가 절반 끊김 → 지어내지 않음
+    assert.equal(walkRunSegs(d, 'pocket', holes).segs[1].speed, null, 'GPS가 끊기면 속도 없음');
+  }
   console.log('걷기·뛰기 구간 점검 통과');
 }
 

@@ -235,8 +235,9 @@ export function walkRunSegs(data, position, gps = []) {
     const from = t0 + r.from * 30000, to = i === runs.length - 1 ? tEnd + 1 : t0 + (r.from + r.n) * 30000;
     const res = analyzeWalk(data.filter(p => p.t >= from && p.t < to), { position, activity: r.type });
     if (res.error) return { major, segs: null };                           // 한 구간이라도 못 세면 구간 화면을 보여 주지 않음
-    const d = gpsSpeed(res, gps);
-    segs.push({ type: r.type, fromMs: from - t0, durS: (Math.min(to, tEnd) - from) / 1000, cadence: res.cadence, steps: res.steps, activeS: res.activeS, regularity: res.regularity, sd: res.sd, speed: d.speed ?? null, distance: d.distance ?? null, stepLength: d.stepLength ?? null, steadyFrom: res.steadyFrom, steadyTo: res.steadyTo, from, to });
+    const first = i === 0, last = i === runs.length - 1, sFrom = first ? res.steadyFrom : from, sTo = last ? res.steadyTo : to;   // 시작·끝 4초(앞뒤 2초씩)는 측정 맨 처음과 맨 끝에만 뺌. 구간 안쪽 경계는 멈추는 곳이 아니라서 그대로 씀
+    const d = gpsSpeed({ ...res, steadyFrom: sFrom, steadyTo: sTo }, gps, (sTo - sFrom) / 1000);
+    segs.push({ type: r.type, fromMs: from - t0, durS: (Math.min(to, tEnd) - from) / 1000, cadence: res.cadence, steps: res.steps, activeS: res.activeS, regularity: res.regularity, sd: res.sd, speed: d.speed ?? null, distance: d.distance ?? null, stepLength: d.stepLength ?? null, steadyFrom: sFrom, steadyTo: sTo, from, to });
   }
   const main = segs.reduce((m, s, i) => s.type === major && (m < 0 || s.durS > segs[m].durS) ? i : m, -1);
   return { major, segs, main };
@@ -296,12 +297,13 @@ export function gpsDistance(points) {
   const r = blockPath(pts);
   return r.blocks < 2 ? null : r;
 }
-export function gpsSpeed(result, points) {
+export function gpsSpeed(result, points, windowS = null) {
   if (result.error) return { gpsError: 'noWalk' };
   const pts = points.filter(p => p.acc <= GPS_MAX_ACC && p.t >= result.steadyFrom && p.t <= result.steadyTo);
   if (pts.length < 2) return { gpsError: 'noFix' };
-  const { dist, durS, medAcc } = blockPath(pts);
-  if (durS < GPS_MIN_S || dist < GPS_MIN_M) return { gpsError: 'tooShort', gpsDurS: durS, gpsDist: dist, medAcc };
+  const { dist, durS, medAcc, blocks } = blockPath(pts);
+  const span = (pts[pts.length - 1].t - pts[0].t) / 1000, longEnough = windowS == null ? durS >= GPS_MIN_S : windowS >= GPS_MIN_S && span >= windowS * 0.9 && blocks >= windowS / 10 * 0.9;   // windowS: 걷기·뛰기 구간 길이. 조건은 그대로 1분: 10초 묶음 가운데끼리 재면 실제 1분이 약 50초로 나와서, 구간은 실제 길이로 보고 중간에 GPS가 끊겼는지 묶음 수로 확인
+  if (!longEnough || !durS || dist < GPS_MIN_M) return { gpsError: 'tooShort', gpsDurS: durS, gpsDist: dist, medAcc };
   const speed = dist / durS;
   // 거리는 걸은 구간 전체로 환산 (출발·멈춤 포함 시간 × 꾸준한 속도라 약간 길게 나올 수 있음)
   return { speed, stepLength: speed * 60 / result.cadence, distance: speed * result.activeS, gpsDurS: durS, medAcc };
