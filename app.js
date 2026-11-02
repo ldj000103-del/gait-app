@@ -645,7 +645,7 @@ function finish(data, demo = false, gps = [], press = []) {
   // 걷다가 뛴 구간 (건의 K-A374CBFC·K-2A2B1E90, 디자인 팀 시안 A). 자동에서 섞이면 예전엔 슬로우 러닝이었는데, 이제 많은 쪽 활동 + 구간 표 (슬로우 러닝은 직접 고를 때만)
   let wr = null;
   if (auto.act === 'slowrun') { wr = walkRunSegs(data, position, gps); act = auto.act = wr.major; }
-  else if (act === 'walk' || act === 'run') wr = walkRunSegs(data, position, gps);
+  else if (act === 'walk' || act === 'run') { wr = walkRunSegs(data, position, gps); if (wr.segs) act = wr.major; }   // 구간이 있으면 저장 활동 = 많은 쪽: 대표 값·기준선·추세가 같은 활동을 보게 (걷기로 골라도 뛰기가 길면 러닝, 검수팀)
   if (act === 'slowrun') return finishSlow(data, demo, position, auto);
   if (act === 'cooper') return finishCooper(data, gps, demo, position);
   if (act === 'stairs') return finishStairs(data, demo, position, press);
@@ -653,7 +653,7 @@ function finish(data, demo = false, gps = [], press = []) {
   const res = stepCalc(data, act, position);
   const mainSeg = wr?.segs && !res.error ? wr.segs[wr.main] : null;        // 대표 값 = 많은 쪽 활동의 가장 긴 구간 (Perry 기준과 비교하는 이어 걸은 값), 걸음·걸은 시간 = 구간 합
   if (mainSeg) Object.assign(res, { cadence: mainSeg.cadence, regularity: mainSeg.regularity, sd: mainSeg.sd, steadyFrom: mainSeg.steadyFrom, steadyTo: mainSeg.steadyTo, steps: wr.segs.reduce((n, x) => n + x.steps, 0), activeS: wr.segs.reduce((n, x) => n + x.activeS, 0),
-    warnings: res.warnings.filter(w => w !== 'walkLike' && w !== 'running') });   // 활동이 섞였다는 걸 이미 구간으로 보여 주므로 '걷기였을 수 있어요' 경고는 뺌
+    warnings: [...res.warnings.filter(w => !['walkLike', 'running', 'slow', 'irregular'].includes(w)), ...(mainSeg.regularity < 0.4 ? ['irregular'] : []), ...(mainSeg.cadence < 80 ? ['slow'] : [])] });   // 전체를 한 덩어리로 본 경고는 빼고 대표 구간 값으로 다시 (박자가 섞여 케이던스가 낮게 나옴, 검수팀)
   const mode = $('dmode').value;
   let maxGap = 0, gapSum = 0;                                              // 2초 넘게 센서 값이 없던 빈틈 = 끊김
   for (let i = 1; i < data.length; i++) { const g = data[i].t - data[i - 1].t; maxGap = Math.max(maxGap, g); if (g > 2000) gapSum += g; }
@@ -901,7 +901,7 @@ function send(r) {
     cadence: num(r.cadence, 1), steps: r.steps ?? '', activeS: num(r.activeS, 1), regularity: num(r.regularity, 2),
     speed: r.speed ? +r.speed.toFixed(2) : '', stepLength: r.stepLength ? +r.stepLength.toFixed(2) : '', distance: r.distance ? +r.distance.toFixed(1) : '',
     // ponytail: 시트 칸을 늘리려면 Apps Script 재배포가 필요해서 거리 출처(gps)는 warnings 칸에 붙여 보냄
-    position: r.position, practice: r.practice, warnings: [r.activity !== 'walk' && r.activity, r.autoRec && 'auto', ...r.warnings, r.distSource === 'gps' && 'gps', r.metro && `metro${r.metro}`, r.sd != null && `sd${r.sd.toFixed(1)}`,   // 흔들림 세기(m/s²): 걷기·달리기 구분 기준 RUN_SD를 실제 기록으로 보정하려고
+    position: r.position, practice: r.practice, warnings: [r.activity !== 'walk' && r.activity, r.autoRec && 'auto', r.segs && 'segs', ...r.warnings, r.distSource === 'gps' && 'gps', r.metro && `metro${r.metro}`, r.sd != null && `sd${r.sd.toFixed(1)}`,   // 흔들림 세기(m/s²): 걷기·달리기 구분 기준 RUN_SD를 실제 기록으로 보정하려고
       r.diag && `d:${r.diag.src}/${r.diag.durS.toFixed(0)}s/${r.diag.hz.toFixed(0)}hz/gap${r.diag.gapS.toFixed(1)}/gps${r.diag.gpsGood}`].filter(Boolean).join(' '),
     ageGroup: +age ? Math.floor(+age / 10) * 10 : '', sex: sex || '',
     os: osName(),
@@ -1005,7 +1005,7 @@ function autoNote(r) {
   if (!a.act && !a.pos) return '';
   return `<div class="metric"><div class="sub">${a.act ? `활동: <b>${ro(ACT[a.act])}</b> 자동 구분 <span class="badge b-y">참고</span><br>` : ''}${a.pos ? `휴대폰 위치: <b>${ro(POS[a.pos])}</b> 짐작 <span class="badge b-n">검증 안 됨</span><br>` : ''}다르면 맨 위 활동 바꾸기에서 고칠 수 있어요.</div>
     <details><summary>어떻게 골랐나요?</summary><ul>
-    ${a.act ? `<li>달리기 방식으로 센 케이던스가 ${RUN_CAD}걸음/분 이상이고 흔들림도 크면 달리기, 아니면 걷기로 봐요. 이 선은 이 앱이 정한 것이고 연구로 확인하지 않았어요.</li><li>30초씩 나눠 보고 걷기와 달리기가 각각 1분 넘게 섞여 있으면 슬로우 러닝으로 봐요.</li>` : ''}
+    ${a.act ? `<li>달리기 방식으로 센 케이던스가 ${RUN_CAD}걸음/분 이상이고 흔들림도 크면 달리기, 아니면 걷기로 봐요. 이 선은 이 앱이 정한 것이고 연구로 확인하지 않았어요.</li><li>30초씩 나눠 보고 걷기와 달리기가 각각 1분 넘게 섞여 있으면, 많은 쪽 활동으로 저장하고 구간으로 나눠 보여 줘요.</li>` : ''}
     ${a.pos ? '<li>화면이 하늘을 보고 있으면 손, 같은 다리가 돌아올 때만 신호가 크게 반복되면 바지 앞주머니(허벅지), 걸음마다 비슷하면 허리로 짐작해요(Perry 7장: 몸통 움직임은 걸음마다 반복). 정확도를 확인한 연구가 없어요.</li>' : ''}</ul></details></div>`;
 }
 const READ_GUIDE = `<details class="howto"><summary>이 숫자 읽는 법</summary><ul>

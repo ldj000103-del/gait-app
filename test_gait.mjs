@@ -1,7 +1,7 @@
 // 걸음 분석 자체 점검: node test_gait.mjs
 // 가짜 걷기 신호(앞뒤 3초 서 있기 포함)를 만들어 케이던스를 2% 안으로 맞히는지 확인
 import assert from 'node:assert/strict';
-import { analyzeWalk, fastMinutes, withDistance, gpsSpeed, gpsDistance, guessActivity, guessPosition, routeMarks, analyzeJog, mixActivity, stairClimb, mergeWalkRun, walkRunSegs, elevation, slopeSegs } from './gait.js';
+import { analyzeWalk, fastMinutes, withDistance, gpsSpeed, gpsDistance, guessActivity, guessPosition, routeMarks, analyzeJog, mixActivity, stairClimb, mergeWalkRun, walkRunSegs, elevation, slopeSegs, chunks } from './gait.js';
 
 function fakeWalk({ cadence, walkS = 20, position, hz = 60, seed = 1, amp = 1, odd = 0.4, sw = 2.0 }) {   // amp: 달리기는 흔들림이 큼
   let r = seed;
@@ -228,6 +228,7 @@ console.log('모든 점검 통과');
   assert.equal(walkRunSegs(mk([[110, 90], [165, 30], [110, 90]]), 'pocket').segs, null, '30초 한 조각만 뜀');
   const runMajor = walkRunSegs(mk([[165, 240], [110, 60]]), 'pocket');
   assert.equal(runMajor.major, 'run'); assert.equal(runMajor.segs[runMajor.main].type, 'run');
+  { const d = Array.from({ length: 3000 }, (_, i) => ({ t: i * 20 })), c = chunks(d, 30); assert.deepEqual(c.map(x => [x.k, x.s.length]), [[0, 1500], [1, 1500]], '30초 조각'); }
   console.log('걷기·뛰기 구간 점검 통과');
 }
 

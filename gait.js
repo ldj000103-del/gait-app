@@ -195,11 +195,12 @@ export function analyzeJog(samples, position) {
 }
 // sec초씩 자른 조각 [{k, s}] (20초 미만 조각은 버림)
 export function chunks(data, sec) {
-  const out = [], t0s = data[0].t;
-  for (let k = 0; ; k++) {
-    const a = t0s + k * sec * 1000, b = a + sec * 1000;
-    if (a > data[data.length - 1].t) break;
-    const s = data.filter(p => p.t >= a && p.t < b);
+  const out = [], t0s = data[0].t, tEnd = data[data.length - 1].t;
+  let i = 0;                                                               // data는 시각 순서: 조각마다 전체를 훑지 않고 이어서 자름 (3시간 측정, 검수팀)
+  for (let k = 0; t0s + k * sec * 1000 <= tEnd; k++) {
+    const b = t0s + (k + 1) * sec * 1000, from = i;
+    while (i < data.length && data[i].t < b) i++;
+    const s = data.slice(from, i);
     if (s.length >= 50 && s[s.length - 1].t - s[0].t >= 20000) out.push({ k, s });
   }
   return out;
