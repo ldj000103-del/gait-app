@@ -978,7 +978,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v225';
+const APP_VERSION = 'v226';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -1803,11 +1803,14 @@ const dayKey = d => new Date(d).toLocaleDateString('sv-SE');                 // 
 const monOf = d => { const m = new Date(d); m.setHours(0, 0, 0, 0); m.setDate(m.getDate() - ((m.getDay() + 6) % 7)); return m; };
 const avgOf = xs => xs.length ? xs.reduce((s, x) => s + x, 0) / xs.length : null;
 const inRange = (hist, a, b) => hist.filter(h => { const t = new Date(h.date); return !h.practice && !h.autoRec && t >= a && t < b; });
+// 구간 기록의 걷기 속도 = 가장 긴 걷기 구간 값. v222 기록의 h.speed는 걷기·뛰기가 섞인 평균일 수 있어 쓰지 않음 (법률검토·디자인 팀)
+const walkSpeedOf = h => !h.segs ? h.speed : h.segs.filter(s => s.type === 'walk').reduce((a, s) => !a || s.durS > a.durS ? s : a, null)?.speed;
 function statOf(list) {
-  const walk = list.filter(h => (h.activity ?? 'walk') === 'walk');
-  return { n: list.length, days: new Set(list.map(h => dayKey(h.date))).size, walkCad: avgOf(walk.map(h => h.cadence)), speed: avgOf(walk.filter(h => h.speed).map(h => h.speed)),
-    cadGrade: walk.some(h => cadGradeOf(h) === 'o') ? 'o' : 'g', speedGrade: walk.some(h => h.speed && speedGradeOf(h) === 'o') ? 'o' : 'y',   // 가장 낮은 등급 (디자인 팀)
-    runCad: avgOf(list.filter(isRun).map(h => h.cadence)),
+  const mixedRelab = h => h.orig?.segs;                                    // v222에서 활동을 바꿔 섞인 신호를 한 덩어리로 다시 센 기록은 평균에서 뺌
+  const walk = list.filter(h => (h.activity ?? 'walk') === 'walk' && !mixedRelab(h) && h.cadence != null), withSpeed = walk.filter(walkSpeedOf);
+  return { n: list.length, days: new Set(list.map(h => dayKey(h.date))).size, walkCad: avgOf(walk.map(h => h.cadence)), speed: avgOf(withSpeed.map(walkSpeedOf)), cadN: walk.length, speedN: withSpeed.length,
+    cadGrade: walk.some(h => cadGradeOf(h) === 'o') ? 'o' : 'g', speedGrade: withSpeed.some(h => speedGradeOf(h) === 'o') ? 'o' : 'y',   // 가장 낮은 등급 (디자인 팀)
+    runCad: avgOf(list.filter(h => isRun(h) && !mixedRelab(h)).map(h => h.cadence)),
     jog: list.filter(h => h.activity === 'slowrun').reduce((s, h) => s + h.activeS / 60, 0), video: list.filter(h => h.activity === 'video').length };
 }
 function weekSummary(hist, mon = monOf(new Date())) {
@@ -1846,18 +1849,18 @@ function renderWeek() {
   };
   const thisWeek = dayKey(mon) === dayKey(monOf(new Date()));
   // 페리 기준 비교 카드 (민원 v218, 디자인 팀 시안 B): 숫자·회색 띠·진한 점만, 판정 색 없음. 값이 없는 주는 숨김
-  const perryCard = (label, grade, a, b, unit, dp, ref, bar, note) => a == null ? '' : `<div class="mcard static wkp"><div class="mtop"><span class="mlab">${label}</span>${badge(grade)}</div>
-      <div class="rnum">${a.toFixed(dp)}<small>${unit} · 차이 ${signed(+a.toFixed(dp) - ref, dp)}</small></div>${rbarOnly(a, ...bar)}<div class="msub">${note}</div><div class="wkpd">전 주 대비 ${b == null ? '-' : signed(+a.toFixed(dp) - +b.toFixed(dp), dp)}</div></div>`;
+  const perryCard = (label, grade, a, b, n, unit, dp, ref, bar, note) => a == null ? '' : `<div class="mcard static wkp"><div class="mtop"><span class="mlab">${label}</span>${badge(grade)}</div>
+      <div class="rnum">${a.toFixed(dp)}<small>${unit} · 페리 ${ref.toFixed(dp)} · 차이 ${signed(+a.toFixed(dp) - ref, dp)}</small></div>${rbarOnly(a, ...bar)}<div class="msub">${note}</div><div class="wkpd">${n}번 측정 평균 · 전 주 대비 ${b == null ? '-' : signed(+a.toFixed(dp) - +b.toFixed(dp), dp)}</div></div>`;
   const { sex } = store.get('profile', {});
-  const perryCards = perryCard('걷기 케이던스 평균', cur.cadGrade, cur.walkCad, prev.walkCad, '걸음/분', 0, sex === 'm' ? 111 : sex === 'f' ? 117 : 113, [111, 117, 60, 160], '회색 띠 = 페리 평균 남 111~여 117 · 정상 범위 아님')
-    + perryCard('걷는 속도 평균', cur.speedGrade, cur.speed, prev.speed, 'm/s', 2, 1.37, [1.22, 1.52, 0.6, 2.0], '회색 띠 = 페리 연구별 평균 1.22~1.52 · 정상 범위 아님');   // Perry 20장 연구별 평균 73~91m/분 환산
+  const perryCards = perryCard('걷기 케이던스 평균', cur.cadGrade, cur.walkCad, prev.walkCad, cur.cadN, '걸음/분', 0, sex === 'm' ? 111 : sex === 'f' ? 117 : 113, [111, 117, 60, 160], '회색 띠 = 페리 평균 남 111~여 117(성인 평균 113) · 정상 범위 아님')
+    + perryCard('걷는 속도 평균', cur.speedGrade, cur.speed, prev.speed, cur.speedN, 'm/s', 2, 1.37, [1.22, 1.52, 0.6, 2.0], '회색 띠 = 페리 연구별 평균 1.22~1.52 · 정상 범위 아님');   // Perry 20장 연구별 평균 73~91m/분 환산
   $('week').innerHTML = `<div class="calhead"><button data-m="-1" aria-label="지난달">‹</button><span>${y}년 ${mo + 1}월</span><button data-m="1" aria-label="다음 달">›</button></div>
     <div class="cal">${['월', '화', '수', '목', '금', '토', '일'].map(w => `<div class="dow">${w}</div>`).join('')}${cells}</div>
     <div class="legend">${Object.entries(ACT_C).map(([a, c]) => `<span><b style="background:${c}"></b>${ACT[a]}</span>`).join('')}</div>
     <div class="calsec">${sel.getMonth() + 1}월 ${sel.getDate()}일 기록</div>${stepsByDay[calSel] != null ? `<div class="sub">이날 걸음 수 <b>${stepsByDay[calSel].toLocaleString()}</b>걸음 (헬스 커넥트)</div>` : ''}${sleepByDay[calSel] ? `<div class="sub">그날 아침까지 잔 시간 <b>${Math.floor(sleepByDay[calSel] / 60)}시간 ${sleepByDay[calSel] % 60}분</b> (워치·삼성헬스)</div>` : ''}${recs}
     <div class="calsec">${thisWeek ? '이번 주' : `${shortDate(mon)}~${shortDate(sun)} 주`} 통계</div>
-    ${perryCards && `<div class="wkpt">${thisWeek ? '이번 주' : `${shortDate(mon)}~${shortDate(sun)} 주`}, 페리 기준과 비교</div>${perryCards}
-    <details class="sub weekInfo"><summary><span aria-label="설명 보기">ⓘ</span> 페리 기준이 뭔가요?</summary>Perry 『Gait Analysis』(1992) 20장의 성인 평균값이에요. 여러 사람의 평균이라, 내 값이 달라도 그것만으로 좋다·나쁘다를 뜻하지 않아요. 주간 평균은 여러 길과 조건에서 잰 값을 모은 거라 책의 측정 조건과 달라요.</details>`}
+    ${perryCards && `<div class="wkpt">${thisWeek ? '이번 주' : `${shortDate(mon)}~${shortDate(sun)} 주`}, 페리 평균과 비교</div>${perryCards}
+    <details class="sub weekInfo"><summary><span aria-label="설명 보기">ⓘ</span> 페리 기준이 뭔가요?</summary>Perry 『Gait Analysis』(1992) 20장의 성인 평균값이에요. 케이던스는 미국 Rancho Los Amigos 병원 실험실에서 평소 빠르기로 걸은 20~85세 남 135명·여 158명 자료예요. 여러 사람의 평균이라, 내 값이 달라도 그것만으로 좋다·나쁘다를 뜻하지 않아요. 주간 평균은 여러 길과 조건에서 잰 값을 모은 거라 책의 측정 조건과 달라요.</details>`}
     <table class="wk"><tr class="sub"><td></td><td class="num">${thisWeek ? '이번 주' : '그 주'}</td><td class="num">전 주 대비</td></tr>
     ${row('측정 횟수', cur.n, prev.n, '회')}
     ${row('러닝 케이던스 평균', cur.runCad, prev.runCad, '걸음/분')}${row('슬로우 조깅', cur.jog, prev.jog, '분')}${row('영상 분석', cur.video, prev.video, '회')}</table>
