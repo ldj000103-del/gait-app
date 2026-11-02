@@ -199,13 +199,13 @@ if (store.get('locConsent', null) && store.get('locTermsSeen', null) !== LOC_TER
 // 처리방침 10번 "바꾸면 앱에 미리 알립니다". 바꿀 때마다 새 값. 익명 결과 전송 동의자에게는 수집 항목이 바뀐 안내를, 나머지 동의자에게는 지난 안내(사진 첨부)를
 const PRIV_DATE = '2026-11-02-photo';
 const privSeen = store.get('privSeen', null), cons = store.get('consent', null), seenPriv = d => privSeen >= d;   // 값 앞이 날짜라 글자 비교 = 날짜 비교, 못 본 안내만 골라 함께 보여 줌
-{ const photoLoc = '결과 카드에 넣는 사진과, 위치 동의를 해제할 때 경로를 지우는 내용을 처리방침에 보탰어요. 운영자가 새로 받는 정보는 없어요. ';
+{ const photoLoc = '결과 카드에 넣는 사진과, 위치 동의를 해제할 때 경로를 지우는 내용을 처리방침에 보탰어요. 이 내용으로 운영자가 새로 받는 정보는 없어요. ';
   const actKind = cons?.share && !seenPriv('2026-11-02-activity') ? '익명 결과 항목에 활동 종류(걷기·달리기·계단·오르막과 내리막 등)를 적었어요. 그동안 함께 보내던 값인데 안내에 빠져 있었어요. 원하지 않으면 화면 아래 ‘동의 변경’에서 끌 수 있어요 (2026년 11월 2일 시행). ' : '';   // 익명 전송 동의자만 (법률 검토 34번)
   const metro = cons?.share && !seenPriv('2026-10-31-metro') ? '익명 결과에 측정하는 동안 켜 둔 박자 소리 빠르기(걸음/분)도 함께 보내요. 원하지 않으면 화면 아래 ‘동의 변경’에서 끌 수 있어요 (2026년 10월 31일 시행). ' : '';   // 익명 전송 동의자만 (법률 검토 33번)
   const older = !cons || seenPriv('2026-10-30-auto') ? '' : '걷기 자동 측정(선택 기능)과, 켠 사람만 따로 동의하는 자동 측정 결과 전송 내용을 처리방침에 보탰어요. 켜지 않으면 달라지는 게 없어요 (2026년 10월 30일 시행). '
     + (seenPriv('2026-10-28-delete') ? '' : (cons.share && !seenPriv('2026-10-26-quality') ? '익명 결과 수집 안내가 바뀌었어요: 측정 품질 정보와 결과가 안 나온 측정의 이유도 함께 보내요(걸음 숫자·위치는 없어요). 원하지 않으면 화면 아래 ‘동의 변경’에서 끌 수 있어요. ' : '')
     + '기록 지우기와 익명 결과 삭제 요청 방법도 추가됐어요 (2026년 10월 28일 시행).');   // 지난 안내를 아직 못 봤으면 함께
-  if (cons && privSeen !== PRIV_DATE) changeNote('privNote', 'privSeen', PRIV_DATE, photoLoc + actKind + metro + older, 'privacy.html', '처리방침 보기'); }
+  if (cons && privSeen !== PRIV_DATE) changeNote('privNote', 'privSeen', PRIV_DATE, actKind + metro + photoLoc + older, 'privacy.html', '처리방침 보기'); }
 const usesGps = a => a === 'cooper' || (a !== 'slowrun' && a !== 'stairs' && a !== 'slope' && $('dmode').value === 'gps');   // 계단은 실내라 GPS 안 씀
 function showLoc() {
   const need = usesGps($('act').value);

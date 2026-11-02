@@ -334,6 +334,7 @@
   /* 지표 사전 설명 카드: 아래에서 올라오는 판, 옆으로 넘기기(scroll-snap) */
   #srcOv { position:fixed; inset:0; z-index:50; background:rgba(0,0,0,.45); display:flex; align-items:flex-end; } #srcOv .sub { word-break:break-all; }   /* 출처 보기: 그 자리에서 아래 판 (운동 창 위에도) */
   .noteBar { display:flex; align-items:center; gap:4px; margin:0 0 10px; padding:6px 6px 6px 12px; background:var(--card); border:1px solid var(--line); border-radius:var(--r-md); font-size:.8125rem; }
+  #privNote span { white-space:normal; }   /* 법적 안내라 전문이 보여야 함 (법률검토팀) */
   .noteBar span { flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; } .noteBar button { flex:none; width:auto; margin:0; padding:8px; min-height:36px; background:none; color:var(--accent); font-size:.8125rem; } .noteBar [data-n=close] { color:var(--sub); }   /* 약관·처리방침 변경 알림: 홈 맨 위 한 줄 띠 */
   #permOv, #dictOv, #fbOv, #lessonOv, #exOv, #autoOv { position:fixed; inset:0; z-index:40; background:rgba(0,0,0,.45); display:flex; align-items:flex-end; }
   .dsheet { background:var(--card); color:var(--ink); width:100%; max-width:640px; margin:0 auto; border-radius:var(--radius) var(--radius) 0 0; padding:18px 0 calc(16px + env(safe-area-inset-bottom)); }
