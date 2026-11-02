@@ -234,7 +234,7 @@ console.log('모든 점검 통과');
     const m = walkRunSegs(d, 'pocket', gps);
     console.log('구간 GPS:', m.segs.map(s => `${s.type} ${s.speed?.toFixed(2)}m/s ${s.distance?.toFixed(0)}m`).join(' / '));
     assert.ok(Math.abs(m.segs[1].speed - 3) < 0.3, `뛰기 속도 ${m.segs[1].speed}`); assert.ok(Math.abs(m.segs[1].distance - 180) < 30, `뛰기 거리 ${m.segs[1].distance}`);
-    assert.ok(Math.abs(m.segs[0].speed - 1.3) < 0.2, `걷기 속도 ${m.segs[0].speed}`);
+    assert.ok(Math.abs(m.segs[0].speed - 1.3) < 0.2, `걷기 속도 ${m.segs[0].speed}`); assert.equal(m.segs[0].gps.speed, m.segs[0].speed, '대표 카드도 구간 값');
     const holes = gps.filter(p => p.t < 125000 || p.t > 150000);             // 뛰기 구간 GPS가 절반 끊김 → 지어내지 않음
     assert.equal(walkRunSegs(d, 'pocket', holes).segs[1].speed, null, 'GPS가 끊기면 속도 없음');
   }

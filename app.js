@@ -690,7 +690,7 @@ function finish(data, demo = false, gps = [], press = []) {
   const hist = store.get('history', []);
   const practice = act === 'walk' && !hist.some(h => !h.autoRec && (h.activity ?? 'walk') === 'walk' && new Date(h.date).toLocaleDateString('sv-SE') === today);   // 그날 첫 걷기 측정 = 연습 (Perry 20장)
   const dist = mode === 'manual' ? parseFloat($('dist').value) || null : null;
-  const d = mode === 'gps' ? (gpsDenied && !demo ? { gpsError: 'denied' } : gpsSpeed(res, gps)) : withDistance(res, dist);
+  const d = mode === 'gps' ? (gpsDenied && !demo ? { gpsError: 'denied' } : mainSeg ? { ...mainSeg.gps } : gpsSpeed(res, gps)) : withDistance(res, dist);
   if (mainSeg && mode === 'gps' && d.gpsError !== 'denied') { const g = gpsDistance(gps); if (g && g.dist >= 50) d.distance = g.dist; }   // 거리는 속도 × 시간이 아니라 전체 경로로 (걷기·뛰기 속도가 달라서)
   const rec = { date: new Date().toISOString(), start: Date.now() - durS * 1000, activity: act, position, auto, practice, route: packRoute(gps), ...res, distance: dist, ...d, distSource: d.speed ? mode : null, diag, diagHtml, ...(mainSeg ? { segs: packSegs(wr.segs, gps) } : {}), ...elevRec(press, data) };
   saveRec(rec, hist, demo, data);
@@ -978,7 +978,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v222';
+const APP_VERSION = 'v223';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -1050,6 +1050,9 @@ function topCards(r, hero, cells) {
     <div class="rgrid">${cells.map(c => `<div class="mcard static"><div class="mtop"><span class="mlab">${c.label}</span>${c.value === '-' ? '' : badge(c.grade)}</div>
       <div class="rnum">${c.value}<small>${c.value === '-' ? '' : c.unit}</small></div>${c.bar ?? ''}<div class="msub">${c.sub}</div></div>`).join('')}</div>`;
 }
+// 구간 결과: 케이던스·속도는 가장 긴 구간, 시간·거리·걸음은 전체 값이라 무엇의 값인지 적음 (디자인 팀)
+const segNote = r => r.segs ? `가장 긴 ${r.activity === 'run' ? '뛰기' : '걷기'} 구간 · ` : '';
+const wholeStats = (r, stats) => r.segs ? stats.map(s => /^전체|걸은/.test(s.label) ? s : { ...s, label: `전체 ${s.label}` }) : stats;
 const more = inner => `<details class="more"><summary>자세히 보기 <span class="sub">(근거·읽는 법)</span></summary>${inner}</details>`;
 function cmpCells({ unit, dp = 0, rows }) {
   const v = x => x == null || Number.isNaN(x) ? '-' : x.toFixed(dp);
@@ -1123,12 +1126,12 @@ function render(r, prev) {
   const ideal = sex === 'f' ? 0.0064 : sex === 'm' ? 0.0072 : null;
   html += segCard(r) + topCards(r, { label: '케이던스', value: c.toFixed(0), unit: '걸음/분', grade: cadGrade,
     bar: rangeBar(c, 111, 117, 60, 160, 0, 'Perry 평균 남~여'),            // 20장 남 111·여 117 (책에 케이던스 표준편차는 없음, 본부 10/29)
-    sub: `페리의 보행 분석 기준 ${norm} · 차이 ${signed(+c.toFixed(0) - norm)}${prev ? ` · 지난번보다 ${signed(c - prev.cadence)}` : ''}`,
-    stats: [...timeStats(r), { icon: 'dist', value: r.distance && (r.distance / 1000).toFixed(2), label: '거리 km' },
-      { icon: 'steps', value: r.steps, label: '걸음' }] }, [   // 걸음 길이·속도는 기준값이 있는 작은 카드에만 (같은 값이 두 번 안 보이게)
-    { label: '걷기 속도', value: r.speed ? r.speed.toFixed(2) : '-', unit: 'm/s', grade: dGrade, sub: r.speed ? `페리 1.37 · 차이 ${signed(+r.speed.toFixed(2) - 1.37, 2)}` : 'GPS·거리 입력 필요',
+    sub: `${segNote(r)}페리의 보행 분석 기준 ${norm} · 차이 ${signed(+c.toFixed(0) - norm)}${prev ? ` · 지난번보다 ${signed(c - prev.cadence)}` : ''}`,
+    stats: wholeStats(r, [...timeStats(r), { icon: 'dist', value: r.distance && (r.distance / 1000).toFixed(2), label: '거리 km' },
+      { icon: 'steps', value: r.steps, label: '걸음' }]) }, [   // 걸음 길이·속도는 기준값이 있는 작은 카드에만 (같은 값이 두 번 안 보이게)
+    { label: '걷기 속도', value: r.speed ? r.speed.toFixed(2) : '-', unit: 'm/s', grade: dGrade, sub: r.speed ? `페리 1.37 · 차이 ${signed(+r.speed.toFixed(2) - 1.37, 2)}` : r.segs ? 'GPS 조건 안 됨' : 'GPS·거리 입력 필요',
       bar: r.speed ? rangeBar(r.speed, 1.22, 1.52, 0.6, 2.0, 2, 'Perry 연구별 평균') : '' },   // Perry 20장: 연구별 평균 73~91m/분
-    { label: '걸음 길이', value: r.stepLength ? (r.stepLength * 100).toFixed(0) : '-', unit: 'cm', grade: dGrade, bar: r.stepLength ? rangeBar(r.stepLength * 100, 64, 73, 30, 100, 0, 'Perry 평균 여~남') : '', sub: !r.stepLength ? 'GPS·거리 입력 필요' : ideal ? `효율 기준 약 ${(ideal * c * 100).toFixed(0)}cm` : '성별을 넣으면 기준이 보여요' },   // 걸음 길이 Perry 범위: 20장 한 주기 남 1.46·여 1.28m의 절반
+    { label: '걸음 길이', value: r.stepLength ? (r.stepLength * 100).toFixed(0) : '-', unit: 'cm', grade: dGrade, bar: r.stepLength ? rangeBar(r.stepLength * 100, 64, 73, 30, 100, 0, 'Perry 평균 여~남') : '', sub: !r.stepLength ? (r.segs ? 'GPS 조건 안 됨' : 'GPS·거리 입력 필요') : ideal ? `효율 기준 약 ${(ideal * c * 100).toFixed(0)}cm` : '성별을 넣으면 기준이 보여요' },   // 걸음 길이 Perry 범위: 20장 한 주기 남 1.46·여 1.28m의 절반
   ]);   // 걸음 수·거리는 위 아이콘 줄에 있어서 작은 카드에서 뺌 (등급·근거는 자세히 보기에)
   const head = html; html = '';
 
@@ -1275,9 +1278,9 @@ function renderRun(r, prev) {
   const easy = r.activity === 'easyrun';
   const cGrade = r.warnings.includes('hand') || r.warnings.includes('irregular') ? 'o' : 'y';
   const head = resTitle(r, `${r.segs ? '걷기 + 뛰기' : easy ? '천천히 달리기' : '러닝'} 결과`) + autoNote(r) + metroNote(r) + elevNote(r) + warnHtml(r)
-    + segCard(r) + topCards(r, { label: '케이던스', value: c.toFixed(0), unit: '걸음/분', grade: cGrade, sub: prev ? `기준선 없음 · 지난 러닝보다 ${signed(c - prev.cadence)}` : '기준선 없음 · 내 기록의 변화만 봐요',
-      stats: [...timeStats(r), { icon: 'dist', value: r.distance && (r.distance / 1000).toFixed(2), label: '거리 km' },
-        { icon: 'pace', value: r.speed && paceText(r.speed), label: '페이스 /km' }, { icon: 'steps', value: r.steps, label: '걸음' }] }, [
+    + segCard(r) + topCards(r, { label: '케이던스', value: c.toFixed(0), unit: '걸음/분', grade: cGrade, sub: segNote(r) + (prev ? `기준선 없음 · 지난 러닝보다 ${signed(c - prev.cadence)}` : '기준선 없음 · 내 기록의 변화만 봐요'),
+      stats: wholeStats(r, [...timeStats(r), { icon: 'dist', value: r.distance && (r.distance / 1000).toFixed(2), label: '거리 km' },
+        ...(r.segs ? [] : [{ icon: 'pace', value: r.speed && paceText(r.speed), label: '페이스 /km' }]), { icon: 'steps', value: r.steps, label: '걸음' }]) }, [
       { label: '속도', value: r.speed ? r.speed.toFixed(2) : '-', unit: 'm/s', grade: r.medAcc > 10 ? 'o' : 'y', sub: r.speed ? `페이스 ${paceText(r.speed)}/km` : 'GPS 조건 안 됨' },
     ]);
   let html = metric({ title: '케이던스 (분당 걸음 수)', value: c.toFixed(0), unit: '걸음/분', grade: cGrade,

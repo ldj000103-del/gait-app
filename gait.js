@@ -237,7 +237,7 @@ export function walkRunSegs(data, position, gps = []) {
     if (res.error) return { major, segs: null };                           // 한 구간이라도 못 세면 구간 화면을 보여 주지 않음
     const first = i === 0, last = i === runs.length - 1, sFrom = first ? res.steadyFrom : from, sTo = last ? res.steadyTo : to;   // 시작·끝 4초(앞뒤 2초씩)는 측정 맨 처음과 맨 끝에만 뺌. 구간 안쪽 경계는 멈추는 곳이 아니라서 그대로 씀
     const d = gpsSpeed({ ...res, steadyFrom: sFrom, steadyTo: sTo }, gps, (sTo - sFrom) / 1000);
-    segs.push({ type: r.type, fromMs: from - t0, durS: (Math.min(to, tEnd) - from) / 1000, cadence: res.cadence, steps: res.steps, activeS: res.activeS, regularity: res.regularity, sd: res.sd, speed: d.speed ?? null, distance: d.distance ?? null, stepLength: d.stepLength ?? null, steadyFrom: sFrom, steadyTo: sTo, from, to });
+    segs.push({ type: r.type, fromMs: from - t0, durS: (Math.min(to, tEnd) - from) / 1000, cadence: res.cadence, steps: res.steps, activeS: res.activeS, regularity: res.regularity, sd: res.sd, speed: d.speed ?? null, distance: d.distance ?? null, stepLength: d.stepLength ?? null, steadyFrom: sFrom, steadyTo: sTo, from, to, gps: d });
   }
   const main = segs.reduce((m, s, i) => s.type === major && (m < 0 || s.durS > segs[m].durS) ? i : m, -1);
   return { major, segs, main };
