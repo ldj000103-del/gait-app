@@ -3110,7 +3110,7 @@ function storyMaybe() {
 const storyImg = (R, cls = '') => `<img class="storyImg ${cls}" src="${storyArt(R.art)}" alt="">`;
 function storyArrive(i) {
   const R = STORY[i];
-  $('spStory').innerHTML = `<div class="storyScreen storyArr" style="background:${R.pn}">${storyImg(R)}${storyTop(R, 300, 65)}<button class="spBack" hidden></button>
+  $('spStory').innerHTML = `<div class="storyScreen storyArr" style="background:${R.pn}">${storyImg(R)}${storyTop(R, 320, 75)}<button class="spBack" hidden></button>
     <div class="storyIn"><div class="storyCh">${R.ch}</div><div class="storyName">${R.n}</div><p class="storyLn">${R.ln}</p></div>
     <div class="storyBtm storyBtmA"><button class="storyLater" data-lakeclose>나중에 볼게요</button><button class="storyPill" data-storytalk="${i}">편지 찾기</button></div></div>`;
   openSub('spStory'); $('spStory').querySelector('.storyPill').focus({ preventScroll: true });
