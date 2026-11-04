@@ -3086,11 +3086,10 @@ function lakeHtml() {
     ${lakePts(STORY_D, STORY_CELLS).map((p, k) => k === next ? `<circle class="lakePulse" cx="${p.x}" cy="${p.y}" r="7" fill="none" stroke="#FFF6E2"/><circle cx="${p.x}" cy="${p.y}" r="6" fill="rgba(20,14,10,.55)" stroke="#FFF6E2" stroke-width="2"/>`
       : k < pos ? `<circle cx="${p.x}" cy="${p.y}" r="5" fill="#FFF6E2"/>` : `<circle cx="${p.x}" cy="${p.y}" r="3.5" fill="rgba(20,14,10,.55)" stroke="#FFF6E2"/>`).join('')}</g>`;
   return `<div class="card lake lakeStory" style="background:${R.pn}"><div class="lakeStage"><svg class="lakeBg" viewBox="0 ${y0} 300 620" preserveAspectRatio="xMidYMin slice" aria-hidden="true">${storyScene(cur, 'c')}</svg><svg class="lakeBg lakeRoute" viewBox="0 ${y0} 300 620" preserveAspectRatio="xMidYMin slice" aria-hidden="true">${route}</svg>
-      <h2 class="lakeH" style="color:${R.fg}">${t?.week ? '일주일 전 기록을 같이 볼까요?' : t ? '지난 기록을 같이 볼까요?' : R.hh.replace('\n', '<br>')}</h2></div>
+      <h2 class="lakeH" style="color:${R.fg}">${t?.week ? '일주일 전 기록을 같이 볼까요?' : t ? '지난 기록을 같이 볼까요?' : R.hh.replace('\n', '<br>')}</h2><button class="storyLink" style="color:${R.fg}" data-storymap>미러리아 지도 ›${storyOpen(n) > read ? '<i aria-label="읽지 않은 편지 있음"></i>' : ''}</button></div>
     <div class="lakeBody">${last ? `<div class="storyVal"><b>${c}</b><span>걸음/분 · ${lakeRecName(last)}</span></div>` : ''}${t ? `<p>오늘 걸어 재면 ${lakeRecName(t.h)}과 나란히 보여 드려요.</p>` : ''}
       ${walk ? `<div class="lakeRow"><span>Perry 책 평균</span><b>${norm} · 차이 ${signed(c - norm)}</b></div><div class="lakeRow"><span>측정 정확도</span><b>${GRADE[cadGradeOf(last)][1]}</b></div>` : ''}
-      <button class="lakeBtn" data-lakego>걸어 보기</button><p class="lakeFine">쉬어도 칸은 줄지 않아요. 몸이 불편한 날은 걷지 않아도 돼요.</p>
-      <button class="storyLink" data-storymap>미러리아 지도 ›${storyOpen(n) > read ? '<i aria-label="읽지 않은 편지 있음"></i>' : ''}</button></div></div>`;
+      <button class="lakeBtn" data-lakego>걸어 보기</button><p class="lakeFine">쉬어도 칸은 줄지 않아요. 몸이 불편한 날은 걷지 않아도 돼요.</p></div></div>`;
 }
 function lakeAnim() {                                                      // 측정 후 첫 화면으로 오면 길이 .7초 동안 이어짐. 저장 없이 이 실행 안에서만
   const n = lakeCount(store.get('history', [])), from = lakeSeen ?? n, el = $('homeTop').querySelector('.lakeWalked'); lakeSeen = n;
@@ -3126,9 +3125,9 @@ function storyLetter(i, again) {                                           // ag
 function storyMap() {                                                      // 썸네일은 지도를 열 때만 그림
   const read = storyRead(), open = storyOpen(lakeCount(store.get('history', []))), cur = storyCur(read), Y = [230, 180, 150, 180, 320];
   $('spStoryMap').innerHTML = `<div class="sphead"><button class="spBack" aria-label="뒤로">‹</button><h2 class="storyMapH">미러리아 지도</h2></div><p class="storyMapS">한 바퀴마다 물 아래 땅과 편지 한 통이 드러나요</p>
-    ${STORY.map((R, i) => { const done = i < read, unread = i === read && open > read;
-      return `<button class="storyNd ${done ? '' : 'lk'}" ${done ? `data-storyagain="${i}"` : unread ? `data-storyunread="${i}"` : 'disabled'}><span class="storyTh"><svg viewBox="0 ${Y[i]} 300 208" preserveAspectRatio="xMidYMid slice" aria-hidden="true">${storyScene(i, `m${i}`)}</svg></span>
-        <span><span class="storyA">${done ? R.n : '아직 비치지 않은 곳'}</span><span class="storyB ${done && i === cur ? 'cur' : ''}">${done ? (i === cur ? '지금 여기 · 편지 1통' : '편지 1통') : unread ? '읽지 않은 편지 1통' : '한 바퀴를 돌면 드러나요'}</span></span></button>`; }).join('')}
+    ${STORY.map((R, i) => { const done = i < read, unread = i === read && open > read, here = i === cur && !done;   // 아직 안 읽어도 지금 있는 호수는 색과 이름으로
+      return `<button class="storyNd ${done || here ? '' : 'lk'}" ${done ? `data-storyagain="${i}"` : unread ? `data-storyunread="${i}"` : 'disabled'}><span class="storyTh"><svg viewBox="0 ${Y[i]} 300 208" preserveAspectRatio="xMidYMid slice" aria-hidden="true">${storyScene(i, `m${i}`)}</svg></span>
+        <span><span class="storyA">${done || here ? R.n : '아직 비치지 않은 곳'}</span><span class="storyB ${i === cur || unread ? 'cur' : ''}">${done ? (i === cur ? '지금 여기 · 편지 1통' : '편지 1통') : here ? (unread ? '지금 여기 · 읽지 않은 편지 1통' : '지금 여기 · 한 번 걸으면 편지가 드러나요') : unread ? '읽지 않은 편지 1통' : '한 바퀴를 돌면 드러나요'}</span></span></button>`; }).join('')}
     <p class="storyNt">실제 위치와 상관없는 이야기 속 지도예요. 측정 횟수로만 열려요.<br>미러리아는 앱 안의 이야기예요.</p>`;
   openSub('spStoryMap');
 }
