@@ -14,6 +14,18 @@ export function sumTags(hist, rec, first, deleted) {
   return [same.length < 2 ? 'rep1' : same.length < 5 ? 'rep2_4' : 'rep5p',
     rec.cadence != null && cads.length >= 3 && (half <= 2 ? 'cvr2' : half <= 5 ? 'cvr5' : 'cvr5p'), first && 'first', deleted && same.length < 5 && 'del'].filter(Boolean);   // 지운 적 있음은 5회 미만일 때만
 }
+// 호수 한 바퀴 (디자인 팀, 법률 검토 45번): 저장 없이 기록에서 계산. 자동·데모·영상은 세지 않음
+export const lakeDirect = h => !h.autoRec && !h.demo && !h.view && h.activity !== 'video';
+export const lakeCount = hist => hist.filter(lakeDirect).length;
+// 비교 상대: 같은 활동의 직접 측정. 5~9일 전을 먼저(7일에 가까운 것), 없으면 가장 최근. 첫 걷기는 보통 7% 느려서 연습은 연습끼리 먼저 (Perry 20장). hist는 최신순
+export function lakePick(hist, act, practice, now) {
+  const c = hist.filter(h => lakeDirect(h) && !h.orig?.segs && h.cadence != null && (h.activity ?? 'walk') === act);
+  const days = h => Math.round((new Date(now).setHours(0, 0, 0, 0) - new Date(h.date).setHours(0, 0, 0, 0)) / 864e5);
+  const near = c.filter(h => days(h) >= 5 && days(h) <= 9).sort((a, b) => Math.abs(days(a) - 7) - Math.abs(days(b) - 7));
+  const kind = xs => xs.find(h => !!h.practice === !!practice) ?? xs[0];
+  const h = kind(near) ?? kind(c);
+  return h ? { h, week: near.includes(h) } : null;
+}
 export const HZ = 50;          // 분석용 재샘플링 주기
 const TRIM_S = 2;              // 시작·끝에서 버리는 시간 (Perry 20장: 앞뒤 2m 제외)
 const ACTIVE_STD = 0.6;        // m/s², 이보다 흔들리면 '걷는 중'으로 봄 (현장 보정 필요)

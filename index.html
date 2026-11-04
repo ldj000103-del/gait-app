@@ -8,7 +8,7 @@
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <meta name="theme-color" content="#f2f4f3" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#111614" media="(prefers-color-scheme: dark)">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<link rel="stylesheet" href="assets/fonts/pretendard/pretendard.css">
 <style>
   /* 색 규칙(디자인 토큰): 바탕·카드·글자·선·주요색 + 정확도 등급 4색 + 그래프 선 */
   :root { --bg:#f2f4f3; --card:#fff; --ink:#121816; --sub:#69736f; --line:#e6eae8; --accent:#1d6b5c; --accent-weak:#e3f1ed;
@@ -164,7 +164,7 @@
   /* 걸음걸이 탭 입체 비교 (디자인 팀 시안 B) */
   .cmpChips { display:flex; flex-wrap:wrap; gap:5px; margin:6px 0; } .cmpChips .chip { padding:5px 9px; font-size:.75rem; } .cmpGap { flex:1; }
   .cmpPh .phName { font-size:1rem; }
-  #boneSrc p { overflow-wrap:anywhere; }
+  #boneSrc p, #fontSrc p { overflow-wrap:anywhere; }
   .cmpCtl { display:flex; gap:10px; align-items:center; margin:10px 0 0; } .cmpCtl .chip { flex:none; } .cmpCtl input { flex:1; min-width:0; padding:0; border:0; background:none; accent-color:var(--accent); }
   .gc { display:grid; grid-template-columns:repeat(8,auto); gap:2px; margin:10px 0; }   /* 위: 입각기(5칸)·유각기(3칸) 막대, 아래: 단계 8칸. 한 격자라 경계가 맞음 */
   .gc > span { grid-column:span 5; border-radius:var(--r-sm); padding:5px 8px; font-size:.8125rem; font-weight:600; background:var(--line); color:var(--sub); } .gc > span + span { grid-column:span 3; }
@@ -189,9 +189,38 @@
   /* 홈 위쪽 '내 걸음 거울' (디자인 팀 시안 C, 10/28) */
   .mirror { text-align:center; } .mirror svg { display:block; height:110px; margin:0 auto; color:var(--ink); }
   /* 거울 카드 버튼 (디자인 팀 10/29): 밝은 화면 검정·어두운 화면 흰색, 촬영 선 아이콘 + 글자 가운데 한 줄 */
-  .mirror .mshoot { background:#000; color:#fff; display:flex; align-items:center; justify-content:center; gap:8px; }
+  @font-face { font-family:"Noto Serif KR"; font-weight:400; font-display:swap; src:url(assets/fonts/noto-serif-kr/noto-serif-kr-lake.woff2) format("woff2"); }   /* 호수 제목 글자만 담은 파일 */
+  /* 호수 한 바퀴 (디자인 팀 시안): 색값은 시안 그대로, 밝기는 폰 설정 따름 */
+  .lakeT { --t:#121816; --u:#5B6662; --a:#1d6b5c; --bb:#1d6b5c; --bf:#fff; --s1:#E4ECEA; --s2:#F6F2E9; --w1:#DDE9E6; --w2:#F4F6F5; --r1:#A9BEB9; --r2:#86A29C; color:var(--t); }
+  @media (prefers-color-scheme: dark) { .lakeT { --t:#EEF2F0; --u:#A9B5B1; --a:#5FC2AB; --bb:#EEF2F0; --bf:#0A1518; --s1:#0A1518; --s2:#1F464A; --w1:#1A3C41; --w2:#081114; --r1:#27505A; --r2:#12272E; } }
+  .lake, .lakeScreen { position:relative; overflow:hidden; background:var(--w2); }
+  #home .lake { padding:0; margin-top:8px; }
+  .lakeBg { position:absolute; left:0; top:0; width:100%; height:auto; aspect-ratio:230/460; display:block; }
+  .lakeScreen.lakeVeiled { background:color-mix(in srgb, var(--s1) 35%, var(--w2)); }   /* 튜토리얼 덮개가 풍경 아래까지 이어져 보이게 */
+  .lakeStage { position:relative; aspect-ratio:230/259; }
+  .lakeStage.lakeCmp { aspect-ratio:230/300; }
+  .lakeH { position:absolute; left:20px; right:20px; top:20px; margin:0; font:400 1.375rem/1.4 "Noto Serif KR",serif; letter-spacing:-.01em; word-break:keep-all; color:var(--t); }
+  .lakeHtut { top:56px; }
+  .lakeNum { position:absolute; left:0; right:0; top:86.87%; transform:translateY(-50%); text-align:center; line-height:1.1; }
+  .lakeNum b, .lakeToday b, .lakePast b { display:block; font-size:44px; font-weight:300; font-variant-numeric:tabular-nums; line-height:1.1; }
+  .lakeNum small, .lakeToday small, .lakePast small { display:block; font-size:.75rem; color:var(--u); }
+  .lakeToday, .lakePast { position:absolute; left:0; right:0; text-align:center; }
+  .lakeToday { bottom:30%; } .lakePast { top:72%; opacity:.6; } .lakePast b { font-size:38px; }
+  .lakeTop { position:absolute; left:20px; right:20px; top:14px; display:flex; justify-content:space-between; align-items:center; font-size:.8125rem; color:var(--u); }
+  #spLake { padding:0; } #spLake > * { max-width:none; }
+  #spLake .lakeScreen { min-height:100%; }
+  button.lakeSkip { width:auto; margin:0; padding:6px 0 6px 12px; background:none; border:0; color:var(--u); font-size:.8125rem; font-weight:400; }
+  .lakeBody { position:relative; padding:12px 20px 20px; }
+  .lakeBody p { margin:0 0 10px; font-size:.875rem; word-break:keep-all; color:var(--t); }
+  .lakeBody p.lakeFine { font-size:.8125rem; color:var(--u); }
+  .lakeLesson { margin-top:28px !important; } .lakeLesson a { color:var(--a); }
+  .lakeRow { padding:8px 0; border-top:1px solid color-mix(in srgb, var(--t) 18%, transparent); font-size:.875rem; }
+  button.lakeBtn { display:block; width:100%; margin:12px 0 10px; padding:14px; border:0; border-radius:var(--r-md,12px); background:var(--bb); color:var(--bf); font-weight:600; }
+  .lakePulse { transform-box:fill-box; transform-origin:center; animation:lakePulse 1.8s ease-out infinite; stroke-width:1; }
+  @keyframes lakePulse { from { transform:scale(1); opacity:.7; } to { transform:scale(2.5); opacity:0; } }
+  @media (prefers-reduced-motion: reduce) { .lakePulse { animation:none; opacity:0; } }
+  .mirror .mshoot { background:none; color:var(--accent); border:1px solid var(--accent); display:flex; align-items:center; justify-content:center; gap:8px; }
   .mirror .mshoot svg { width:20px; height:20px; margin:0; color:inherit; flex:none; fill:none; stroke:currentColor; stroke-width:1.75; stroke-linecap:round; stroke-linejoin:round; }
-  @media (prefers-color-scheme: dark) { .mirror .mshoot { background:#fff; color:#000; } }
   .mirror .mlabs { display:flex; justify-content:center; gap:28px; font-size:.75rem; color:var(--sub); margin:2px 0 12px; }
   .hchips { display:flex; flex-wrap:wrap; justify-content:center; gap:6px; margin:10px 0 0; }
   .hlinks { font-size:.8125rem; color:var(--sub); margin-top:10px; } .hlinks a { color:var(--accent); text-decoration:none; font-weight:600; }
@@ -626,6 +655,9 @@
     각 결과의 <b>정확도 등급</b>: <span class="badge b-g">정확</span> <span class="badge b-y">참고</span>
     <span class="badge b-o">부정확할 수 있음</span> <span class="badge b-n">검증 안 됨</span>
     — 결과마다 "근거 보기"에서 출처를 확인할 수 있어요. 이 앱은 의료 진단이 아니에요.
+    <details id="fontSrc"><summary>글꼴 출처·라이선스</summary><p>이 앱은 아래 글꼴을 앱 안에 넣어 씁니다. 두 글꼴 모두 SIL Open Font License 1.1을 따릅니다.<br>
+      · Pretendard: Copyright (c) 2021, Kil Hyung-jin (<a href="https://github.com/orioncactus/pretendard">https://github.com/orioncactus/pretendard</a>), with Reserved Font Name Pretendard. 공식 파일을 고치지 않고 씁니다. <a href="assets/fonts/pretendard/LICENSE.txt">라이선스 전문</a><br>
+      · Noto Serif KR: (c) 2017-2024 Adobe (<a href="http://www.adobe.com/">http://www.adobe.com/</a>). 호수 제목에 쓰는 글자만 담은 파일입니다. <a href="assets/fonts/noto-serif-kr/LICENSE.txt">라이선스 전문</a></p></details>
     <details id="boneSrc"><summary>해부 그림 출처</summary><p>내 걸음 비춰 보기의 뼈 그림은 아래 3D 모델에서 골반·넓적다리뼈·무릎뼈·정강이뼈·종아리뼈·발뼈를 골라 렌더링하고 색·재질과 조명을 바꾼 것이며, 앱은 이 뼈 그림을 이용자의 관절 각도에 맞춰 돌리고 이어 붙여 보여 줍니다. 걸음 수업의 발 3D 모형과 홈 화면 ‘배워 보기’ 카드 그림(이 3D 모형을 렌더링한 그림)은 아래 3D 모델의 무릎 아래 뼈와 근육(전경골근·장지신근·장무지신근·가자미근·비복근·후경골근·장지굴근·장무지굴근·엄지발가락벌림근·아킬레스건)에 Human Base Meshes(CC0) 마네킹 피부를 반투명으로 씌우고, Perry 『Gait Analysis』의 일반적인 걸음 각도로 움직이게 하고, 그 순간 일하는 근육을 빨갛게 칠한 것입니다(이용자 측정값과는 연결되지 않습니다).<br>
       · BodyParts3D, © The Database Center for Life Science licensed under CC Attribution-Share Alike 2.1 Japan (<a href="https://dbarchive.biosciencedbc.jp/data/bodyparts3d/20100816/README_e.html">https://dbarchive.biosciencedbc.jp/data/bodyparts3d/20100816/README_e.html</a> · 라이선스 <a href="https://creativecommons.org/licenses/by-sa/2.1/jp/">https://creativecommons.org/licenses/by-sa/2.1/jp/</a>)<br>
       · Z-Anatomy - The libre 3D atlas of anatomy - CC-BY-SA 4.0, Gauthier Kervyn 외 (<a href="https://github.com/Z-Anatomy/Models-of-human-anatomy">https://github.com/Z-Anatomy/Models-of-human-anatomy</a> · 라이선스 <a href="https://creativecommons.org/licenses/by-sa/4.0/">https://creativecommons.org/licenses/by-sa/4.0/</a>)<br>
@@ -718,6 +750,7 @@
       <div class="sub" id="remindNote" style="margin-top:6px"></div>
     </div>
   </div>
+  <div class="subpage" id="spLake" hidden role="dialog" aria-label="호수 한 바퀴"></div>
   <div class="subpage" id="spSetPriv" hidden role="dialog" aria-label="개인정보·동의"><div class="sphead"><button class="spBack" aria-label="뒤로">‹</button><h2>개인정보·동의</h2></div>
     <div class="card rows">
       <button class="dayrec" id="cEdit"><span>동의 변경</span><span class="sub">›</span></button>

@@ -1,4 +1,4 @@
-import { analyzeWalk, fastMinutes, withDistance, gpsSpeed, gpsDistance, guessActivity, guessPosition, routeMarks, RUN_CAD, analyzeJog, mixActivity, stairClimb, FLOOR_M, STAIR_STEP_M, chunks, walkRunSegs, elevation, slopeSegs, dropRoute, pruneRoutes, sumTags } from './gait.js';
+import { analyzeWalk, fastMinutes, withDistance, gpsSpeed, gpsDistance, guessActivity, guessPosition, routeMarks, RUN_CAD, analyzeJog, mixActivity, stairClimb, FLOOR_M, STAIR_STEP_M, chunks, walkRunSegs, elevation, slopeSegs, dropRoute, pruneRoutes, sumTags, lakeDirect, lakeCount, lakePick } from './gait.js';
 import { analyzeSide, analyzeFrontal, extractPose, drawSnapshot, PART_ICON } from './video.js';
 
 const $ = id => document.getElementById(id);
@@ -730,7 +730,7 @@ function finish(data, demo = false, gps = [], press = []) {
   route = rec.route; routeSegs = rec.segs ?? null;
   const prev = hist.find(h => !h.practice && !h.autoRec && h !== rec && !mixedRelab(h) && (h.activity ?? 'walk') === act);
   act === 'walk' ? render(rec, prev) : renderRun(rec, prev);
-  renderHistory();
+  renderHistory(); lakeArrive(rec);
 }
 
 // 구간은 이 휴대폰 기록에만 저장 (익명 결과로 보내지 않음). r0 = 저장된 경로(packRoute)에서 이 구간이 시작하는 점 번호
@@ -781,7 +781,7 @@ function finishSlow(data, demo, position, auto = {}) {
   saveRec(rec, hist, demo, data);
   shownDate = rec.date;
   renderSlow(rec, hist);
-  renderHistory();
+  renderHistory(); lakeArrive(rec);
 }
 
 // ── 12분 달리기 테스트: 처음 12분의 GPS 거리·페이스 기록 (체력 추정은 의료기기 위험이 있어 하지 않음) ──
@@ -834,7 +834,7 @@ function finishStairs(data, demo, position, press) {
   saveRec(rec, store.get('history', []), demo, data);
   shownDate = rec.date;
   renderStairs(rec);
-  renderHistory();
+  renderHistory(); lakeArrive(rec);
 }
 // ── 오르막·내리막 (건의 K-CFED1B60, 디자인 팀 시안): 계단과 같은 기압계 계산으로 오른·내려간 높이를 따로. 높이는 이 휴대폰에만 저장, 익명 전송은 다른 측정과 같은 칸만 (활동 이름 slope는 warnings에) ──
 function finishSlope(data, demo, position, press) {
@@ -849,7 +849,7 @@ function finishSlope(data, demo, position, press) {
   saveRec(rec, store.get('history', []), demo, data);
   shownDate = rec.date;
   renderSlope(rec);
-  renderHistory();
+  renderHistory(); lakeArrive(rec);
 }
 function renderSlope(r) {
   const baro = r.upM != null, m = v => baro ? v.toFixed(0) : '-', name = { up: '오르막', down: '내리막', flat: '평지' };
@@ -1016,7 +1016,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v231';
+const APP_VERSION = 'v232';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -1040,6 +1040,7 @@ $('cOk').addEventListener('click', () => {
   $('consentState').textContent = consent.share ? '익명 결과 보내기: 동의함' : '익명 결과 보내기: 동의 안 함';
   renderSum();
   if (reOn) toast('측정 요약값도 함께 보내요. 설정 → 개인정보·동의에서 끌 수 있어요.');
+  setTimeout(lakeTutMaybe, 300);
 });
 $('cEdit').addEventListener('click', e => { e.preventDefault(); closeAllSub(); showConsent(); scrollTo(0, 0); });   // 동의 화면은 설정 화면 뒤에 있어서 먼저 닫음
 if (!consent) showConsent();
@@ -1050,7 +1051,7 @@ function renderSum() {
   $('sumTxt').textContent = consent?.summary ? '켜짐' : '꺼짐';
 }
 function setSum(on) {
-  consent = { ...consent, summary: on }; store.set('consent', consent); renderSum();
+  consent = { ...consent, summary: on }; store.set('consent', consent); renderSum(); setTimeout(lakeTutMaybe, 300);
   if (!on) store.set('sumDel', null);                                       // 끄면 지운 적 있음 표시도 지움. 다시 켜면 없음에서 시작
 }
 function openSumSheet() {
@@ -1919,7 +1920,7 @@ function setTab(name) {
   closeAllSub();                                                          // 탭바 '홈'을 눌러도 홈 첫 화면으로
   document.body.dataset.tab = name;
   for (const b of document.querySelectorAll('#tabbar button')) b.setAttribute('aria-selected', b.dataset.go === name);
-  if (name === 'home') renderHome();
+  if (name === 'home') { renderHome(); setTimeout(lakeTutMaybe, 300); }    // 닫는 판의 history 되돌림이 끝난 뒤
 }
 document.querySelector('#tabbar').addEventListener('click', e => {
   const b = e.target.closest('button[data-go]'); if (!b) return;
@@ -3047,6 +3048,85 @@ function mirrorLoop(now) {
   mirrorQ = (mirrorQ + (now - (mirrorLast || now)) / CMP_T * 100) % 100; mirrorLast = now;
   box.innerHTML = mirrorSvg(mirrorQ);
 }
+// ── 호수 한 바퀴 (디자인 팀 시안, 법률 검토 45번): 칸은 기록에서 계산하고 저장하는 값은 튜토리얼 봤음(lakeTut) 하나. 값으로 칸이 움직이거나 줄지 않음, 좋고 나쁨 표시 없음 ──
+const LAKE_D = 'M115 299A98 34 0 1 1 115 231A98 34 0 1 1 115 299', LAKE_CELLS = [.08, .25, .42, .58, .75, .92];
+let lakeId = 0, lakeSeen = null;                                           // lakeSeen: 이 실행에서 마지막으로 그린 측정 횟수 (칸 이동 움직임용, 저장 안 함)
+const lakePts = (() => { let p; return () => { if (!p) { const e = document.createElementNS('http://www.w3.org/2000/svg', 'path'); e.setAttribute('d', LAKE_D); const L = e.getTotalLength(); p = LAKE_CELLS.map(c => e.getPointAtLength(c * L)); } return p; }; })();
+const lakePos = n => n ? (n - 1) % 6 + 1 : 0;                              // 지금까지 밝힌 칸 수 (1~6). 6칸을 돌면 다음 측정이 새 바퀴 첫 칸
+function lakeSvg({ vb = '0 40 230 460', pos = 0, ring = true, veil = false, hi = null }) {
+  const i = ++lakeId, pts = ring ? lakePts() : [], next = hi ?? pos % 6, R = `M-10 210C20 188 50 182 84 191 112 198 140 178 176 184 200 188 220 197 240 210Z`;
+  const T = 'M-10 210V201a9 9 0 0 1 15-4a10 10 0 0 1 18-2a8 8 0 0 1 14 1a11 11 0 0 1 20-1a8 8 0 0 1 14 3a10 10 0 0 1 18-1a9 9 0 0 1 16-1a10 10 0 0 1 18 1a8 8 0 0 1 14 1a10 10 0 0 1 18 0a9 9 0 0 1 16 1a9 9 0 0 1 16 1a9 9 0 0 1 16 2a10 10 0 0 1 18 0a10 10 0 0 1 18 1V210Z';
+  return `<svg class="lakeBg" viewBox="${vb}" aria-hidden="true"><defs>
+      <linearGradient id="lkS${i}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--s1)"/><stop offset="1" style="stop-color:var(--s2)"/></linearGradient>
+      <linearGradient id="lkW${i}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--w1)"/><stop offset=".7" style="stop-color:var(--w2)"/></linearGradient>
+      <g id="lkR${i}"><path d="${R}" style="fill:var(--r1)"/><path d="${T}" style="fill:var(--r2)"/></g></defs>
+    <rect x="-10" width="250" height="210" fill="url(#lkS${i})"/><rect x="-10" y="210" width="250" height="290" fill="url(#lkW${i})"/>
+    <use href="#lkR${i}"/><g transform="translate(0,420) scale(1,-1)" opacity=".28"><use href="#lkR${i}"/></g>
+    ${veil ? '<rect x="-10" width="250" height="500" style="fill:var(--s1)" opacity=".35"/>' : ''}
+    ${ring ? `<path d="${LAKE_D}" fill="none" style="stroke:var(--t)" stroke-width=".7" opacity=".3"/>
+      ${pos ? `<path class="lakeWalked" d="${LAKE_D}" pathLength="1" fill="none" style="stroke:var(--a)" stroke-width="1.8" stroke-linecap="round" stroke-dasharray="${LAKE_CELLS[pos - 1]} 1"/>` : ''}
+      ${pts.map((p, k) => k === next ? `<circle class="lakePulse" cx="${p.x}" cy="${p.y}" r="6" fill="none" style="stroke:var(--a)"/><circle cx="${p.x}" cy="${p.y}" r="5" style="fill:var(--s1);stroke:var(--a)" stroke-width="1.6"/>`
+        : k < pos ? `<circle cx="${p.x}" cy="${p.y}" r="3.5" style="fill:var(--a)"/>` : `<circle cx="${p.x}" cy="${p.y}" r="2.5" style="fill:var(--s1);stroke:var(--u)" stroke-width=".9"/>`).join('')}` : ''}</svg>`;
+}
+const lakeRecName = h => { const a = h.activity ?? 'walk'; return `${md(h.date)} ${a === 'walk' ? '' : `${ACT[a]} `}${h.practice ? '연습 ' : ''}기록`; };
+const lakeGrade = h => { const a = h.activity ?? 'walk'; return a === 'walk' ? cadGradeOf(h) : a !== 'slowrun' && cadGradeOf(h) === 'o' ? 'o' : 'y'; };   // 결과 화면·카드와 같은 등급
+const lakeNorm = () => (({ sex }) => sex === 'm' ? 111 : sex === 'f' ? 117 : 113)(store.get('profile', {}));
+function lakeHtml() {
+  const hist = store.get('history', []), n = lakeCount(hist), last = hist.find(h => lakeDirect(h) && !mixedRelab(h) && h.cadence != null);
+  const today = dayKey(new Date()), np = !hist.some(h => !h.autoRec && (h.activity ?? 'walk') === 'walk' && dayKey(h.date) === today);   // 오늘 다음 걷기가 연습인지
+  const t = n % 6 === 2 ? lakePick(hist, 'walk', np, Date.now()) : null;   // '걸어 보기'가 걷기로 가므로 비교 약속도 걷기 기록으로. 다음 측정이 3번째 칸일 때만
+  const walk = last && (last.activity ?? 'walk') === 'walk', c = last && Math.round(last.cadence), norm = lakeNorm();
+  return `<div class="card lake lakeT">${lakeSvg({ pos: lakePos(n) })}<div class="lakeStage"><h2 class="lakeH">${t?.week ? '일주일 전 기록을 같이 볼까요?' : t ? '지난 기록을 같이 볼까요?' : '호수 한 바퀴를 같이 걸어 볼까요?'}</h2>
+      ${last ? `<div class="lakeNum"><small>${lakeRecName(last)}</small><b>${c}</b><small>걸음/분</small></div>` : ''}</div>
+    <div class="lakeBody">${t ? `<p>오늘 걸어 재면 ${lakeRecName(t.h)}과 나란히 보여 드려요.</p>` : ''}
+      ${walk ? `<div class="lakeRow"><span>Perry 책 평균 ${norm} · 차이 ${signed(c - norm)}</span></div><div class="lakeRow"><span>측정 정확도 ${GRADE[cadGradeOf(last)][1]}</span></div>` : ''}
+      <button class="lakeBtn" data-lakego>걸어 보기</button><p class="lakeFine">쉬어도 칸은 줄지 않아요. 몸이 불편한 날은 걷지 않아도 돼요.</p></div></div>`;
+}
+function lakeAnim() {                                                      // 측정 후 첫 화면으로 오면 길이 .7초 동안 이어짐. 저장 없이 이 실행 안에서만
+  const n = lakeCount(store.get('history', [])), from = lakeSeen ?? n, el = $('homeTop').querySelector('.lakeWalked'); lakeSeen = n;
+  if (!el || n <= from || lakePos(n) <= lakePos(from) || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const end = el.getAttribute('stroke-dasharray'); el.setAttribute('stroke-dasharray', `${from ? LAKE_CELLS[lakePos(from) - 1] : 0} 1`);
+  requestAnimationFrame(() => requestAnimationFrame(() => { el.style.transition = 'stroke-dasharray .7s ease'; el.setAttribute('stroke-dasharray', end); el.style.strokeDasharray = end.replace(' ', 'px ') + 'px'; }));
+}
+const LAKE_TUT = [
+  ['호수 한 바퀴를 같이 걸어 볼까요?', '잴 때마다 길이 한 칸씩 이어져요.', null],
+  ['한 번 걸어 재면 첫 칸에 불이 켜져요', '걷기가 끝나면 값과 Perry 책 평균을 나란히 보여 드려요.', 0],
+  ['세 번째 칸에서 지난 기록과 나란히 봐요', '쉬어도 칸은 줄지 않아요. 몸이 불편한 날은 걷지 않아도 돼요.', 2],
+];
+function lakeTutStep(i) {
+  const [title, text, hi] = LAKE_TUT[i], hasRec = lakeCount(store.get('history', [])) > 0;
+  $('spLake').innerHTML = `<div class="lakeScreen lakeT lakeVeiled">${lakeSvg({ hi: hi ?? 99, veil: true })}<div class="lakeStage">
+      <div class="lakeTop"><span>${i + 1} / 3</span><button class="spBack lakeSkip">건너뛰기</button></div><h2 class="lakeH lakeHtut">${title}</h2></div>
+    <div class="lakeBody"><p>${text}</p><button class="lakeBtn" ${i < 2 ? `data-laketut="${i + 1}"` : 'data-lakego'}>${i < 2 ? '다음' : hasRec ? '걸어 보기' : '첫 걸음 시작'}</button></div></div>`;
+  $('spLake').querySelector('.spBack').focus({ preventScroll: true });
+}
+function lakeTutMaybe() {                                                  // 처음 한 번, 동의·요약값 판 같은 다른 안내가 끝난 뒤 첫 화면에서만
+  if (store.get('lakeTut', false) || !consent || subOpen || !$('pickSheet').hidden || document.body.dataset.tab !== 'home' || document.body.classList.contains('needConsent')) return;
+  store.set('lakeTut', true); $('spLake').innerHTML = '<button class="spBack" hidden></button>'; openSub('spLake'); lakeTutStep(0);
+}
+// 3번째 칸 도착 비교: 측정 결과 위로 뜨고 닫으면 결과. 값이 낮아도 오늘이 항상 위, 색·화살표로 오르내림을 나타내지 않음
+function lakeArrive(rec) {
+  const hist = store.get('history', []), n = lakeCount(hist), act = rec.activity ?? 'walk';
+  if (n % 6 !== 3 || !lakeDirect(rec) || rec.cadence == null) return;
+  const p = lakePick(hist.filter(h => h.date !== rec.date), act, rec.practice, Date.now()); if (!p) return;
+  const a = Math.round(p.h.cadence), b = Math.round(rec.cadence), g = [lakeGrade(p.h), lakeGrade(rec)].sort((x, y) => 'gyo'.indexOf(y) - 'gyo'.indexOf(x))[0], name = lakeRecName(p.h);
+  $('spLake').innerHTML = `<div class="lakeScreen lakeT">${lakeSvg({ ring: false, vb: '0 0 230 460' })}<div class="lakeStage lakeCmp">
+      <div class="lakeTop"><span>${rec.practice ? '오늘 연습' : '3번째 칸'}</span><button class="spBack lakeSkip">닫기</button></div><h2 class="lakeH lakeHtut">${name}과 나란히 봤어요</h2>
+      <div class="lakeToday"><small>오늘</small><b>${b}</b></div><div class="lakePast"><b>${a}</b><small>${name}</small></div></div>
+    <div class="lakeBody"><p>${md(p.h.date)}${p.h.practice ? ' 연습' : ''} ${a} · 오늘 ${b} 걸음/분 · 차이 ${signed(b - a)} · 측정 정확도: ${GRADE[g][1]}</p>
+      <p class="lakeFine">걷는 곳이나 휴대폰 위치가 다르면 값이 달라질 수 있어요. 차이는 좋고 나쁨을 뜻하지 않아요.</p>
+      <button class="lakeBtn" data-lakeclose>결과 보기</button>
+      ${n === 3 ? '<p class="lakeFine lakeLesson">3번째 측정을 마쳐서 걸음 수업 1개를 볼 수 있어요. <a href="#" data-lakelesson>흔들의자 수업 보기</a></p>' : ''}</div></div>`;
+  openSub('spLake');
+}
+document.addEventListener('click', e => {
+  const t = e.target.closest('[data-laketut]'); if (t) return lakeTutStep(+t.dataset.laketut);
+  if (e.target.closest('[data-lakeclose]')) return closeSub();
+  if (e.target.closest('[data-lakelesson]')) { e.preventDefault(); return openLesson(); }
+  if (!e.target.closest('[data-lakego]')) return;
+  const inSub = subOpen === 'spLake'; if (inSub) closeSub();
+  $('act').value = 'walk'; store.set('act', 'walk'); showAct(); showSetSum(); setTab('measure'); $('start').scrollIntoView({ block: 'center' });
+});
 function renderHomeTop() {
   mirrorCurves = latestVid(v => v === 'side', r => r.curves);
   const v = vids(), today = new Date(), mon = [3, 2, 1, 0].map(k => new Date(today.getFullYear(), today.getMonth() - k, 1));
@@ -3054,7 +3134,7 @@ function renderHomeTop() {
   const last = v[0], left = last ? Math.ceil((+last.d + 30 * 864e5 - +today) / 864e5) : null;
   const prev = last && (v.find(x => !sameM(x.d, last.d)) ?? v[1]);
   const pair = prev ? (sameM(prev.d, last.d) ? '최근 두 영상' : `${prev.d.getMonth() + 1}월과 ${last.d.getMonth() + 1}월`) : '';
-  $('homeTop').innerHTML = `<div class="card mirror">
+  $('homeTop').innerHTML = `${lakeHtml()}<div class="card mirror">
       <div id="mirrorFig">${mirrorSvg(mirrorQ || phaseMid(1))}</div>
       <div class="mlabs"><span>페리의 보행 분석 기준</span><span>나</span></div>
       <button data-shoot="" class="mshoot"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="6" width="13" height="12" rx="2.5"/><path d="M15.5 10.5 21 7.5v9l-5.5-3"/></svg>내 걸음 비춰 보기</button>
@@ -3072,6 +3152,7 @@ function renderHomeTop() {
   $('wkDots').innerHTML = ['월', '화', '수', '목', '금', '토', '일'].map((wd, k) => { const dk = dayKey(plusDays(mon0, k)), acts = [...new Set(hist.filter(h => dayKey(h.date) === dk).flatMap(h => { if (h.segs) return ['walk', 'run']; const a = h.activity ?? 'walk'; return a === 'cooper' || a === 'easyrun' ? 'run' : a === 'stairs' ? 'walk' : a; }))];
     return `<div class="${dk === tk ? 'today' : ''}">${wd}<i>${acts.map(a => `<b style="background:${ACT_C[a] ?? ACT_C.run}"></b>`).join('')}</i></div>`; }).join('');
   $('wkLine').textContent = `측정 ${cur.n}회${cur.walkCad != null ? ` · 걷기 케이던스 평균 ${Math.round(cur.walkCad)}` : ''}`;
+  lakeAnim();
   if (!mirrorRaf && !matchMedia('(prefers-reduced-motion: reduce)').matches) { mirrorLast = 0; mirrorRaf = requestAnimationFrame(mirrorLoop); }
   learnFigStart();
 }
@@ -3094,7 +3175,8 @@ function closeSub(back = true) {
 document.addEventListener('click', e => { const s = e.target.closest('[data-sub]'), b = e.target.closest('.spBack'); if (s) openSub(s.dataset.sub); else if (b) closeSub(); });
 function closeAllSub() { const n = (subOpen ? 1 : 0) + subStack.length; while (subOpen) closeSub(false); if (n && history.state?.sub) history.go(-n); }
 addEventListener('popstate', () => { while (subOpen && history.state?.sub !== subOpen) closeSub(false); });   // 새로고침 전에 남은 다른 {sub} 칸으로 돌아가도 닫히게 (검수팀)
-if (consent?.share && consent.summary === undefined && !under14(store.get('profile', {}).age)) setTimeout(openSumSheet);   // 아래에서 남은 기록 칸을 비운 뒤에 열어야 판의 칸이 지워지지 않음
+if (consent?.share && consent.summary === undefined && !under14(store.get('profile', {}).age)) setTimeout(openSumSheet);
+setTimeout(lakeTutMaybe, 300);   // 아래에서 남은 기록 칸을 비운 뒤에 열어야 판의 칸이 지워지지 않음
 if (history.state?.sub || history.state?.pickSheet) history.replaceState(null, '');   // 새로고침하면 판·하위 화면은 닫힌 채라 남은 기록 칸을 비움 (뒤로 가기가 한 번 헛돌지 않게)
 // 걸음 수업 판: 발 모형 3D(footpress.glb, 한 주기 8초) + 주기에 맞는 자막·단계 막대, 단계 버튼은 그 순간으로 (디자인 팀 10/28·10/30, 법률 검토 20번). 홈 '배워 보기' 카드 그림(assets/learn 50장)도 같은 모형
 // 투명 WebP를 캔버스에 그려 밝은·어두운 화면 모두 바탕이 자연스럽고 사파리에서도 재생됨. 이용자 측정값과는 연결하지 않음

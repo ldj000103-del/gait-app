@@ -1,17 +1,19 @@
 // 오프라인에서도 열리도록 앱 파일 저장 (파일을 고치면 VERSION을 올리기)
-const VERSION = 'v231';
+const VERSION = 'v232';
 const FILES = ['./', 'index.html', 'app.js', 'gait.js', 'video.js', 'manifest.webmanifest', 'icon.svg', 'icon-192.png', 'icon-512.png', 'icon-maskable-512.png', 'privacy.html', 'location-terms.html',
   ...['side', 'front', 'back'].flatMap(v => ['pelvis', 'femur', 'shank', 'foot'].map(p => `assets/bones/${v}-${p}.webp`)),
   ...Array.from({ length: 50 }, (_, i) => `assets/learn/l${String(i).padStart(2, '0')}.webp`)];   // 홈 '배워 보기' 카드 그림 50장(약 245KB, 발 모형 렌더)도 오프라인에서   // 걸음걸이 탭 뼈 그림 12장(약 39KB)도 오프라인에서 보이게
 // 새 버전은 기다리지 않고 바로 적용 (앱을 완전히 끄지 않아도 옛 화면이 남지 않게)
 self.addEventListener('install', e => { self.skipWaiting(); e.waitUntil(caches.open(VERSION).then(c => c.addAll(FILES.map(f => new Request(f, { cache: 'reload' }))))); });   // reload: 브라우저에 남은 옛 파일이 섞여 저장되지 않게 (새 app.js + 옛 gait.js면 오프라인에서 앱이 안 열림)
 self.addEventListener('activate', e => e.waitUntil(caches.keys()
-  .then(ks => Promise.all(ks.filter(k => k !== VERSION && k !== 'ex3d').map(k => caches.delete(k))))   // ex3d = 열어 본 운동 그림·3D 파일 (app.js exCache)
+  .then(ks => Promise.all(ks.filter(k => k !== VERSION && k !== 'ex3d' && k !== 'fonts').map(k => caches.delete(k))))   // ex3d = 열어 본 운동 그림·3D 파일 (app.js exCache)
   .then(() => self.clients.claim())));
 // 항상 사이트에 최신인지 먼저 확인(no-cache), 인터넷이 없을 때만 저장본
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET' || new URL(e.request.url).origin !== location.origin) return;   // 카카오 지도 등 다른 사이트 파일은 건드리지 않음
   // 페이지 열기(navigate) 요청은 옵션을 붙여 다시 만들 수 없어서 주소로 요청 (안 그러면 늘 실패 → 옛 저장본이 뜸)
   const req = e.request.mode === 'navigate' ? e.request.url : e.request;
+  // 글꼴은 파일이 바뀌지 않으니 한 번 받으면 저장본으로 (쓰는 글자의 파일만 받음, 오프라인에서도 같은 글꼴). 파일을 바꿀 땐 폴더 이름도 바꾸기
+  if (new URL(e.request.url).pathname.includes('/assets/fonts/')) { e.respondWith(caches.open('fonts').then(c => c.match(req).then(r => r || fetch(req).then(x => { if (x.ok) c.put(req, x.clone()); return x; })))); return; }
   e.respondWith(fetch(req, { cache: 'no-cache' }).catch(() => caches.match(e.request, { ignoreSearch: true })));
 });
