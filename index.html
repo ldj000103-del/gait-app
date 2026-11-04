@@ -189,7 +189,7 @@
   /* 홈 위쪽 '내 걸음 거울' (디자인 팀 시안 C, 10/28) */
   .mirror { text-align:center; } .mirror svg { display:block; height:110px; margin:0 auto; color:var(--ink); }
   /* 거울 카드 버튼 (디자인 팀 10/29): 밝은 화면 검정·어두운 화면 흰색, 촬영 선 아이콘 + 글자 가운데 한 줄 */
-  @font-face { font-family:"Noto Serif KR"; font-weight:400; font-display:swap; src:url(assets/fonts/noto-serif-kr/noto-serif-kr-lake.woff2) format("woff2"); }   /* 호수 제목 글자만 담은 파일 */
+  @font-face { font-family:"Noto Serif KR"; font-weight:400; font-display:swap; src:url(assets/fonts/noto-serif-kr/noto-serif-kr-story.woff2) format("woff2"); }   /* 호수 제목·미러리아 글자만 담은 파일 */
   /* 호수 한 바퀴 (디자인 팀 시안): 색값은 시안 그대로, 밝기는 폰 설정 따름 */
   .lakeT { --t:#121816; --u:#5B6662; --a:#1d6b5c; --bb:#1d6b5c; --bf:#fff; --s1:#E4ECEA; --s2:#F6F2E9; --w1:#DDE9E6; --w2:#F4F6F5; --r1:#A9BEB9; --r2:#86A29C; color:var(--t); }
   @media (prefers-color-scheme: dark) { .lakeT { --t:#EEF2F0; --u:#A9B5B1; --a:#5FC2AB; --bb:#EEF2F0; --bf:#0A1518; --s1:#0A1518; --s2:#1F464A; --w1:#1A3C41; --w2:#081114; --r1:#27505A; --r2:#12272E; } }
@@ -199,6 +199,39 @@
   .lakeScreen.lakeVeiled { background:color-mix(in srgb, var(--s1) 35%, var(--w2)); }   /* 튜토리얼 덮개가 풍경 아래까지 이어져 보이게 */
   .lakeStage { position:relative; aspect-ratio:230/259; }
   @media (max-height:700px) { #home .lake .lakeStage { aspect-ratio:230/199; } #home .lake .lakeBg { transform:translateY(-13.04%); } #home .lake .lakeNum { top:82.9%; } }   /* 낮은 화면: 하늘 60만큼 줄여 '걸어 보기'가 탭 막대에 안 가리게 */
+  /* 미러리아 (디자인 팀 시안): 지역 색 고정, 폰 밝기와 상관없음 */
+  .lakeStory { --t:#EEF2F0; --u:#C4CCC9; --a:#FFF6E2; --bb:#F6EFE2; --bf:#20160f; color:var(--t); }
+  .lakeStory .lakeStage { aspect-ratio:300/352; overflow:hidden; }
+  .lakeStory .lakeBg { aspect-ratio:300/620; } .lakeRoute { will-change:transform; }
+  .storyVal { display:flex; align-items:baseline; gap:8px; margin-bottom:8px; } .storyVal b { font:300 38px/1 "Pretendard Variable",Pretendard,system-ui,sans-serif; font-variant-numeric:tabular-nums; } .storyVal span { font-size:.75rem; color:var(--u); }
+  button.storyLink { display:block; width:100%; margin:0; padding:6px 0 0; background:none; border:0; color:var(--u); font-size:.8125rem; font-weight:400; text-align:center; }
+  .storyLink i { display:inline-block; width:7px; height:7px; margin-left:6px; border-radius:50%; background:#F2C477; vertical-align:middle; }
+  @media (max-height:700px) { #home .lakeStory .lakeStage { aspect-ratio:300/256; } #home .lakeStory .lakeBg { transform:translateY(-15.48%); } }
+  #spStory, #spStoryMap { padding:0; background:#14171b; } #spStory > *, #spStoryMap > * { max-width:none; }
+  .storyScreen { position:relative; min-height:100%; overflow:hidden; display:flex; flex-direction:column; justify-content:space-between; padding:calc(58px + env(safe-area-inset-top)) 22px calc(72px + env(safe-area-inset-bottom)); }
+  .storyScreen > svg, .storyBg, .storyDim { position:absolute; inset:0; width:100%; height:100%; display:block; }
+  .storyDim { background:rgba(10,8,14,.42); }
+  .storyIn, .storyCard, .storyBtm { position:relative; }
+  .storyCh { font-size:.8125rem; font-weight:500; letter-spacing:.14em; opacity:.85; }
+  .storyName { font:400 44px/1.15 "Noto Serif KR",serif; letter-spacing:-.02em; margin:6px 0 10px; word-break:keep-all; }
+  .storyLn { font:400 15px/1.6 "Noto Serif KR",serif; margin:0; white-space:pre-line; word-break:keep-all; opacity:.95; }
+  .storyIn > * { animation:storyUp .9s ease both; } .storyIn > :nth-child(2) { animation-delay:.25s; } .storyIn > :nth-child(3) { animation-delay:.6s; }
+  @keyframes storyUp { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:none; } }
+  @media (prefers-reduced-motion: reduce) { .storyIn > * { animation:none; } }
+  button.storyGo { display:block; width:100%; height:50px; margin:0; border:0; border-radius:var(--r-md,12px); background:#F6EFE2; color:#20160f; font-weight:600; }
+  button.storyLater { display:block; width:100%; margin:8px 0 0; padding:6px; background:none; border:0; color:#FFF6E2; font-size:.75rem; font-weight:400; text-shadow:0 0 6px rgba(0,0,0,.6); }
+  .storyCard { margin:-20px -4px 20px; background:#F4EDDF; color:#2b2118; border-radius:8px; padding:24px 22px 20px; transform:rotate(-1.2deg); }
+  .storyCard:before { content:""; position:absolute; right:14px; top:12px; width:26px; height:32px; border:1.5px dashed #b49a78; border-radius:2px; }
+  .storyLh { font-size:.75rem; font-weight:500; color:#8a7458; letter-spacing:.08em; margin:0 0 14px; padding-right:30px; }
+  .storyLt { font:400 14.5px/1.85 "Noto Serif KR",serif; margin:0; white-space:pre-line; word-break:keep-all; }
+  .storyLf { font:400 13px "Noto Serif KR",serif; margin:14px 0 0; color:#6d5a44; }
+  #spStoryMap { color:#eef2f0; padding:calc(8px + env(safe-area-inset-top)) 16px calc(80px + env(safe-area-inset-bottom)); }
+  .storyMapH { font:400 22px "Noto Serif KR",serif; margin:0; } .storyMapS { font-size:.75rem; color:#9aa5a1; margin:4px 0 12px; }
+  button.storyNd { display:flex; gap:12px; align-items:center; width:100%; margin:0 0 8px; padding:0; background:none; border:0; color:inherit; text-align:left; font-weight:400; }
+  .storyTh { width:104px; height:72px; border-radius:8px; overflow:hidden; flex:none; } .storyTh svg { width:100%; height:100%; display:block; }
+  .storyNd.lk .storyTh { filter:grayscale(1) brightness(.42); }
+  .storyA { display:block; font:400 16px "Noto Serif KR",serif; } .storyB { display:block; font-size:.75rem; color:#9aa5a1; margin-top:2px; } .storyB.cur { color:#F2C477; }
+  .storyNt { margin:14px 0 0; font-size:.75rem; line-height:1.5; color:#9aa5a1; }
   /* 튜토리얼·비교: 설명·버튼은 탭 막대 바로 위, 풍경은 그 위를 채움 (47.66vw = 수평선~풍경 아래 102/214) */
   #spLake .lakeScreen { min-height:100%; display:flex; flex-direction:column; padding-bottom:calc(58px + env(safe-area-inset-bottom)); }
   #spLake .lakeStage { flex:1; aspect-ratio:auto; min-height:calc(47.66vw + 204px); overflow:hidden; background:var(--s1); }
@@ -664,7 +697,7 @@
     — 결과마다 "근거 보기"에서 출처를 확인할 수 있어요. 이 앱은 의료 진단이 아니에요.
     <details id="fontSrc"><summary>글꼴 출처·라이선스</summary><p>이 앱은 아래 글꼴을 앱 안에 넣어 씁니다. 두 글꼴 모두 SIL Open Font License 1.1을 따릅니다.<br>
       · Pretendard: Copyright (c) 2021, Kil Hyung-jin (<a href="https://github.com/orioncactus/pretendard">https://github.com/orioncactus/pretendard</a>), with Reserved Font Name Pretendard. 공식 파일을 고치지 않고 씁니다. <a href="assets/fonts/pretendard/LICENSE.txt">라이선스 전문</a><br>
-      · Noto Serif KR: (c) 2017-2024 Adobe (<a href="http://www.adobe.com/">http://www.adobe.com/</a>). 호수 제목에 쓰는 글자만 담은 파일입니다. <a href="assets/fonts/noto-serif-kr/LICENSE.txt">라이선스 전문</a></p></details>
+      · Noto Serif KR: (c) 2017-2024 Adobe (<a href="http://www.adobe.com/">http://www.adobe.com/</a>). 호수 제목과 미러리아 글에 쓰는 글자만 담은 파일입니다. <a href="assets/fonts/noto-serif-kr/LICENSE.txt">라이선스 전문</a></p></details>
     <details id="boneSrc"><summary>해부 그림 출처</summary><p>내 걸음 비춰 보기의 뼈 그림은 아래 3D 모델에서 골반·넓적다리뼈·무릎뼈·정강이뼈·종아리뼈·발뼈를 골라 렌더링하고 색·재질과 조명을 바꾼 것이며, 앱은 이 뼈 그림을 이용자의 관절 각도에 맞춰 돌리고 이어 붙여 보여 줍니다. 걸음 수업의 발 3D 모형과 홈 화면 ‘배워 보기’ 카드 그림(이 3D 모형을 렌더링한 그림)은 아래 3D 모델의 무릎 아래 뼈와 근육(전경골근·장지신근·장무지신근·가자미근·비복근·후경골근·장지굴근·장무지굴근·엄지발가락벌림근·아킬레스건)에 Human Base Meshes(CC0) 마네킹 피부를 반투명으로 씌우고, Perry 『Gait Analysis』의 일반적인 걸음 각도로 움직이게 하고, 그 순간 일하는 근육을 빨갛게 칠한 것입니다(이용자 측정값과는 연결되지 않습니다).<br>
       · BodyParts3D, © The Database Center for Life Science licensed under CC Attribution-Share Alike 2.1 Japan (<a href="https://dbarchive.biosciencedbc.jp/data/bodyparts3d/20100816/README_e.html">https://dbarchive.biosciencedbc.jp/data/bodyparts3d/20100816/README_e.html</a> · 라이선스 <a href="https://creativecommons.org/licenses/by-sa/2.1/jp/">https://creativecommons.org/licenses/by-sa/2.1/jp/</a>)<br>
       · Z-Anatomy - The libre 3D atlas of anatomy - CC-BY-SA 4.0, Gauthier Kervyn 외 (<a href="https://github.com/Z-Anatomy/Models-of-human-anatomy">https://github.com/Z-Anatomy/Models-of-human-anatomy</a> · 라이선스 <a href="https://creativecommons.org/licenses/by-sa/4.0/">https://creativecommons.org/licenses/by-sa/4.0/</a>)<br>
@@ -758,6 +791,8 @@
     </div>
   </div>
   <div class="subpage" id="spLake" hidden role="dialog" aria-label="호수 한 바퀴"></div>
+  <div class="subpage" id="spStory" hidden role="dialog" aria-label="미러리아 편지"></div>
+  <div class="subpage" id="spStoryMap" hidden role="dialog" aria-label="미러리아 지도"></div>
   <div class="subpage" id="spSetPriv" hidden role="dialog" aria-label="개인정보·동의"><div class="sphead"><button class="spBack" aria-label="뒤로">‹</button><h2>개인정보·동의</h2></div>
     <div class="card rows">
       <button class="dayrec" id="cEdit"><span>동의 변경</span><span class="sub">›</span></button>

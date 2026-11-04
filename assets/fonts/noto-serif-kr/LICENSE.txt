@@ -1,4 +1,4 @@
-Noto Serif KR: (c) 2017-2024 Adobe (http://www.adobe.com/). This file is a subset containing only the characters used in the app's lake titles.
+Noto Serif KR: (c) 2017-2024 Adobe (http://www.adobe.com/). This file is a subset containing only the characters used in the app's lake and story text.
 
 This Font Software is licensed under the SIL Open Font License,
 Version 1.1.
