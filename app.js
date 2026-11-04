@@ -1,4 +1,4 @@
-import { analyzeWalk, fastMinutes, withDistance, gpsSpeed, gpsDistance, guessActivity, guessPosition, routeMarks, RUN_CAD, analyzeJog, mixActivity, stairClimb, FLOOR_M, STAIR_STEP_M, chunks, walkRunSegs, elevation, slopeSegs, dropRoute, pruneRoutes, sumTags, lakeDirect, lakeCount, lakePick } from './gait.js';
+import { analyzeWalk, fastMinutes, withDistance, gpsSpeed, gpsDistance, guessActivity, guessPosition, routeMarks, RUN_CAD, analyzeJog, mixActivity, stairClimb, FLOOR_M, STAIR_STEP_M, chunks, walkRunSegs, elevation, slopeSegs, dropRoute, pruneRoutes, sumTags, lakeDirect, lakeCount, lakePos, lakePick } from './gait.js';
 import { analyzeSide, analyzeFrontal, extractPose, drawSnapshot, PART_ICON } from './video.js';
 
 const $ = id => document.getElementById(id);
@@ -3049,10 +3049,9 @@ function mirrorLoop(now) {
   box.innerHTML = mirrorSvg(mirrorQ);
 }
 // ── 호수 한 바퀴 (디자인 팀 시안, 법률 검토 45번): 칸은 기록에서 계산하고 저장하는 값은 튜토리얼 봤음(lakeTut) 하나. 값으로 칸이 움직이거나 줄지 않음, 좋고 나쁨 표시 없음 ──
-const LAKE_D = 'M115 299A98 34 0 1 1 115 231A98 34 0 1 1 115 299', LAKE_CELLS = [.08, .25, .42, .58, .75, .92];
+const LAKE_D = 'M115 299A98 34 0 1 1 115 231A98 34 0 1 1 115 299', LAKE_CELLS = [.08, .25, .42, .58, .75, .92], LAKE_VB = '8 0 214 312';   // LAKE_VB: 튜토리얼·비교 화면 풍경, 호수를 조금 크게 (아래 글·버튼 바로 위까지)
 let lakeId = 0, lakeSeen = null;                                           // lakeSeen: 이 실행에서 마지막으로 그린 측정 횟수 (칸 이동 움직임용, 저장 안 함)
 const lakePts = (() => { let p; return () => { if (!p) { const e = document.createElementNS('http://www.w3.org/2000/svg', 'path'); e.setAttribute('d', LAKE_D); const L = e.getTotalLength(); p = LAKE_CELLS.map(c => e.getPointAtLength(c * L)); } return p; }; })();
-const lakePos = n => n ? (n - 1) % 6 + 1 : 0;                              // 지금까지 밝힌 칸 수 (1~6). 6칸을 돌면 다음 측정이 새 바퀴 첫 칸
 function lakeSvg({ vb = '0 40 230 460', pos = 0, ring = true, veil = false, hi = null }) {
   const i = ++lakeId, pts = ring ? lakePts() : [], next = hi ?? pos % 6, R = `M-10 210C20 188 50 182 84 191 112 198 140 178 176 184 200 188 220 197 240 210Z`;
   const T = 'M-10 210V201a9 9 0 0 1 15-4a10 10 0 0 1 18-2a8 8 0 0 1 14 1a11 11 0 0 1 20-1a8 8 0 0 1 14 3a10 10 0 0 1 18-1a9 9 0 0 1 16-1a10 10 0 0 1 18 1a8 8 0 0 1 14 1a10 10 0 0 1 18 0a9 9 0 0 1 16 1a9 9 0 0 1 16 1a9 9 0 0 1 16 2a10 10 0 0 1 18 0a10 10 0 0 1 18 1V210Z';
@@ -3074,12 +3073,12 @@ const lakeNorm = () => (({ sex }) => sex === 'm' ? 111 : sex === 'f' ? 117 : 113
 function lakeHtml() {
   const hist = store.get('history', []), n = lakeCount(hist), last = hist.find(h => lakeDirect(h) && !mixedRelab(h) && h.cadence != null);
   const today = dayKey(new Date()), np = !hist.some(h => !h.autoRec && (h.activity ?? 'walk') === 'walk' && dayKey(h.date) === today);   // 오늘 다음 걷기가 연습인지
-  const t = n % 6 === 2 ? lakePick(hist, 'walk', np, Date.now()) : null;   // '걸어 보기'가 걷기로 가므로 비교 약속도 걷기 기록으로. 다음 측정이 3번째 칸일 때만
+  const t = lakePos(n) === 2 ? lakePick(hist, 'walk', np, Date.now()) : null;   // '걸어 보기'가 걷기로 가므로 비교 약속도 걷기 기록으로. 다음 측정이 3번째 칸일 때만
   const walk = last && (last.activity ?? 'walk') === 'walk', c = last && Math.round(last.cadence), norm = lakeNorm();
   return `<div class="card lake lakeT">${lakeSvg({ pos: lakePos(n) })}<div class="lakeStage"><h2 class="lakeH">${t?.week ? '일주일 전 기록을 같이 볼까요?' : t ? '지난 기록을 같이 볼까요?' : '호수 한 바퀴를 같이 걸어 볼까요?'}</h2>
       ${last ? `<div class="lakeNum"><small>${lakeRecName(last)}</small><b>${c}</b><small>걸음/분</small></div>` : ''}</div>
     <div class="lakeBody">${t ? `<p>오늘 걸어 재면 ${lakeRecName(t.h)}과 나란히 보여 드려요.</p>` : ''}
-      ${walk ? `<div class="lakeRow"><span>Perry 책 평균 ${norm} · 차이 ${signed(c - norm)}</span></div><div class="lakeRow"><span>측정 정확도 ${GRADE[cadGradeOf(last)][1]}</span></div>` : ''}
+      ${walk ? `<div class="lakeRow"><span>Perry 책 평균</span><b>${norm} · 차이 ${signed(c - norm)}</b></div><div class="lakeRow"><span>측정 정확도</span><b>${GRADE[cadGradeOf(last)][1]}</b></div>` : ''}
       <button class="lakeBtn" data-lakego>걸어 보기</button><p class="lakeFine">쉬어도 칸은 줄지 않아요. 몸이 불편한 날은 걷지 않아도 돼요.</p></div></div>`;
 }
 function lakeAnim() {                                                      // 측정 후 첫 화면으로 오면 길이 .7초 동안 이어짐. 저장 없이 이 실행 안에서만
@@ -3095,7 +3094,7 @@ const LAKE_TUT = [
 ];
 function lakeTutStep(i) {
   const [title, text, hi] = LAKE_TUT[i], hasRec = lakeCount(store.get('history', [])) > 0;
-  $('spLake').innerHTML = `<div class="lakeScreen lakeT lakeVeiled">${lakeSvg({ hi: hi ?? 99, veil: true })}<div class="lakeStage">
+  $('spLake').innerHTML = `<div class="lakeScreen lakeT lakeVeiled"><div class="lakeStage">${lakeSvg({ vb: LAKE_VB, hi: hi ?? 99, veil: true })}
       <div class="lakeTop"><span>${i + 1} / 3</span><button class="spBack lakeSkip">건너뛰기</button></div><h2 class="lakeH lakeHtut">${title}</h2></div>
     <div class="lakeBody"><p>${text}</p><button class="lakeBtn" ${i < 2 ? `data-laketut="${i + 1}"` : 'data-lakego'}>${i < 2 ? '다음' : hasRec ? '걸어 보기' : '첫 걸음 시작'}</button></div></div>`;
   $('spLake').querySelector('.spBack').focus({ preventScroll: true });
@@ -3107,17 +3106,17 @@ function lakeTutMaybe() {                                                  // �
 // 3번째 칸 도착 비교: 측정 결과 위로 뜨고 닫으면 결과. 값이 낮아도 오늘이 항상 위, 색·화살표로 오르내림을 나타내지 않음
 function lakeArrive(rec) {
   const hist = store.get('history', []), n = lakeCount(hist), act = rec.activity ?? 'walk';
-  if (n % 6 !== 3 || !lakeDirect(rec) || rec.cadence == null) return;
+  if (lakePos(n) !== 3 || !lakeDirect(rec) || rec.cadence == null) return;
   const p = lakePick(hist.filter(h => h.date !== rec.date), act, rec.practice, Date.now()); if (!p) return;
   const a = Math.round(p.h.cadence), b = Math.round(rec.cadence), g = [lakeGrade(p.h), lakeGrade(rec)].sort((x, y) => 'gyo'.indexOf(y) - 'gyo'.indexOf(x))[0], name = lakeRecName(p.h);
-  $('spLake').innerHTML = `<div class="lakeScreen lakeT">${lakeSvg({ ring: false, vb: '0 0 230 460' })}<div class="lakeStage lakeCmp">
-      <div class="lakeTop"><span>${rec.practice ? '오늘 연습' : '3번째 칸'}</span><button class="spBack lakeSkip">닫기</button></div><h2 class="lakeH lakeHtut">${name}과 나란히 봤어요</h2>
+  $('spLake').innerHTML = `<div class="lakeScreen lakeT"><div class="lakeStage">${lakeSvg({ ring: false, vb: LAKE_VB })}
+      <div class="lakeTop"><span>${rec.practice ? '오늘 연습' : '3번째 칸'}</span><button class="spBack" hidden></button></div><h2 class="lakeH lakeHtut">${name}과 나란히 봤어요</h2>
       <div class="lakeToday"><small>오늘</small><b>${b}</b></div><div class="lakePast"><b>${a}</b><small>${name}</small></div></div>
-    <div class="lakeBody"><p>${md(p.h.date)}${p.h.practice ? ' 연습' : ''} ${a} · 오늘 ${b} 걸음/분 · 차이 ${signed(b - a)} · 측정 정확도: ${GRADE[g][1]}</p>
+    <div class="lakeBody"><p>${md(p.h.date)}${p.h.practice ? ' 연습' : ''} ${a} · 오늘 ${b} 걸음/분 · 차이 ${signed(b - a)}<br>측정 정확도: ${GRADE[g][1]}</p>
       <p class="lakeFine">걷는 곳이나 휴대폰 위치가 다르면 값이 달라질 수 있어요. 차이는 좋고 나쁨을 뜻하지 않아요.</p>
       <button class="lakeBtn" data-lakeclose>결과 보기</button>
       ${n === 3 ? '<p class="lakeFine lakeLesson">3번째 측정을 마쳐서 걸음 수업 1개를 볼 수 있어요. <a href="#" data-lakelesson>흔들의자 수업 보기</a></p>' : ''}</div></div>`;
-  openSub('spLake');
+  openSub('spLake'); $('spLake').querySelector('.lakeBtn').focus({ preventScroll: true });
 }
 document.addEventListener('click', e => {
   const t = e.target.closest('[data-laketut]'); if (t) return lakeTutStep(+t.dataset.laketut);

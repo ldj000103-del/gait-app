@@ -1,7 +1,7 @@
 // 걸음 분석 자체 점검: node test_gait.mjs
 // 가짜 걷기 신호(앞뒤 3초 서 있기 포함)를 만들어 케이던스를 2% 안으로 맞히는지 확인
 import assert from 'node:assert/strict';
-import { analyzeWalk, fastMinutes, withDistance, gpsSpeed, gpsDistance, guessActivity, guessPosition, routeMarks, analyzeJog, mixActivity, stairClimb, mergeWalkRun, walkRunSegs, elevation, slopeSegs, chunks, dropRoute, pruneRoutes, sumTags, lakeDirect, lakeCount, lakePick } from './gait.js';
+import { analyzeWalk, fastMinutes, withDistance, gpsSpeed, gpsDistance, guessActivity, guessPosition, routeMarks, analyzeJog, mixActivity, stairClimb, mergeWalkRun, walkRunSegs, elevation, slopeSegs, chunks, dropRoute, pruneRoutes, sumTags, lakeDirect, lakeCount, lakePos, lakePick } from './gait.js';
 
 function fakeWalk({ cadence, walkS = 20, position, hz = 60, seed = 1, amp = 1, odd = 0.4, sw = 2.0 }) {   // amp: 달리기는 흔들림이 큼
   let r = seed;
@@ -291,6 +291,7 @@ console.log('모든 점검 통과');
   const NOW = new Date(2026, 10, 20, 12), ago = d => new Date(2026, 10, 20 - d, 9).toISOString();
   const w = (d, more) => ({ date: ago(d), activity: 'walk', cadence: 100 + d, ...more });
   assert.equal(lakeCount([w(1), { autoRec: true }, { demo: true }, { activity: 'video', view: 'side' }, { view: 'side' }, { activity: 'cooper', cadence: null }]), 2, '자동·데모·영상 제외');
+  assert.deepEqual([0, 1, 3, 6, 7, 9, 12].map(lakePos), [0, 1, 3, 6, 1, 3, 6], '6칸씩 돌고 9번째도 3번째 칸');
   assert.equal(lakePick([], 'walk', false, NOW), null);
   assert.equal(lakePick([w(1, { activity: 'run' })], 'walk', false, NOW), null, '다른 활동은 비교 안 함');
   assert.equal(lakePick([w(1, { autoRec: true }), w(2, { orig: { segs: [] } }), w(3, { cadence: null })], 'walk', false, NOW), null, '자동·섞인 구간·값 없음 제외');

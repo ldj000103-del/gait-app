@@ -198,14 +198,19 @@
   .lakeBg { position:absolute; left:0; top:0; width:100%; height:auto; aspect-ratio:230/460; display:block; }
   .lakeScreen.lakeVeiled { background:color-mix(in srgb, var(--s1) 35%, var(--w2)); }   /* 튜토리얼 덮개가 풍경 아래까지 이어져 보이게 */
   .lakeStage { position:relative; aspect-ratio:230/259; }
-  .lakeStage.lakeCmp { aspect-ratio:230/300; }
-  .lakeH { position:absolute; left:20px; right:20px; top:20px; margin:0; font:400 1.375rem/1.4 "Noto Serif KR",serif; letter-spacing:-.01em; word-break:keep-all; color:var(--t); }
+  /* 튜토리얼·비교: 설명·버튼은 탭 막대 바로 위, 풍경은 그 위를 채움 (47.66vw = 수평선~풍경 아래 102/214) */
+  #spLake .lakeScreen { min-height:100%; display:flex; flex-direction:column; padding-bottom:calc(58px + env(safe-area-inset-bottom)); }
+  #spLake .lakeStage { flex:1; aspect-ratio:auto; min-height:360px; overflow:hidden; background:var(--s1); }
+  #spLake .lakeBg { top:auto; bottom:0; aspect-ratio:214/312; }
+  #spLake .lakeBody { background:linear-gradient(color-mix(in srgb, var(--w1) 50%, var(--w2)), var(--w2)); }
+  #spLake .lakeVeiled .lakeBody { background:linear-gradient(color-mix(in srgb, var(--s1) 35%, color-mix(in srgb, var(--w1) 50%, var(--w2))), color-mix(in srgb, var(--s1) 35%, var(--w2))); }
+  .lakeH { position:absolute; left:20px; right:20px; top:20px; margin:0; font:400 1.375rem/1.4 "Noto Serif KR",serif; letter-spacing:-.01em; word-break:keep-all; text-wrap:balance; color:var(--t); }
   .lakeHtut { top:56px; }
-  .lakeNum { position:absolute; left:0; right:0; top:86.87%; transform:translateY(-50%); text-align:center; line-height:1.1; }
+  .lakeNum { position:absolute; left:0; right:0; top:86.87%; transform:translateY(calc(-50% + 2px)); text-align:center; line-height:1.1; }
   .lakeNum b, .lakeToday b, .lakePast b { display:block; font-size:44px; font-weight:300; font-variant-numeric:tabular-nums; line-height:1.1; }
   .lakeNum small, .lakeToday small, .lakePast small { display:block; font-size:.75rem; color:var(--u); }
   .lakeToday, .lakePast { position:absolute; left:0; right:0; text-align:center; }
-  .lakeToday { bottom:30%; } .lakePast { top:72%; opacity:.6; } .lakePast b { font-size:38px; }
+  .lakeToday { bottom:calc(47.66vw + 4px); } .lakePast { bottom:calc(47.66vw - 66px); opacity:.6; } .lakePast b { font-size:38px; }
   .lakeTop { position:absolute; left:20px; right:20px; top:14px; display:flex; justify-content:space-between; align-items:center; font-size:.8125rem; color:var(--u); }
   #spLake { padding:0; } #spLake > * { max-width:none; }
   #spLake .lakeScreen { min-height:100%; }
@@ -214,7 +219,8 @@
   .lakeBody p { margin:0 0 10px; font-size:.875rem; word-break:keep-all; color:var(--t); }
   .lakeBody p.lakeFine { font-size:.8125rem; color:var(--u); }
   .lakeLesson { margin-top:28px !important; } .lakeLesson a { color:var(--a); }
-  .lakeRow { padding:8px 0; border-top:1px solid color-mix(in srgb, var(--t) 18%, transparent); font-size:.875rem; }
+  .lakeRow { display:flex; justify-content:space-between; gap:12px; padding:8px 0; border-top:1px solid color-mix(in srgb, var(--t) 18%, transparent); font-size:.875rem; }
+  .lakeRow b { font-weight:500; font-variant-numeric:tabular-nums; }
   button.lakeBtn { display:block; width:100%; margin:12px 0 10px; padding:14px; border:0; border-radius:var(--r-md,12px); background:var(--bb); color:var(--bf); font-weight:600; }
   .lakePulse { transform-box:fill-box; transform-origin:center; animation:lakePulse 1.8s ease-out infinite; stroke-width:1; }
   @keyframes lakePulse { from { transform:scale(1); opacity:.7; } to { transform:scale(2.5); opacity:0; } }

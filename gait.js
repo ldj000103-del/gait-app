@@ -17,6 +17,7 @@ export function sumTags(hist, rec, first, deleted) {
 // 호수 한 바퀴 (디자인 팀, 법률 검토 45번): 저장 없이 기록에서 계산. 자동·데모·영상은 세지 않음
 export const lakeDirect = h => !h.autoRec && !h.demo && !h.view && h.activity !== 'video';
 export const lakeCount = hist => hist.filter(lakeDirect).length;
+export const lakePos = n => n ? (n - 1) % 6 + 1 : 0;                       // 지금까지 밝힌 칸 수 (1~6). 6칸을 돌면 다음 측정이 새 바퀴 첫 칸
 // 비교 상대: 같은 활동의 직접 측정. 5~9일 전을 먼저(7일에 가까운 것), 없으면 가장 최근. 첫 걷기는 보통 7% 느려서 연습은 연습끼리 먼저 (Perry 20장). hist는 최신순
 export function lakePick(hist, act, practice, now) {
   const c = hist.filter(h => lakeDirect(h) && !h.orig?.segs && h.cadence != null && (h.activity ?? 'walk') === act);
