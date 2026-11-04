@@ -3118,7 +3118,7 @@ function storyArrive(i) {
 function storyTalk(i) {                                                    // 대화 장면: 화면을 누르면 편지. 답장 칸 없음
   const R = STORY[i];
   $('spStory').innerHTML = `<button class="storyScreen storyTalk" data-storyopen="${i}" style="background:${R.pn}" aria-label="${R.who}의 말. 누르면 편지를 봐요">${storyImg(R, 'storyBlur')}<img class="storyBust" src="${storyArt(R.talk)}" alt=""><span class="spBack" hidden></span>
-    <span class="storyDlg"><span class="storySm">이야기 ${R.ch}</span>${R.say}<span class="storyTag">${R.who}</span></span></button>`;
+    <span class="storyDlg"><span class="storySm">이야기 ${R.ch}</span>${R.say}<span class="storyTag">${R.who}</span><span class="storyHint">화면을 누르면 편지를 봐요</span></span></button>`;
   $('spStory').scrollTop = 0; $('spStory').querySelector('.storyTalk').focus({ preventScroll: true });
 }
 function storyLetter(i, again) {                                           // again: 지도에서 다시 읽기
