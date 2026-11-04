@@ -3136,7 +3136,7 @@ function storyMap() {                                                      // �
     ${STORY.map((R, i) => { const done = i < read, unread = i === read && open > read, here = i === cur && !done;   // 아직 안 읽어도 지금 있는 호수는 색과 이름으로
       return `<button class="storyNd ${done || here ? '' : 'lk'}" ${done ? `data-storyagain="${i}"` : unread ? `data-storyunread="${i}"` : 'disabled'}><span class="storyTh"><img src="${storyArt(R.art)}" alt=""></span>
         <span><span class="storyA">${done || here ? R.n : '아직 비치지 않은 곳'}</span><span class="storyB ${i === cur || unread ? 'cur' : ''}">${done ? (i === cur ? '지금 여기 · 편지 1통' : '편지 1통') : here ? (unread ? '지금 여기 · 읽지 않은 편지 1통' : '지금 여기 · 한 번 걸으면 편지가 드러나요') : unread ? '읽지 않은 편지 1통' : '한 바퀴를 돌면 드러나요'}</span></span></button>`; }).join('')}
-    <p class="storyNt">실제 위치와 상관없는 이야기 속 지도예요. 측정 횟수로만 열려요.<br>미러리아와 그곳 사람들은 앱 안의 이야기예요. 편지는 앱이 미리 써 둔 글이에요.<br>이야기 인물 그림은 생성형 AI로 만든 뒤 다듬었어요.</p>`;
+    <p class="storyNt">실제 위치와 상관없는 이야기 속 지도예요. 측정 횟수로만 열려요.<br>미러리아와 그곳 사람들은 앱 안의 이야기예요. 편지는 앱이 미리 써 둔 글이에요.<br>이야기 그림은 생성형 AI로 만들었어요.</p>`;
   openSub('spStoryMap');
 }
 document.addEventListener('click', e => {
