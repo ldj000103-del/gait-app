@@ -209,6 +209,7 @@
   button.storyLink { position:absolute; z-index:1; right:14px; top:0; min-height:44px; width:auto; margin:0; padding:12px 0 12px 8px; background:none; border:0; color:#FFF6E7; font-size:.75rem; font-weight:400; }
   .storyLink i { display:inline-block; width:7px; height:7px; margin-left:6px; border-radius:50%; background:#F2C477; vertical-align:middle; }
   @media (max-height:700px) { #home .lakeStory .lakeStage { aspect-ratio:300/256; } }
+  #spStory { z-index:16; }   /* 지도에서 연 도착·편지가 지도 위로 */
   #spStory, #spStoryMap { padding:0; background:#14171b; } #spStory > *, #spStoryMap > * { max-width:none; }
   .storyScreen { position:relative; min-height:100%; overflow:hidden; display:flex; flex-direction:column; justify-content:space-between; padding:calc(58px + env(safe-area-inset-top)) 22px calc(72px + env(safe-area-inset-bottom)); }
   .storyDim { position:absolute; inset:0; background:rgba(10,8,14,.42); }
@@ -224,10 +225,10 @@
   .storyBtmA { display:flex; flex-direction:column; align-items:flex-end; gap:2px; margin-right:-6px; }
   button.storyPill { width:auto; height:42px; margin:0; padding:0 18px; border:0; border-radius:999px; background:#F6EFE2; color:#20160f; font-weight:600; font-size:.9375rem; }
   button.storyGo { display:block; width:100%; height:50px; margin:0; border:0; border-radius:var(--r-md,12px); background:#F6EFE2; color:#20160f; font-weight:600; }
-  button.storyLater { width:auto; margin:0; padding:10px 4px; background:none; border:0; color:#FFF6E2; font-size:.75rem; font-weight:400; text-shadow:0 0 6px rgba(0,0,0,.7); }
-  button.storyTalk { display:block; width:100%; height:100%; min-height:100vh; padding:0; border:0; border-radius:0; color:#F6EFE2; font-weight:400; text-align:center; }
+  button.storyLater { width:auto; margin:0 0 6px; padding:5px 12px; background:rgba(12,11,18,.62); border:0; border-radius:999px; color:#FFF6E2; font-size:.75rem; font-weight:400; }
+  button.storyTalk { display:block; width:100%; height:100%; min-height:100vh; margin:0; padding:0; border:0; border-radius:0; color:#F6EFE2; font-weight:400; text-align:center; }
   .storyBlur { filter:blur(1.5px) brightness(.8); }
-  .storyBust { position:absolute; left:50%; bottom:calc(128px + env(safe-area-inset-bottom)); width:min(87vw, 62vh); transform:translateX(-50%); display:block; }
+  .storyBust { position:absolute; left:50%; bottom:calc(128px + env(safe-area-inset-bottom)); width:87vw; max-height:calc(100vh - 140px - env(safe-area-inset-bottom) - env(safe-area-inset-top)); object-fit:contain; object-position:50% 100%; transform:translateX(-50%); display:block; }
   .storyDlg { position:absolute; left:0; right:0; bottom:0; min-height:170px; padding:52px 24px calc(80px + env(safe-area-inset-bottom)); background:linear-gradient(rgba(12,11,18,0), rgba(12,11,18,.86) 28%, rgba(12,11,18,.95)); font:400 16px/1.7 "Noto Serif KR",serif; white-space:pre-line; }
   .storySm { display:block; font:500 12px "Pretendard Variable",Pretendard,system-ui,sans-serif; color:#A9A294; margin-bottom:8px; }
   .storyTag { display:block; font:500 12px "Pretendard Variable",Pretendard,system-ui,sans-serif; letter-spacing:.14em; color:#CFC6B4; margin-top:10px; white-space:normal; }
@@ -242,7 +243,7 @@
   button.storyNd:not(.lk):disabled { opacity:1; }
   .storyTh { width:104px; height:72px; border-radius:8px; overflow:hidden; flex:none; background:#222; } .storyTh img { width:100%; height:100%; object-fit:cover; object-position:50% 55%; display:block; }
   .storyNd.lk .storyTh { filter:grayscale(1) brightness(.42); }
-  .storyA { display:block; font:400 16px "Noto Serif KR",serif; } .storyB { display:block; font-size:.75rem; color:#9aa5a1; margin-top:2px; } .storyB.cur { color:#F2C477; }
+  .storyA { display:block; font:400 16px "Noto Serif KR",serif; } .storyB { display:block; word-break:keep-all; font-size:.75rem; color:#9aa5a1; margin-top:2px; } .storyB.cur { color:#F2C477; }
   .storyNt { margin:14px 0 0; font-size:.75rem; line-height:1.5; color:#9aa5a1; }
   /* 튜토리얼·비교: 설명·버튼은 탭 막대 바로 위, 풍경은 그 위를 채움 (47.66vw = 수평선~풍경 아래 102/214) */
   #spLake .lakeScreen { min-height:100%; display:flex; flex-direction:column; padding-bottom:calc(58px + env(safe-area-inset-bottom)); }
