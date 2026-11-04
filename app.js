@@ -3088,9 +3088,9 @@ function lakeAnim() {                                                      // �
   requestAnimationFrame(() => requestAnimationFrame(() => { el.style.transition = 'stroke-dasharray .7s ease'; el.setAttribute('stroke-dasharray', end); el.style.strokeDasharray = end.replace(' ', 'px ') + 'px'; }));
 }
 const LAKE_TUT = [
-  ['호수 한 바퀴를 같이 걸어 볼까요?', '잴 때마다 길이 한 칸씩 이어져요.', null],
-  ['한 번 걸어 재면 첫 칸에 불이 켜져요', '걷기가 끝나면 값과 Perry 책 평균을 나란히 보여 드려요.', 0],
-  ['세 번째 칸에서 지난 기록과 나란히 봐요', '쉬어도 칸은 줄지 않아요. 몸이 불편한 날은 걷지 않아도 돼요.', 2],
+  ['호수 한 바퀴를<br>같이 걸어 볼까요?', '잴 때마다 길이 한 칸씩 이어져요.', null],
+  ['한 번 걸어 재면<br>첫 칸에 불이 켜져요', '걷기가 끝나면 값과 Perry 책 평균을 나란히 보여 드려요.', 0],
+  ['세 번째 칸에서<br>지난 기록과 나란히 봐요', '쉬어도 칸은 줄지 않아요. 몸이 불편한 날은 걷지 않아도 돼요.', 2],
 ];
 function lakeTutStep(i) {
   const [title, text, hi] = LAKE_TUT[i], hasRec = lakeCount(store.get('history', [])) > 0;
