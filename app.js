@@ -3174,8 +3174,8 @@ function closeSub(back = true) {
 document.addEventListener('click', e => { const s = e.target.closest('[data-sub]'), b = e.target.closest('.spBack'); if (s) openSub(s.dataset.sub); else if (b) closeSub(); });
 function closeAllSub() { const n = (subOpen ? 1 : 0) + subStack.length; while (subOpen) closeSub(false); if (n && history.state?.sub) history.go(-n); }
 addEventListener('popstate', () => { while (subOpen && history.state?.sub !== subOpen) closeSub(false); });   // 새로고침 전에 남은 다른 {sub} 칸으로 돌아가도 닫히게 (검수팀)
-if (consent?.share && consent.summary === undefined && !under14(store.get('profile', {}).age)) setTimeout(openSumSheet);
-setTimeout(lakeTutMaybe, 300);   // 아래에서 남은 기록 칸을 비운 뒤에 열어야 판의 칸이 지워지지 않음
+if (consent?.share && consent.summary === undefined && !under14(store.get('profile', {}).age)) setTimeout(openSumSheet);   // 아래에서 남은 기록 칸을 비운 뒤에 열어야 판의 칸이 지워지지 않음
+setTimeout(lakeTutMaybe, 300);
 if (history.state?.sub || history.state?.pickSheet) history.replaceState(null, '');   // 새로고침하면 판·하위 화면은 닫힌 채라 남은 기록 칸을 비움 (뒤로 가기가 한 번 헛돌지 않게)
 // 걸음 수업 판: 발 모형 3D(footpress.glb, 한 주기 8초) + 주기에 맞는 자막·단계 막대, 단계 버튼은 그 순간으로 (디자인 팀 10/28·10/30, 법률 검토 20번). 홈 '배워 보기' 카드 그림(assets/learn 50장)도 같은 모형
 // 투명 WebP를 캔버스에 그려 밝은·어두운 화면 모두 바탕이 자연스럽고 사파리에서도 재생됨. 이용자 측정값과는 연결하지 않음
