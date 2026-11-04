@@ -1,5 +1,5 @@
 import { analyzeWalk, fastMinutes, withDistance, gpsSpeed, gpsDistance, guessActivity, guessPosition, routeMarks, RUN_CAD, analyzeJog, mixActivity, stairClimb, FLOOR_M, STAIR_STEP_M, chunks, walkRunSegs, elevation, slopeSegs, dropRoute, pruneRoutes, sumTags, lakeDirect, lakeCount, lakePos, lakePick, storyOpen, storyCur } from './gait.js';
-import { STORY, storyScene, storyMirror } from './story.js';
+import { STORY, storyArt } from './story.js';
 import { analyzeSide, analyzeFrontal, extractPose, drawSnapshot, PART_ICON } from './video.js';
 
 const $ = id => document.getElementById(id);
@@ -3072,21 +3072,23 @@ function lakeSvg({ vb = '0 40 230 460', pos = 0, ring = true, veil = false, hi =
 const lakeRecName = h => { const a = h.activity ?? 'walk'; return `${md(h.date)} ${a === 'walk' ? '' : `${ACT[a]} `}${h.practice ? '연습 ' : ''}기록`; };
 const lakeGrade = h => { const a = h.activity ?? 'walk'; return a === 'walk' ? cadGradeOf(h) : a !== 'slowrun' && cadGradeOf(h) === 'o' ? 'o' : 'y'; };   // 결과 화면·카드와 같은 등급
 const lakeNorm = () => (({ sex }) => sex === 'm' ? 111 : sex === 'f' ? 117 : 113)(store.get('profile', {}));
-const STORY_D = 'M20 338C80 306 220 306 280 338', STORY_CELLS = [.02, .21, .41, .6, .79, .98], STORY_Y = [60, 0, 60, 40, 110];
+const STORY_D = 'M20 338C80 306 220 306 280 338', STORY_CELLS = [.02, .21, .41, .6, .79, .98];
+const storyTop = (R, h, stop) => `<div class="storyTop" style="height:${h}px;background:linear-gradient(${R.pn}${Math.round(R.sc * 255).toString(16)} ${stop}%, ${R.pn}00)"></div>`;   // 그림 위 제목이 읽히게 지역 색을 깖
 const storyRead = () => store.get('storyRead', 0);                         // 읽은 편지 수. 전송하지 않음, 앱 데이터를 지우면 함께 지워짐
 function lakeHtml() {
   const hist = store.get('history', []), n = lakeCount(hist), last = hist.find(h => lakeDirect(h) && !mixedRelab(h) && h.cadence != null);
   const today = dayKey(new Date()), np = !hist.some(h => !h.autoRec && (h.activity ?? 'walk') === 'walk' && dayKey(h.date) === today);   // 오늘 다음 걷기가 연습인지
   const t = lakePos(n) === 2 ? lakePick(hist, 'walk', np, Date.now()) : null;   // '걸어 보기'가 걷기로 가므로 비교 약속도 걷기 기록으로. 다음 측정이 3번째 칸일 때만
   const walk = last && (last.activity ?? 'walk') === 'walk', c = last && Math.round(last.cadence), norm = lakeNorm();
-  const read = storyRead(), cur = storyCur(read), R = STORY[cur], pos = lakePos(n), next = pos % 6, y0 = STORY_Y[cur];
+  const read = storyRead(), cur = storyCur(read), R = STORY[cur], pos = lakePos(n), next = pos % 6;
   // 고리 움직임 때문에 풍경까지 매 프레임 다시 그리지 않도록 길은 따로 그림
-  const route = `<g transform="translate(0 ${y0})"><path d="${STORY_D}" fill="none" stroke="#FFF6E2" stroke-width="1.6" stroke-dasharray="1 6" stroke-linecap="round"/>
+  const route = `<path d="${STORY_D}" fill="none" stroke="#FFF6E2" stroke-width="1.6" stroke-dasharray="1 6" stroke-linecap="round"/>
     ${pos ? `<path class="lakeWalked" d="${STORY_D}" pathLength="1" fill="none" stroke="#FFF6E2" stroke-width="1.8" stroke-linecap="round" stroke-dasharray="${STORY_CELLS[pos - 1]} 1"/>` : ''}
     ${lakePts(STORY_D, STORY_CELLS).map((p, k) => k === next ? `<circle class="lakePulse" cx="${p.x}" cy="${p.y}" r="7" fill="none" stroke="#FFF6E2"/><circle cx="${p.x}" cy="${p.y}" r="6" fill="rgba(20,14,10,.55)" stroke="#FFF6E2" stroke-width="2"/>`
-      : k < pos ? `<circle cx="${p.x}" cy="${p.y}" r="5" fill="#FFF6E2"/>` : `<circle cx="${p.x}" cy="${p.y}" r="3.5" fill="rgba(20,14,10,.55)" stroke="#FFF6E2"/>`).join('')}</g>`;
-  return `<div class="card lake lakeStory" style="background:${R.pn}"><div class="lakeStage"><svg class="lakeBg" viewBox="0 ${y0} 300 620" preserveAspectRatio="xMidYMin slice" aria-hidden="true">${storyScene(cur, 'c')}</svg><svg class="lakeBg lakeRoute" viewBox="0 ${y0} 300 620" preserveAspectRatio="xMidYMin slice" aria-hidden="true">${route}</svg>
-      <h2 class="lakeH" style="color:${R.fg}">${t?.week ? '일주일 전 기록을 같이 볼까요?' : t ? '지난 기록을 같이 볼까요?' : R.hh.replace('\n', '<br>')}</h2><button class="storyLink" style="color:${R.fg}" data-storymap>미러리아 지도 ›${storyOpen(n) > read ? '<i aria-label="읽지 않은 편지 있음"></i>' : ''}</button></div>
+      : k < pos ? `<circle cx="${p.x}" cy="${p.y}" r="5" fill="#FFF6E2"/>` : `<circle cx="${p.x}" cy="${p.y}" r="3.5" fill="rgba(20,14,10,.55)" stroke="#FFF6E2"/>`).join('')}`;
+  return `<div class="card lake lakeStory" style="background:${R.pn}"><div class="lakeStage"><img class="storyImg" src="${storyArt(R.art)}" alt="">${storyTop(R, 170, 61)}<svg class="lakeRoute" viewBox="0 292 300 60" aria-hidden="true">${route}</svg>
+      <h2 class="lakeH">${t?.week ? '일주일 전 기록을 같이 볼까요?' : t ? '지난 기록을 같이 볼까요?' : R.hh.replace('\n', '<br>')}</h2>
+      <button class="storyLink" data-storymap>미러리아 지도 ›${storyOpen(n) > read ? '<i aria-label="읽지 않은 편지 있음"></i>' : ''}</button></div>
     <div class="lakeBody">${last ? `<div class="storyVal"><b>${c}</b><span>걸음/분 · ${lakeRecName(last)}</span></div>` : ''}${t ? `<p>오늘 걸어 재면 ${lakeRecName(t.h)}과 나란히 보여 드려요.</p>` : ''}
       ${walk ? `<div class="lakeRow"><span>Perry 책 평균</span><b>${norm} · 차이 ${signed(c - norm)}</b></div><div class="lakeRow"><span>측정 정확도</span><b>${GRADE[cadGradeOf(last)][1]}</b></div>` : ''}
       <button class="lakeBtn" data-lakego>걸어 보기</button><p class="lakeFine">쉬어도 칸은 줄지 않아요. 몸이 불편한 날은 걷지 않아도 돼요.</p></div></div>`;
@@ -3099,42 +3101,49 @@ function lakeAnim() {                                                      // �
 }
 // ── 미러리아: 직접 측정을 마치고 첫 화면으로 처음 돌아올 때 한 장만. 앱을 켤 때나 결과 위로는 띄우지 않음 (storyDue는 메모리에만). 값에 따라 달라지지 않음 ──
 let storyDue = false;
-const STORY_FULL = (i, p) => `<svg class="storyBg" viewBox="0 0 300 620" preserveAspectRatio="xMidYMid slice" aria-hidden="true">${storyScene(i, p)}</svg>`;
 function storyMaybe() {
   if (!storyDue || !store.get('lakeTut', false) || subOpen || !$('pickSheet').hidden || document.body.dataset.tab !== 'home') return;
   storyDue = false;
   const read = storyRead();
   if (storyOpen(lakeCount(store.get('history', []))) > read) storyArrive(read);
 }
+const storyImg = (R, cls = '') => `<img class="storyImg ${cls}" src="${storyArt(R.art)}" alt="">`;
 function storyArrive(i) {
   const R = STORY[i];
-  $('spStory').innerHTML = `<div class="storyScreen">${storyMirror(i)}<button class="spBack" hidden></button>
-    <div class="storyIn" style="color:${R.fg}"><div class="storyCh">${R.ch}</div><div class="storyName">${R.n}</div><p class="storyLn">${R.ln}</p></div>
-    <div class="storyBtm"><button class="storyGo" data-storyopen="${i}">편지 찾기</button><button class="storyLater" data-lakeclose>나중에 볼게요</button></div></div>`;
-  openSub('spStory'); $('spStory').querySelector('.storyGo').focus({ preventScroll: true });
+  $('spStory').innerHTML = `<div class="storyScreen" style="background:${R.pn}">${storyImg(R)}${storyTop(R, 300, 65)}<button class="spBack" hidden></button>
+    <div class="storyIn"><div class="storyCh">${R.ch}</div><div class="storyName">${R.n}</div><p class="storyLn">${R.ln}</p></div>
+    <div class="storyBtm storyBtmA"><button class="storyLater" data-lakeclose>나중에 볼게요</button><button class="storyPill" data-storytalk="${i}">편지 찾기</button></div></div>`;
+  openSub('spStory'); $('spStory').querySelector('.storyPill').focus({ preventScroll: true });
+}
+function storyTalk(i) {                                                    // 대화 장면: 화면을 누르면 편지. 답장 칸 없음
+  const R = STORY[i];
+  $('spStory').innerHTML = `<button class="storyScreen storyTalk" data-storyopen="${i}" style="background:${R.pn}" aria-label="${R.who}의 말. 누르면 편지를 봐요">${storyImg(R, 'storyBlur')}<img class="storyBust" src="${storyArt(R.talk)}" alt=""><span class="spBack" hidden></span>
+    <span class="storyDlg"><span class="storySm">이야기 ${R.ch}</span>${R.say}<span class="storyTag">${R.who}</span></span></button>`;
+  $('spStory').scrollTop = 0; $('spStory').querySelector('.storyTalk').focus({ preventScroll: true });
 }
 function storyLetter(i, again) {                                           // again: 지도에서 다시 읽기
   const R = STORY[i];
-  $('spStory').innerHTML = `<div class="storyScreen storyLetterS">${STORY_FULL(i, 'b')}<div class="storyDim"></div><button class="spBack" hidden></button>
-    <div class="storyCard"><p class="storyLh">${R.ch} · ${R.n}에서</p><p class="storyLt">${R.lt}</p><p class="storyLf">미러리아에서</p></div>
+  $('spStory').innerHTML = `<div class="storyScreen storyLetterS" style="background:${R.pn}">${storyImg(R)}<div class="storyDim"></div><button class="spBack" hidden></button>
+    <div class="storyCard"><p class="storyLh">이야기 ${R.ch} · ${R.n}에서</p><p class="storyLt">${R.lt}</p><p class="storyLf">에나가</p></div>
     <div class="storyBtm"><button class="storyGo" ${again ? 'data-lakeclose>닫기' : `data-storykeep="${i}">일지에 넣기`}</button></div></div>`;
   $('spStory').scrollTop = 0;
   if (subOpen !== 'spStory') openSub('spStory');
   $('spStory').querySelector('.storyGo').focus({ preventScroll: true });
 }
 function storyMap() {                                                      // 썸네일은 지도를 열 때만 그림
-  const read = storyRead(), open = storyOpen(lakeCount(store.get('history', []))), cur = storyCur(read), Y = [230, 180, 150, 180, 320];
+  const read = storyRead(), open = storyOpen(lakeCount(store.get('history', []))), cur = storyCur(read);
   $('spStoryMap').innerHTML = `<div class="sphead"><button class="spBack" aria-label="뒤로">‹</button><h2 class="storyMapH">미러리아 지도</h2></div><p class="storyMapS">한 바퀴마다 물 아래 땅과 편지 한 통이 드러나요</p>
     ${STORY.map((R, i) => { const done = i < read, unread = i === read && open > read, here = i === cur && !done;   // 아직 안 읽어도 지금 있는 호수는 색과 이름으로
-      return `<button class="storyNd ${done || here ? '' : 'lk'}" ${done ? `data-storyagain="${i}"` : unread ? `data-storyunread="${i}"` : 'disabled'}><span class="storyTh"><svg viewBox="0 ${Y[i]} 300 208" preserveAspectRatio="xMidYMid slice" aria-hidden="true">${storyScene(i, `m${i}`)}</svg></span>
+      return `<button class="storyNd ${done || here ? '' : 'lk'}" ${done ? `data-storyagain="${i}"` : unread ? `data-storyunread="${i}"` : 'disabled'}><span class="storyTh"><img src="${storyArt(R.art)}" alt=""></span>
         <span><span class="storyA">${done || here ? R.n : '아직 비치지 않은 곳'}</span><span class="storyB ${i === cur || unread ? 'cur' : ''}">${done ? (i === cur ? '지금 여기 · 편지 1통' : '편지 1통') : here ? (unread ? '지금 여기 · 읽지 않은 편지 1통' : '지금 여기 · 한 번 걸으면 편지가 드러나요') : unread ? '읽지 않은 편지 1통' : '한 바퀴를 돌면 드러나요'}</span></span></button>`; }).join('')}
-    <p class="storyNt">실제 위치와 상관없는 이야기 속 지도예요. 측정 횟수로만 열려요.<br>미러리아는 앱 안의 이야기예요.</p>`;
+    <p class="storyNt">실제 위치와 상관없는 이야기 속 지도예요. 측정 횟수로만 열려요.<br>미러리아와 그곳 사람들은 앱 안의 이야기예요. 편지는 앱이 미리 써 둔 글이에요.<br>이야기 인물 그림은 생성형 AI로 만든 뒤 다듬었어요.</p>`;
   openSub('spStoryMap');
 }
 document.addEventListener('click', e => {
   const q = a => e.target.closest(`[${a}]`);
   let b;
   if (q('data-storymap')) return storyMap();
+  if ((b = q('data-storytalk'))) return storyTalk(+b.dataset.storytalk);
   if ((b = q('data-storyopen'))) return storyLetter(+b.dataset.storyopen);
   if ((b = q('data-storyagain'))) return storyLetter(+b.dataset.storyagain, true);
   if ((b = q('data-storyunread'))) return storyArrive(+b.dataset.storyunread);

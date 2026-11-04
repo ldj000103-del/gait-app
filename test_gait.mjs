@@ -1,8 +1,9 @@
 // 걸음 분석 자체 점검: node test_gait.mjs
 // 가짜 걷기 신호(앞뒤 3초 서 있기 포함)를 만들어 케이던스를 2% 안으로 맞히는지 확인
 import assert from 'node:assert/strict';
+import { existsSync } from 'node:fs';
 import { analyzeWalk, fastMinutes, withDistance, gpsSpeed, gpsDistance, guessActivity, guessPosition, routeMarks, analyzeJog, mixActivity, stairClimb, mergeWalkRun, walkRunSegs, elevation, slopeSegs, chunks, dropRoute, pruneRoutes, sumTags, lakeDirect, lakeCount, lakePos, lakePick, storyOpen, storyCur } from './gait.js';
-import { STORY, storyScene, storyMirror } from './story.js';
+import { STORY } from './story.js';
 
 function fakeWalk({ cadence, walkS = 20, position, hz = 60, seed = 1, amp = 1, odd = 0.4, sw = 2.0 }) {   // amp: 달리기는 흔들림이 큼
   let r = seed;
@@ -310,7 +311,7 @@ console.log('모든 점검 통과');
   assert.deepEqual([0, 1, 5, 6, 11, 12, 18, 24, 60, 500].map(storyOpen), [0, 1, 1, 2, 2, 3, 4, 5, 5, 5]);
   assert.deepEqual([0, 1, 2, 5].map(storyCur), [0, 0, 1, 4]);
   assert.equal(STORY.length, 5);
-  STORY.forEach((R, i) => { for (const s of [storyScene(i, 't'), storyMirror(i)]) { assert.ok(s.includes('<rect')); assert.ok(!/NaN|undefined/.test(s), R.n); } assert.ok(R.lt && R.ln && R.hh); });
+  STORY.forEach(R => { for (const k of ['n', 'ch', 'ln', 'lt', 'hh', 'who', 'say', 'art', 'talk', 'pn', 'sc']) assert.ok(R[k], k); assert.ok(existsSync(`assets/story/${R.art}.webp`)); assert.ok(existsSync(`assets/story/${R.talk}.webp`)); });
   console.log('미러리아 점검 통과');
 }
 { // 경로 지우기: 활동을 바꾼 기록의 원래 기록(orig) 경로도 함께, 다른 값은 그대로

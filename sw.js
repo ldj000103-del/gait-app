@@ -13,7 +13,7 @@ self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET' || new URL(e.request.url).origin !== location.origin) return;   // 카카오 지도 등 다른 사이트 파일은 건드리지 않음
   // 페이지 열기(navigate) 요청은 옵션을 붙여 다시 만들 수 없어서 주소로 요청 (안 그러면 늘 실패 → 옛 저장본이 뜸)
   const req = e.request.mode === 'navigate' ? e.request.url : e.request;
-  // 글꼴은 파일이 바뀌지 않으니 한 번 받으면 저장본으로 (쓰는 글자의 파일만 받음, 오프라인에서도 같은 글꼴). 파일을 바꿀 땐 폴더 이름도 바꾸기
-  if (new URL(e.request.url).pathname.includes('/assets/fonts/')) { e.respondWith(caches.open('fonts').then(c => c.match(req).then(r => r || fetch(req).then(x => { if (x.ok) c.put(req, x.clone()); return x; })))); return; }
+  // 글꼴·이야기 그림은 파일이 바뀌지 않으니 한 번 받으면 저장본으로 (쓰는 글자의 파일만 받음, 오프라인에서도 같은 글꼴). 파일을 바꿀 땐 폴더 이름도 바꾸기
+  if (/\/assets\/(fonts|story)\//.test(new URL(e.request.url).pathname)) { e.respondWith(caches.open('fonts').then(c => c.match(req).then(r => r || fetch(req).then(x => { if (x.ok) c.put(req, x.clone()); return x; })))); return; }
   e.respondWith(fetch(req, { cache: 'no-cache' }).catch(() => caches.match(e.request, { ignoreSearch: true })));
 });
