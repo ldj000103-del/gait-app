@@ -139,7 +139,7 @@ const relabBtn = (r, cls = 'relab') => canRelab(r) ? `<button class="textlike ${
 const resTitle = (r, title) => `<div class="restitle"><h2>${title}</h2>${relabBtn(r)}</div>`;
 const metroNote = r => r.metro && r.cadence ? `<div class="sub" style="margin:0 0 8px">박자 소리 ${r.metro}걸음/분을 켜고 쟀어요 · 잰 케이던스 ${Math.round(r.cadence)} (차이 ${Math.round(r.cadence) - r.metro > 0 ? '+' : ''}${Math.round(r.cadence) - r.metro})</div>` : '';   // 박자에 맞춰 걸었다면 측정이 얼마나 맞는지 볼 수 있음
 const elevNote = r => !r.elev ? '' : `<div class="sub" style="margin:0 0 8px">높이는 시험 중이에요 ${badge('n')} ${r.elev.upM < ELEV_MIN_M && r.elev.downM < ELEV_MIN_M ? '변화 거의 없음' : `오른 높이 ↑${r.elev.upM.toFixed(0)}m · 내려간 높이 ↓${r.elev.downM.toFixed(0)}m`} · 기준값 없음 · 오래 걸으면 날씨로 기압이 바뀌어 값이 조금 달라질 수 있어요</div>`;
-const warnHtml = r => r.warnings.map(w => `<div class="warn">${w === 'paused' && r.diag?.gapS >= 1 ? `<b>중간에 ${Math.round(r.diag.gapS)}초 끊겼어요.</b> ` : ''}${WARN[w]}${w === 'paused' && !Native ? ' <a href="install.html">설치형 앱 받기</a>' : ''}${w === 'walkLike' || w === 'running' ? ' ' + relabBtn(r, 'relabLink') : ''}</div>`).join('');
+const warnHtml = r => r.warnings.filter(w => WARN[w]).map(w => `<div class="warn">${w === 'paused' && r.diag?.gapS >= 1 ? `<b>중간에 ${Math.round(r.diag.gapS)}초 끊겼어요.</b> ` : ''}${WARN[w]}${w === 'paused' && !Native ? ' <a href="install.html">설치형 앱 받기</a>' : ''}${w === 'walkLike' || w === 'running' ? ' ' + relabBtn(r, 'relabLink') : ''}</div>`).join('');
 
 // ── 내 정보 ──
 const store = {
@@ -1029,7 +1029,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v235';
+const APP_VERSION = 'v236';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
