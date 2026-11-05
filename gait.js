@@ -342,6 +342,12 @@ export function gpsFast(points, limit) {
   const over = speeds.filter(v => v > limit).sort((a, b) => a - b);
   return over.length && (over.length >= speeds.length / 2 || speeds.filter(v => v > 10).length >= 2) ? over[Math.floor(over.length / 2)] : null;
 }
+// 걸음을 잰 구간(steadyFrom~steadyTo) 안에서 넘으면 기록 전체 표시, 구간 밖에서만 넘으면 값은 그대로 두고 알리기만 (실제 원본: 걷기 8분 + 조용한 차 4분, 걸음은 걷기에서만 잡힘)
+export function gpsFastCheck(rec, points, limit) {
+  const inside = rec.steadyFrom != null ? points.filter(p => p.t >= rec.steadyFrom && p.t <= rec.steadyTo) : points;
+  const fast = gpsFast(inside, limit);
+  return fast != null ? { fast } : rec.steadyFrom != null && gpsFast(points, limit) != null ? { part: true } : {};
+}
 export function gpsSpeed(result, points, windowS = null) {
   if (result.error) return { gpsError: 'noWalk' };
   const pts = points.filter(p => p.acc <= GPS_MAX_ACC && p.t >= result.steadyFrom && p.t <= result.steadyTo);

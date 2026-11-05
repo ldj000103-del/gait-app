@@ -2,7 +2,7 @@
 // 가짜 걷기 신호(앞뒤 3초 서 있기 포함)를 만들어 케이던스를 2% 안으로 맞히는지 확인
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
-import { analyzeWalk, fastMinutes, withDistance, gpsSpeed, gpsDistance, guessActivity, guessPosition, routeMarks, analyzeJog, mixActivity, stairClimb, mergeWalkRun, walkRunSegs, elevation, slopeSegs, chunks, dropRoute, pruneRoutes, sumTags, lakeDirect, lakeCount, lakePos, lakePick, storyOpen, storyCur, noStat, gpsFast } from './gait.js';
+import { analyzeWalk, fastMinutes, withDistance, gpsSpeed, gpsDistance, guessActivity, guessPosition, routeMarks, analyzeJog, mixActivity, stairClimb, mergeWalkRun, walkRunSegs, elevation, slopeSegs, chunks, dropRoute, pruneRoutes, sumTags, lakeDirect, lakeCount, lakePos, lakePick, storyOpen, storyCur, noStat, gpsFast, gpsFastCheck } from './gait.js';
 import { STORY } from './story.js';
 
 function fakeWalk({ cadence, walkS = 20, position, hz = 60, seed = 1, amp = 1, odd = 0.4, sw = 2.0 }) {   // amp: 달리기는 흔들림이 큼
@@ -326,6 +326,11 @@ console.log('모든 점검 통과');
   assert.ok(gpsFast(track([[600, 1.3], [130, 15]]), 2.5) > 10, '걷기 중 2분 넘게 빠름');
   assert.equal(gpsFast(track([[120, 11]], 50), 2.5), null, '정확도 나쁜 점은 안 봄');
   assert.equal(gpsFast([], 2.5), null);
+  const mix = track([[480, 1.1], [240, 14], [60, 1.1]]);                     // 실제 원본과 같은 구조: 걷기 8분 + 차 4분 + 걷기 1분
+  assert.deepEqual(gpsFastCheck({ steadyFrom: 0, steadyTo: 480000 }, mix, 2.5), { part: true }, '걸음 구간이 걷기면 표시 안 하고 알리기만');
+  assert.ok(gpsFastCheck({ steadyFrom: 0, steadyTo: 780000 }, mix, 2.5).fast > 10, '걸음 구간에 차가 들어가면 표시');
+  assert.ok(gpsFastCheck({}, track([[720, 11]]), 10).fast > 10, '구간 정보가 없으면 전체로 (12분 달리기)');
+  assert.deepEqual(gpsFastCheck({ steadyFrom: 0, steadyTo: 120000 }, track([[120, 1.3]]), 2.5), {}, '보통 걷기');
   assert.ok(noStat({ warnings: ['fastGps'] })); assert.ok(!lakeDirect({ warnings: ['fastGps'] })); assert.ok(lakeDirect({ warnings: [] }));
   console.log('이동 수단 의심 점검 통과');
 }

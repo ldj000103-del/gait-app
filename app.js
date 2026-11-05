@@ -1,4 +1,4 @@
-import { analyzeWalk, fastMinutes, withDistance, gpsSpeed, gpsDistance, guessActivity, guessPosition, routeMarks, RUN_CAD, analyzeJog, mixActivity, stairClimb, FLOOR_M, STAIR_STEP_M, chunks, walkRunSegs, elevation, slopeSegs, dropRoute, pruneRoutes, sumTags, lakeDirect, lakeCount, lakePos, lakePick, storyOpen, storyCur, noStat, gpsFast } from './gait.js';
+import { analyzeWalk, fastMinutes, withDistance, gpsSpeed, gpsDistance, guessActivity, guessPosition, routeMarks, RUN_CAD, analyzeJog, mixActivity, stairClimb, FLOOR_M, STAIR_STEP_M, chunks, walkRunSegs, elevation, slopeSegs, dropRoute, pruneRoutes, sumTags, lakeDirect, lakeCount, lakePos, lakePick, storyOpen, storyCur, noStat, gpsFastCheck } from './gait.js';
 import { STORY, storyArt } from './story.js';
 import { analyzeSide, analyzeFrontal, extractPose, drawSnapshot, PART_ICON } from './video.js';
 
@@ -114,6 +114,7 @@ const WARN = {
   slow: '아주 천천히 걸으면 휴대폰이 걸음 수를 적게 셀 수 있어요.',
   walkLike: '달리기치고 케이던스가 낮아요(140 미만). 걷기였거나 측정이 잘못됐을 수 있어요.',
   fastGps: '이번 GPS 속도가 이 활동의 보통 범위보다 빨라요. 걷기는 보통 2.5 m/s 이하, 달리기는 2.5~10 m/s 이상이에요 (Neumann 16장). 그래서 평균·그래프·호수 칸에는 넣지 않았어요.',
+  fastPart: '측정 중에 GPS 속도가 이 활동의 보통 범위보다 빠른 구간이 있었어요. 속도는 꾸준히 움직인 구간으로 계산했어요.',
   hand: '손에 들면 팔 흔들림이 섞여 정확도가 낮아요. 바지 앞주머니를 권장해요.',
   paused: '측정 중에 화면이 꺼지거나 다른 앱(카톡·전화)으로 가서 센서가 잠시 멈췄어요. 설치형 안드로이드 앱은 다른 앱을 써도 계속 측정돼요. 끊기지 않고 가장 길게 걸은 구간만으로 계산해서 걸음 수가 실제보다 적을 수 있어요. 다음엔 전원 버튼을 누르지 말고 주머니 모드 그대로 넣어 주세요.',
 };
@@ -921,7 +922,12 @@ async function rawGet(key) {
 const keepHist = hist => { let m = 0, a = 0; return hist.filter(h => h.autoRec ? a++ < 200 : m++ < 200); };   // 자동 기록은 따로 200개 (법률 29번: 직접 잰 기록이 자동 기록에 밀려 지워지지 않게)
 // GPS 속도가 활동 범위를 넘으면 표시만 남기고 말이 안 되는 걸음 길이는 뺌. 차를 탔다고 단정하지 않음 (민원 11/05, 법률·진단 표현 규칙)
 const fastLimit = rec => rec.activity === 'walk' && !rec.segs ? 2.5 : 10;
-function markFast(rec, gps) { setFast(rec, gps?.length ? gpsFast(gps, fastLimit(rec)) : null); }
+function markFast(rec, gps) {
+  if (!gps?.length) return;
+  const { fast, part } = gpsFastCheck(rec, gps, fastLimit(rec));
+  if (part) rec.warnings = [...(rec.warnings ?? []), 'fastPart'];
+  setFast(rec, fast);
+}
 function setFast(rec, v) {
   if (v == null || v <= fastLimit(rec)) return;
   rec.warnings = [...(rec.warnings ?? []), 'fastGps']; rec.fastGps = +v.toFixed(1); rec.stepLength = undefined;
@@ -1029,7 +1035,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v236';
+const APP_VERSION = 'v237';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -2284,7 +2290,7 @@ function rePractice(hist, date) {
   const day = new Date(date).toLocaleDateString('sv-SE'), walks = hist.filter(x => !x.autoRec && (x.activity ?? 'walk') === 'walk' && new Date(x.date).toLocaleDateString('sv-SE') === day);
   walks.forEach(x => { x.practice = x === walks[walks.length - 1]; });     // 기록은 최신 순이라 마지막이 가장 이름
 }
-const RELAB = ['walk', 'run', 'slowrun', 'easyrun'], RELAB_KEEP = ['idleEnd', 'maxEnd', 'paused'];   // 측정 상황 경고는 다시 계산해도 그대로
+const RELAB = ['walk', 'run', 'slowrun', 'easyrun'], RELAB_KEEP = ['idleEnd', 'maxEnd', 'paused', 'fastPart'];   // 측정 상황 경고는 다시 계산해도 그대로
 function openRelabel(date) {
   const h = store.get('history', []).find(x => x.date === date); if (!h) return;
   const now = h.activity ?? 'walk', mixed = h.orig?.segs;                   // v222에서 이미 바꾼 구간 기록: 다시 세면 값이 틀려서 처음 활동으로 되돌리기만 (검수팀)
