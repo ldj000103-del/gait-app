@@ -1404,6 +1404,7 @@ function renderRun(r, prev) {
 }
 
 function renderSlow(r, hist) {
+  if (r.warnings?.includes('fastGps')) return renderFast(r);
   const wk = weekSlowJogMin(hist);
   const head = resTitle(r, '슬로우 러닝 결과') + autoNote(r)
     + topCards(r, { label: '조깅한 시간', value: (r.activeS / 60).toFixed(1), unit: '분', grade: 'y', sub: `이번 주 조깅 ${wk.toFixed(0)}분 · 연구의 주간량 90분`,
