@@ -1,4 +1,4 @@
-import { analyzeWalk, fastMinutes, withDistance, gpsSpeed, gpsDistance, guessActivity, guessPosition, routeMarks, RUN_CAD, analyzeJog, mixActivity, stairClimb, FLOOR_M, STAIR_STEP_M, chunks, walkRunSegs, elevation, slopeSegs, dropRoute, pruneRoutes, sumTags, lakeDirect, lakeCount, lakePos, lakePick, storyOpen, storyCur } from './gait.js';
+import { analyzeWalk, fastMinutes, withDistance, gpsSpeed, gpsDistance, guessActivity, guessPosition, routeMarks, RUN_CAD, analyzeJog, mixActivity, stairClimb, FLOOR_M, STAIR_STEP_M, chunks, walkRunSegs, elevation, slopeSegs, dropRoute, pruneRoutes, sumTags, lakeDirect, lakeCount, lakePos, lakePick, storyOpen, storyCur, noStat, gpsFast } from './gait.js';
 import { STORY, storyArt } from './story.js';
 import { analyzeSide, analyzeFrontal, extractPose, drawSnapshot, PART_ICON } from './video.js';
 
@@ -113,6 +113,7 @@ const WARN = {
   running: '달리기로 보여요(케이던스 170 이상). 이 분석은 걷기에서만 정확해요.',
   slow: '아주 천천히 걸으면 휴대폰이 걸음 수를 적게 셀 수 있어요.',
   walkLike: '달리기치고 케이던스가 낮아요(140 미만). 걷기였거나 측정이 잘못됐을 수 있어요.',
+  fastGps: '이번 GPS 속도가 이 활동의 보통 범위보다 빨라요. 걷기는 보통 2.5 m/s 이하, 달리기는 2.5~10 m/s예요 (Neumann 16장). 그래서 평균·그래프·호수 칸에는 넣지 않았어요.',
   hand: '손에 들면 팔 흔들림이 섞여 정확도가 낮아요. 바지 앞주머니를 권장해요.',
   paused: '측정 중에 화면이 꺼지거나 다른 앱(카톡·전화)으로 가서 센서가 잠시 멈췄어요. 설치형 안드로이드 앱은 다른 앱을 써도 계속 측정돼요. 끊기지 않고 가장 길게 걸은 구간만으로 계산해서 걸음 수가 실제보다 적을 수 있어요. 다음엔 전원 버튼을 누르지 말고 주머니 모드 그대로 넣어 주세요.',
 };
@@ -726,10 +727,11 @@ function finish(data, demo = false, gps = [], press = []) {
   const d = mode === 'gps' ? (gpsDenied && !demo ? { gpsError: 'denied' } : mainSeg ? { ...mainSeg.gps } : gpsSpeed(res, gps)) : mainSeg ? {} : withDistance(res, dist);   // 직접 넣은 거리는 구간별로 못 나눔 → 섞인 평균을 Perry 걷기와 비교하지 않고 거리만 저장 (검수팀)
   if (mainSeg && mode === 'gps' && d.gpsError !== 'denied') { const g = gpsDistance(gps); if (g && g.dist >= 50) d.distance = g.dist; }   // 거리는 속도 × 시간이 아니라 전체 경로로 (걷기·뛰기 속도가 달라서)
   const rec = { date: new Date().toISOString(), start: Date.now() - durS * 1000, activity: act, position, auto, practice, route: packRoute(gps), ...res, distance: dist, ...d, distSource: d.speed || d.distance || (mainSeg && dist) ? mode : null, diag, diagHtml, ...(mainSeg ? { segs: packSegs(wr.segs, gps) } : {}), ...elevRec(press, data) };
+  markFast(rec, gps);
   saveRec(rec, hist, demo, data);
   shownDate = rec.date;
   route = rec.route; routeSegs = rec.segs ?? null;
-  const prev = hist.find(h => !h.practice && !h.autoRec && h !== rec && !mixedRelab(h) && (h.activity ?? 'walk') === act);
+  const prev = hist.find(h => !h.practice && !h.autoRec && h !== rec && !noStat(h) && (h.activity ?? 'walk') === act);
   act === 'walk' ? render(rec, prev) : renderRun(rec, prev);
   renderHistory(); lakeArrive(rec);
 }
@@ -798,6 +800,7 @@ function finishCooper(data, gps, demo, position) {
   const rec = { date: new Date().toISOString(), start: Date.now() - (data[data.length - 1].t - t0s), activity: 'cooper', position, practice: false, distance: g.dist, durS, medAcc: g.medAcc, route: packRoute(gps.filter(p => p.t >= t0s && p.t <= end)),
     speed: g.dist / durS, full,
     cadence: res.error ? null : res.cadence, steps: res.error ? null : res.steps, activeS: res.error ? durS : res.activeS, warnings: [] };
+  markFast(rec, gps);
   saveRec(rec, store.get('history', []), demo, data);
   shownDate = rec.date;
   route = rec.route;
@@ -805,6 +808,7 @@ function finishCooper(data, gps, demo, position) {
   renderHistory();
 }
 function renderCooper(r) {
+  if (r.warnings?.includes('fastGps')) return renderFast(r);
   let head = `<h2>12분 달리기 테스트 결과</h2>`;
   if (r.full === false) head += `<div class="warn">12분을 다 채우지 않았어요(${(r.durS / 60).toFixed(1)}분). 거리는 그 시간 동안의 값이에요.</div>`;
   head += topCards(r, { label: '달린 거리', value: Math.round(r.distance).toLocaleString(), unit: 'm', grade: r.medAcc > 10 ? 'o' : 'y', sub: `GPS · 위치 오차 약 ${Math.round(r.medAcc)}m`,
@@ -915,6 +919,12 @@ async function rawGet(key) {
   return new Promise(ok => { const q = db.transaction('raw').objectStore('raw').get(key); q.onsuccess = () => ok(q.result ?? null); q.onerror = () => ok(null); });
 }
 const keepHist = hist => { let m = 0, a = 0; return hist.filter(h => h.autoRec ? a++ < 200 : m++ < 200); };   // 자동 기록은 따로 200개 (법률 29번: 직접 잰 기록이 자동 기록에 밀려 지워지지 않게)
+// GPS 속도가 활동 범위를 넘으면 표시만 남기고 말이 안 되는 걸음 길이는 뺌. 차를 탔다고 단정하지 않음 (민원 11/05, 법률·진단 표현 규칙)
+function markFast(rec, gps) {
+  const v = gps?.length ? gpsFast(gps, rec.activity === 'walk' && !rec.segs ? 2.5 : 10) : null;
+  if (v == null) return;
+  rec.warnings = [...(rec.warnings ?? []), 'fastGps']; rec.fastGps = +v.toFixed(1); rec.stepLength = undefined;
+}
 function saveRec(rec, hist, demo, raw) {
   if (pendingEnd) { rec.warnings = [...(rec.warnings ?? []), pendingEnd]; pendingEnd = null; }
   if (metroEnd) rec.metro = metroEnd;                                       // 박자 소리를 켜고 시작해 끝까지 박을 놓치지 않음 (중간에 앱이 다시 열리면 안 남김)
@@ -928,7 +938,7 @@ function saveRec(rec, hist, demo, raw) {
   if (demo || !consent?.share || !ENDPOINT) return;
   try {
     const first = !store.get('sentOnce', false) && !hist.some(h => h !== rec && !h.autoRec && h.receipt);   // 이 설치에서 처음 보내는 결과. 요약값을 끈 동안 보낸 것도 전송으로 침
-    rec.receipt = send(rec, consent.summary && Date.now() >= SUMMARY_FROM ? sumTags(hist, rec, first, store.get('sumDel', false)) : []);
+    rec.receipt = send(rec, consent.summary && Date.now() >= SUMMARY_FROM && !rec.warnings?.includes('fastGps') ? sumTags(hist, rec, first, store.get('sumDel', false)) : []);
     if (rec.receipt) store.set('sentOnce', true);
     store.set('history', keepHist(hist));
   } catch {}
@@ -1018,7 +1028,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v234';
+const APP_VERSION = 'v235';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -1185,7 +1195,13 @@ function metric({ title, value, unit, grade, body = '', why = [], refs = [], cmp
     <div>출처</div><ul>${refs.map(refLi).join('')}</ul></details></div>`;
 }
 
+// GPS 속도가 활동 범위를 넘은 기록: Perry 비교·추천 없이 이번 값만
+function renderFast(r) {
+  showHtml(resTitle(r, '측정 결과') + warnHtml(r) + `<div class="card sub">이번 GPS 속도 <b>${r.fastGps} m/s</b>${r.cadence != null ? ` · 흔들림으로 센 값 ${r.cadence.toFixed(0)}회/분` : ''}</div>`
+    + (r.receipt ? `<div class="sub" style="margin-top:12px">익명 결과를 보냈어요. 접수번호 <b>${r.receipt}</b> (삭제 요청할 때 필요해요, 지난 기록에도 남아요)</div>` : '') + (r.diagHtml || ''));
+}
 function render(r, prev) {
+  if (r.warnings?.includes('fastGps')) return renderFast(r);
   r = segFix(r);
   const { sex, age } = store.get('profile', {});
   const norm = sex === 'm' ? 111 : sex === 'f' ? 117 : 113;
@@ -1355,6 +1371,7 @@ function weekSlowJogMin(hist) {
 }
 
 function renderRun(r, prev) {
+  if (r.warnings?.includes('fastGps')) return renderFast(r);
   r = segFix(r);
   const { age } = store.get('profile', {});
   const c = r.cadence;
@@ -1972,13 +1989,12 @@ const longSegSpeed = (h, type) => h.segs.filter(s => s.type === type).reduce((a,
 const walkSpeedOf = h => !h.segs ? h.speed : longSegSpeed(h, 'walk');
 // 결과 화면·공유 카드도 같은 값으로: v222 구간 기록만 달라지고, 그 뒤 기록은 h.speed가 이미 가장 긴 구간 값이라 그대로 (검수팀)
 const segFix = h => { if (!h.segs) return h; const s = longSegSpeed(h, isRun(h) ? 'run' : 'walk'); return s === h.speed ? h : { ...h, speed: s, stepLength: s ? s * 60 / h.cadence : undefined }; };
-const mixedRelab = h => h.orig?.segs;                                      // v222에서 활동을 바꿔 섞인 신호를 한 덩어리로 다시 센 기록은 평균·대표 값에서 뺌
-const isWalkRec = h => (h.activity ?? 'walk') === 'walk' && !mixedRelab(h) && h.cadence != null;
+const isWalkRec = h => (h.activity ?? 'walk') === 'walk' && !noStat(h) && h.cadence != null;
 function statOf(list) {
   const walk = list.filter(isWalkRec), withSpeed = walk.filter(walkSpeedOf);
   return { n: list.length, days: new Set(list.map(h => dayKey(h.date))).size, walkCad: avgOf(walk.map(h => h.cadence)), speed: avgOf(withSpeed.map(walkSpeedOf)), cadN: walk.length, speedN: withSpeed.length,
     cadGrade: walk.some(h => cadGradeOf(h) === 'o') ? 'o' : 'g', speedGrade: withSpeed.some(h => speedGradeOf(h) === 'o') ? 'o' : 'y',   // 가장 낮은 등급 (디자인 팀)
-    runCad: avgOf(list.filter(h => isRun(h) && !mixedRelab(h)).map(h => h.cadence)),
+    runCad: avgOf(list.filter(h => isRun(h) && !noStat(h)).map(h => h.cadence)),
     jog: list.filter(h => h.activity === 'slowrun').reduce((s, h) => s + h.activeS / 60, 0), video: list.filter(h => h.activity === 'video').length };
 }
 function weekSummary(hist, mon = monOf(new Date())) {
@@ -2083,7 +2099,7 @@ function bestRows() {
   if (sp) rows.push({ k: '가장 빠른 걷는 속도', v: walkSpeedOf(sp).toFixed(2), u: 'm/s', n: `${md(sp.date)} · 페리의 보행 분석 성인 평균 1.37` });
   const lg = top(walk, h => h.activeS);
   if (lg) rows.push({ k: '가장 오래 걸은 측정', v: (lg.activeS / 60).toFixed(1), u: '분', n: `${md(lg.date)} · 케이던스 ${lg.cadence.toFixed(0)}걸음/분` });
-  const rn = top(hist.filter(h => isRun(h) && !mixedRelab(h)).map(segFix).filter(h => h.speed), h => h.speed);
+  const rn = top(hist.filter(h => isRun(h) && !noStat(h)).map(segFix).filter(h => h.speed), h => h.speed);
   if (rn) rows.push({ k: '가장 빠른 러닝 페이스', v: paceText(rn.speed), u: '/km', n: `${md(rn.date)} · GPS로 잰 참고값` });
   const wk = {}; for (const h of hist.filter(h => h.activity === 'slowrun')) { const k = dayKey(monOf(h.date)); wk[k] = (wk[k] ?? 0) + h.activeS / 60; }
   const bw = Object.entries(wk).sort((a, b) => b[1] - a[1])[0];
@@ -2133,7 +2149,7 @@ function renderTiles() {
   const iw = pick(isWalk), w = hist[iw];
   const wPrev = iw >= 0 ? hist.slice(iw + 1).find(h => isWalk(h) && !h.practice && !h.autoRec) : null;
   const is = pick(h => isWalk(h) && walkSpeedOf(h)), sp = hist[is];
-  const ir = pick(h => isRun(h) && !mixedRelab(h) && h.cadence != null), rn = hist[ir];
+  const ir = pick(h => isRun(h) && !noStat(h) && h.cadence != null), rn = hist[ir];
   const iv = pick(h => h.activity === 'video' && h.view === 'side' && h.r?.m), vd = hist[iv];
   const delta = (a, b) => b ? ` · ${a - b >= 0 ? '+' : ''}${(a - b).toFixed(0)}` : '';
   const md2 = d => d ? md(d) : '';
@@ -2199,7 +2215,7 @@ const TREND = {
   walkCad: { label: '걷기 케이던스', unit: '걸음/분', pick: h => isWalkRec(h) ? h.cadence : null,
     ref: () => ({ band: [111, 117], text: '회색 띠 = 페리의 보행 분석 평균 남 111~여 117걸음/분 (20장, 정상 범위가 아니라 두 평균값 사이)' }) },
   walkSpeed: { label: '걷는 속도', unit: 'm/s', dec: 2, pick: h => isWalkRec(h) ? walkSpeedOf(h) ?? null : null, ref: () => ({ line: 1.37, text: '점선 = 페리의 보행 분석 성인 평균 1.37 m/s' }) },
-  runCad: { label: '러닝 케이던스', unit: '걸음/분', pick: h => isRun(h) && !mixedRelab(h) ? h.cadence : null, ref: () => ({ text: '러닝 케이던스는 사람·속도마다 달라 기준선 없이 변화만 봐요' }) },
+  runCad: { label: '러닝 케이던스', unit: '걸음/분', pick: h => isRun(h) && !noStat(h) ? h.cadence : null, ref: () => ({ text: '러닝 케이던스는 사람·속도마다 달라 기준선 없이 변화만 봐요' }) },
   knee: { label: '영상: 유각기 무릎 굽힘', unit: '°', pick: h => h.activity === 'video' && h.view === 'side' ? h.r?.m?.kneeSwingMax ?? null : null, ref: () => ({ line: 60, text: '점선 = 페리의 보행 분석 기준 초기 유각 약 60° · 영상 각도는 같은 조건으로 찍어야 비교돼요' }) },
 };
 $('tmetric').value = store.get('tmetric', 'walkCad');
@@ -2253,7 +2269,7 @@ function showRecord(i) {
   $('result').insertAdjacentHTML('afterbegin', banner); $('result').insertAdjacentHTML('beforeend', del);
 }
 function renderAny(hist, i) {
-  const h = hist[i], act = h.activity ?? 'walk', prev = hist.slice(i + 1).find(x => !x.practice && !x.autoRec && !mixedRelab(x) && (x.activity ?? 'walk') === act);
+  const h = hist[i], act = h.activity ?? 'walk', prev = hist.slice(i + 1).find(x => !x.practice && !x.autoRec && !noStat(x) && (x.activity ?? 'walk') === act);
   if (act === 'slowrun') renderSlow(h, hist); else if (act === 'cooper') renderCooper(h); else if (act === 'stairs') renderStairs(h); else if (act === 'slope') renderSlope(h); else if (act === 'walk') render(h, prev); else renderRun(h, prev);
 }
 
@@ -2266,7 +2282,7 @@ function rePractice(hist, date) {
   const day = new Date(date).toLocaleDateString('sv-SE'), walks = hist.filter(x => !x.autoRec && (x.activity ?? 'walk') === 'walk' && new Date(x.date).toLocaleDateString('sv-SE') === day);
   walks.forEach(x => { x.practice = x === walks[walks.length - 1]; });     // 기록은 최신 순이라 마지막이 가장 이름
 }
-const RELAB = ['walk', 'run', 'slowrun', 'easyrun'], RELAB_KEEP = ['idleEnd', 'maxEnd', 'paused'];   // 측정 상황 경고는 다시 계산해도 그대로
+const RELAB = ['walk', 'run', 'slowrun', 'easyrun'], RELAB_KEEP = ['idleEnd', 'maxEnd', 'paused', 'fastGps'];   // 측정 상황 경고는 다시 계산해도 그대로
 function openRelabel(date) {
   const h = store.get('history', []).find(x => x.date === date); if (!h) return;
   const now = h.activity ?? 'walk', mixed = h.orig?.segs;                   // v222에서 이미 바꾼 구간 기록: 다시 세면 값이 틀려서 처음 활동으로 되돌리기만 (검수팀)
@@ -3076,7 +3092,7 @@ const STORY_D = 'M20 338C80 306 220 306 280 338', STORY_CELLS = [.02, .21, .41, 
 const storyTop = (R, h, stop) => `<div class="storyTop" style="height:${h}px;background:linear-gradient(${R.pn}${Math.round(R.sc * 255).toString(16)} ${stop}%, ${R.pn}00)"></div>`;   // 그림 위 제목이 읽히게 지역 색을 깖
 const storyRead = () => store.get('storyRead', 0);                         // 읽은 편지 수. 전송하지 않음, 앱 데이터를 지우면 함께 지워짐
 function lakeHtml() {
-  const hist = store.get('history', []), n = lakeCount(hist), last = hist.find(h => lakeDirect(h) && !mixedRelab(h) && h.cadence != null);
+  const hist = store.get('history', []), n = lakeCount(hist), last = hist.find(h => lakeDirect(h) && !noStat(h) && h.cadence != null);
   const today = dayKey(new Date()), np = !hist.some(h => !h.autoRec && (h.activity ?? 'walk') === 'walk' && dayKey(h.date) === today);   // 오늘 다음 걷기가 연습인지
   const t = lakePos(n) === 2 ? lakePick(hist, 'walk', np, Date.now()) : null;   // '걸어 보기'가 걷기로 가므로 비교 약속도 걷기 기록으로. 다음 측정이 3번째 칸일 때만
   const walk = last && (last.activity ?? 'walk') === 'walk', c = last && Math.round(last.cadence), norm = lakeNorm();

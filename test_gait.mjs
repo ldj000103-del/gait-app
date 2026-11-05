@@ -2,7 +2,7 @@
 // 가짜 걷기 신호(앞뒤 3초 서 있기 포함)를 만들어 케이던스를 2% 안으로 맞히는지 확인
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
-import { analyzeWalk, fastMinutes, withDistance, gpsSpeed, gpsDistance, guessActivity, guessPosition, routeMarks, analyzeJog, mixActivity, stairClimb, mergeWalkRun, walkRunSegs, elevation, slopeSegs, chunks, dropRoute, pruneRoutes, sumTags, lakeDirect, lakeCount, lakePos, lakePick, storyOpen, storyCur } from './gait.js';
+import { analyzeWalk, fastMinutes, withDistance, gpsSpeed, gpsDistance, guessActivity, guessPosition, routeMarks, analyzeJog, mixActivity, stairClimb, mergeWalkRun, walkRunSegs, elevation, slopeSegs, chunks, dropRoute, pruneRoutes, sumTags, lakeDirect, lakeCount, lakePos, lakePick, storyOpen, storyCur, noStat, gpsFast } from './gait.js';
 import { STORY } from './story.js';
 
 function fakeWalk({ cadence, walkS = 20, position, hz = 60, seed = 1, amp = 1, odd = 0.4, sw = 2.0 }) {   // amp: 달리기는 흔들림이 큼
@@ -313,6 +313,21 @@ console.log('모든 점검 통과');
   assert.equal(STORY.length, 5);
   STORY.forEach(R => { for (const k of ['n', 'ch', 'ln', 'lt', 'hh', 'who', 'say', 'art', 'talk', 'pn', 'sc']) assert.ok(R[k], k); assert.ok(existsSync(`assets/story/${R.art}.webp`)); assert.ok(existsSync(`assets/story/${R.talk}.webp`)); });
   console.log('미러리아 점검 통과');
+}
+{ // GPS 속도가 활동 범위를 넘는 기록 (민원: 차를 탄 채 측정)
+  const track = (parts, acc = 8) => { const out = []; let t = 0, x = 0; for (const [sec, v] of parts) for (let i = 0; i < sec; i++, t += 1000, x += v) out.push({ t, lat: 37.5, lon: 127 + x / 88000, acc }); return out; };
+  assert.equal(gpsFast(track([[120, 1.3]]), 2.5), null, '보통 걷기');
+  assert.equal(gpsFast(track([[120, 2.35]]), 10), null, '달리기 2.35');
+  assert.ok(gpsFast(track([[120, 11]]), 2.5) > 10, '걷기 설정 40km/h');
+  assert.ok(gpsFast(track([[120, 28]]), 10) > 25, '러닝 설정 100km/h');
+  assert.equal(gpsFast(track([[300, 6]]), 10), null, '달리기 6 m/s');
+  assert.ok(gpsFast(track([[60, 1.3], [600, 12], [60, 1.3]]), 2.5) > 10, '걷기 1분 + 차 10분 + 걷기 1분');
+  assert.equal(gpsFast(track([[600, 1.3], [70, 4]]), 2.5), null, '걷기 10분 중 짧게 뜀');
+  assert.ok(gpsFast(track([[600, 1.3], [130, 15]]), 2.5) > 10, '걷기 중 2분 넘게 빠름');
+  assert.equal(gpsFast(track([[120, 11]], 50), 2.5), null, '정확도 나쁜 점은 안 봄');
+  assert.equal(gpsFast([], 2.5), null);
+  assert.ok(noStat({ warnings: ['fastGps'] })); assert.ok(!lakeDirect({ warnings: ['fastGps'] })); assert.ok(lakeDirect({ warnings: [] }));
+  console.log('이동 수단 의심 점검 통과');
 }
 { // 경로 지우기: 활동을 바꾼 기록의 원래 기록(orig) 경로도 함께, 다른 값은 그대로
   const rt = [[37.5, 127], [37.6, 127]];

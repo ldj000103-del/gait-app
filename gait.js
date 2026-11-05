@@ -8,14 +8,16 @@ export function pruneRoutes(hist, keep) { hist.forEach((h, i) => { if (i >= keep
 // 측정 요약값 (법률 검토 42번): 번호 없이 폰 기록으로 계산한 구간만. hist는 이번 기록 포함, 최신순. 자동 측정·데모는 계산에서 뺌
 export function sumTags(hist, rec, first, deleted) {
   const act = h => h.activity ?? 'walk';
-  const same = hist.filter(h => !h.autoRec && !h.demo && act(h) === act(rec));
-  const cads = same.slice(0, 5).filter(h => h.cadence != null && !h.orig?.segs).map(h => h.cadence);   // 활동을 바꿔 섞인 신호를 다시 센 구간 기록은 값으로 안 씀
+  const same = hist.filter(h => !h.autoRec && !h.demo && !h.warnings?.includes('fastGps') && act(h) === act(rec));
+  const cads = same.slice(0, 5).filter(h => h.cadence != null && !noStat(h)).map(h => h.cadence);   // 활동을 바꿔 섞인 신호를 다시 센 구간 기록은 값으로 안 씀
   const half = (Math.max(...cads) - Math.min(...cads)) / 2;                 // ±변동폭 = (최대 − 최소) / 2
   return [same.length < 2 ? 'rep1' : same.length < 5 ? 'rep2_4' : 'rep5p',
     rec.cadence != null && cads.length >= 3 && (half <= 2 ? 'cvr2' : half <= 5 ? 'cvr5' : 'cvr5p'), first && 'first', deleted && same.length < 5 && 'del'].filter(Boolean);   // 지운 적 있음은 5회 미만일 때만
 }
 // 호수 한 바퀴 (디자인 팀, 법률 검토 45번): 저장 없이 기록에서 계산. 자동·데모·영상은 세지 않음
-export const lakeDirect = h => !h.autoRec && !h.demo && !h.view && h.activity !== 'video';
+// 평균·대표 값·비교에서 빼는 기록: 활동을 바꿔 섞인 신호를 다시 센 구간 기록, GPS 속도가 활동 범위를 넘은 기록
+export const noStat = h => h.orig?.segs || h.warnings?.includes('fastGps');
+export const lakeDirect = h => !h.autoRec && !h.demo && !h.view && h.activity !== 'video' && !h.warnings?.includes('fastGps');
 export const lakeCount = hist => hist.filter(lakeDirect).length;
 // 미러리아: 측정 1번에 1장, 6·12·18·24번에 2~5장. 읽은 편지 수(storyRead)만 저장하고 값·위치와 상관없음
 export const storyOpen = n => n ? Math.min(1 + Math.floor(n / 6), 5) : 0;
@@ -23,7 +25,7 @@ export const storyCur = read => Math.max(read - 1, 0);                     // �
 export const lakePos = n => n ? (n - 1) % 6 + 1 : 0;                       // 지금까지 밝힌 칸 수 (1~6). 6칸을 돌면 다음 측정이 새 바퀴 첫 칸
 // 비교 상대: 같은 활동의 직접 측정. 5~9일 전을 먼저(7일에 가까운 것), 없으면 가장 최근. 첫 걷기는 보통 7% 느려서 연습은 연습끼리 먼저 (Perry 20장). hist는 최신순
 export function lakePick(hist, act, practice, now) {
-  const c = hist.filter(h => lakeDirect(h) && !h.orig?.segs && h.cadence != null && (h.activity ?? 'walk') === act);
+  const c = hist.filter(h => lakeDirect(h) && !noStat(h) && h.cadence != null && (h.activity ?? 'walk') === act);
   const days = h => Math.round((new Date(now).setHours(0, 0, 0, 0) - new Date(h.date).setHours(0, 0, 0, 0)) / 864e5);
   const near = c.filter(h => days(h) >= 5 && days(h) <= 9).sort((a, b) => Math.abs(days(a) - 7) - Math.abs(days(b) - 7));
   const kind = xs => xs.find(h => !!h.practice === !!practice) ?? xs[0];
@@ -325,6 +327,20 @@ export function gpsDistance(points) {
   if (pts.length < 2) return null;
   const r = blockPath(pts);
   return r.blocks < 2 ? null : r;
+}
+// 이동 수단 의심 (민원 11/05): GPS 속도가 활동 범위를 넘는지 1분씩 봄. 걷기 보통 2.5 m/s 이하, 달리기 2.5~10 m/s (Neumann 16장, p.774)
+// 튀는 위치 한 번에 걸리지 않게: 절반 이상이 limit을 넘거나, 10 m/s를 넘는 1분이 2번 이상일 때만. 넘으면 그 1분들의 중간값, 아니면 null
+// ponytail: 기록 전체에 표시만 함. 차 구간만 잘라 내려면 실제 차 원본으로 구간 판정을 검증한 뒤에. GPS를 안 쓴 측정·10 m/s 아래로 느린 차(달리기 설정)는 못 잡음
+export function gpsFast(points, limit) {
+  const good = points.filter(p => p.acc <= GPS_MAX_ACC), speeds = [];
+  for (let i = 0; i < good.length;) {
+    let j = i; while (j < good.length && good[j].t - good[i].t < 60000) j++;
+    const r = blockPath(good.slice(i, j));
+    if (r.durS >= 30) speeds.push(r.dist / r.durS);
+    i = j;
+  }
+  const over = speeds.filter(v => v > limit).sort((a, b) => a - b);
+  return over.length && (over.length >= speeds.length / 2 || speeds.filter(v => v > 10).length >= 2) ? over[Math.floor(over.length / 2)] : null;
 }
 export function gpsSpeed(result, points, windowS = null) {
   if (result.error) return { gpsError: 'noWalk' };
