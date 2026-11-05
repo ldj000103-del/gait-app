@@ -113,7 +113,7 @@ const WARN = {
   running: '달리기로 보여요(케이던스 170 이상). 이 분석은 걷기에서만 정확해요.',
   slow: '아주 천천히 걸으면 휴대폰이 걸음 수를 적게 셀 수 있어요.',
   walkLike: '달리기치고 케이던스가 낮아요(140 미만). 걷기였거나 측정이 잘못됐을 수 있어요.',
-  fastGps: '이번 GPS 속도가 이 활동의 보통 범위보다 빨라요. 걷기는 보통 2.5 m/s 이하, 달리기는 2.5~10 m/s예요 (Neumann 16장). 그래서 평균·그래프·호수 칸에는 넣지 않았어요.',
+  fastGps: '이번 GPS 속도가 이 활동의 보통 범위보다 빨라요. 걷기는 보통 2.5 m/s 이하, 달리기는 2.5~10 m/s 이상이에요 (Neumann 16장). 그래서 평균·그래프·호수 칸에는 넣지 않았어요.',
   hand: '손에 들면 팔 흔들림이 섞여 정확도가 낮아요. 바지 앞주머니를 권장해요.',
   paused: '측정 중에 화면이 꺼지거나 다른 앱(카톡·전화)으로 가서 센서가 잠시 멈췄어요. 설치형 안드로이드 앱은 다른 앱을 써도 계속 측정돼요. 끊기지 않고 가장 길게 걸은 구간만으로 계산해서 걸음 수가 실제보다 적을 수 있어요. 다음엔 전원 버튼을 누르지 말고 주머니 모드 그대로 넣어 주세요.',
 };
@@ -920,9 +920,10 @@ async function rawGet(key) {
 }
 const keepHist = hist => { let m = 0, a = 0; return hist.filter(h => h.autoRec ? a++ < 200 : m++ < 200); };   // 자동 기록은 따로 200개 (법률 29번: 직접 잰 기록이 자동 기록에 밀려 지워지지 않게)
 // GPS 속도가 활동 범위를 넘으면 표시만 남기고 말이 안 되는 걸음 길이는 뺌. 차를 탔다고 단정하지 않음 (민원 11/05, 법률·진단 표현 규칙)
-function markFast(rec, gps) {
-  const v = gps?.length ? gpsFast(gps, rec.activity === 'walk' && !rec.segs ? 2.5 : 10) : null;
-  if (v == null) return;
+const fastLimit = rec => rec.activity === 'walk' && !rec.segs ? 2.5 : 10;
+function markFast(rec, gps) { setFast(rec, gps?.length ? gpsFast(gps, fastLimit(rec)) : null); }
+function setFast(rec, v) {
+  if (v == null || v <= fastLimit(rec)) return;
   rec.warnings = [...(rec.warnings ?? []), 'fastGps']; rec.fastGps = +v.toFixed(1); rec.stepLength = undefined;
 }
 function saveRec(rec, hist, demo, raw) {
@@ -937,9 +938,9 @@ function saveRec(rec, hist, demo, raw) {
   store.set('history', keepHist(hist));
   if (demo || !consent?.share || !ENDPOINT) return;
   try {
-    const first = !store.get('sentOnce', false) && !hist.some(h => h !== rec && !h.autoRec && h.receipt);   // 이 설치에서 처음 보내는 결과. 요약값을 끈 동안 보낸 것도 전송으로 침
+    const first = !store.get('sentOnce', false) && !hist.some(h => h !== rec && !h.autoRec && h.receipt && !h.warnings?.includes('fastGps'));   // 이 설치에서 처음 보내는 결과. 요약값을 끈 동안 보낸 것도 전송으로 침
     rec.receipt = send(rec, consent.summary && Date.now() >= SUMMARY_FROM && !rec.warnings?.includes('fastGps') ? sumTags(hist, rec, first, store.get('sumDel', false)) : []);
-    if (rec.receipt) store.set('sentOnce', true);
+    if (rec.receipt && !rec.warnings?.includes('fastGps')) store.set('sentOnce', true);
     store.set('history', keepHist(hist));
   } catch {}
 }
@@ -1676,7 +1677,7 @@ $('invite').addEventListener('click', async () => {
   try { await navigator.clipboard.writeText(text); toast('설치 안내 링크를 복사했어요. 카톡에 붙여 넣어 보내세요.'); }
   catch { prompt('이 링크를 복사해 보내세요', url); }
 });
-const shareBtn = date => `<button class="ghost sharebtn" data-date="${date}" style="margin:4px 0 10px">결과 카드 공유하기</button><div class="sub" style="font-size:.75rem;margin:-4px 0 10px">카드에는 걸음·건강 숫자가 담겨요. 공유하면 받는 사람이나 게시물을 보는 사람이 볼 수 있고, 올린 뒤에는 회수하기 어려워요. 공유하지 않으면 아무에게도 보이지 않아요.</div>`;   // 민감정보가 남에게 보일 수 있음을 공유 전에 알림 (개인정보 보호법 제23조 3항 취지)
+const shareBtn = date => store.get('history', []).find(h => h.date === date)?.warnings?.includes('fastGps') ? '' : `<button class="ghost sharebtn" data-date="${date}" style="margin:4px 0 10px">결과 카드 공유하기</button><div class="sub" style="font-size:.75rem;margin:-4px 0 10px">카드에는 걸음·건강 숫자가 담겨요. 공유하면 받는 사람이나 게시물을 보는 사람이 볼 수 있고, 올린 뒤에는 회수하기 어려워요. 공유하지 않으면 아무에게도 보이지 않아요.</div>`;   // 민감정보가 남에게 보일 수 있음을 공유 전에 알림 (개인정보 보호법 제23조 3항 취지)
 
 // ── 지도에서 경로 보기 (카카오맵, 위치정보법 검토: 노션 법률 검토 7번) ──
 // 누를 때만 지도를 불러옴. 경로 좌표는 이 휴대폰의 기록에만 저장(최근 30개)하고 운영자에게 보내지 않음 (send()에 넣지 않음)
@@ -2282,7 +2283,7 @@ function rePractice(hist, date) {
   const day = new Date(date).toLocaleDateString('sv-SE'), walks = hist.filter(x => !x.autoRec && (x.activity ?? 'walk') === 'walk' && new Date(x.date).toLocaleDateString('sv-SE') === day);
   walks.forEach(x => { x.practice = x === walks[walks.length - 1]; });     // 기록은 최신 순이라 마지막이 가장 이름
 }
-const RELAB = ['walk', 'run', 'slowrun', 'easyrun'], RELAB_KEEP = ['idleEnd', 'maxEnd', 'paused', 'fastGps'];   // 측정 상황 경고는 다시 계산해도 그대로
+const RELAB = ['walk', 'run', 'slowrun', 'easyrun'], RELAB_KEEP = ['idleEnd', 'maxEnd', 'paused'];   // 측정 상황 경고는 다시 계산해도 그대로
 function openRelabel(date) {
   const h = store.get('history', []).find(x => x.date === date); if (!h) return;
   const now = h.activity ?? 'walk', mixed = h.orig?.segs;                   // v222에서 이미 바꾼 구간 기록: 다시 세면 값이 틀려서 처음 활동으로 되돌리기만 (검수팀)
@@ -2318,6 +2319,7 @@ async function relabel(date, act) {
       next = { ...keep, activity: act, practice: act === 'walk' && !hist.slice(i + 1).some(x => !x.autoRec && (x.activity ?? 'walk') === 'walk' && new Date(x.date).toLocaleDateString('sv-SE') === day),
         ...res, distance: base.distSource === 'manual' ? base.distance : null, ...d, distSource: d.speed ? base.distSource : null, warnings: [...res.warnings, ...kw] };
     }
+    setFast(next, base.fastGps ?? (base.distSource === 'gps' ? base.speed : null));   // 바꾼 활동의 범위로 다시 판단 (걷기로 잘못 고르고 천천히 뛴 사람은 러닝으로 고치면 표시가 사라짐, 검수팀)
     next.orig = base;
   }
   if (h.orig && h.receipt && h.receipt !== base.receipt) askDelete(h.receipt);   // 앞서 바꿔 보낸 행은 지움
