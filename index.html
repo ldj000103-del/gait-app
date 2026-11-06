@@ -189,7 +189,7 @@
   /* 홈 위쪽 '내 걸음 거울' (디자인 팀 시안 C, 10/28) */
   .mirror { text-align:center; } .mirror svg { display:block; height:110px; margin:0 auto; color:var(--ink); }
   /* 거울 카드 버튼 (디자인 팀 10/29): 밝은 화면 검정·어두운 화면 흰색, 촬영 선 아이콘 + 글자 가운데 한 줄 */
-  @font-face { font-family:"Noto Serif KR"; font-weight:400; font-display:swap; src:url(assets/fonts/noto-serif-kr/noto-serif-kr-story2.woff2) format("woff2"); }   /* 호수 제목·미러리아 글자만 담은 파일 */
+  @font-face { font-family:"Noto Serif KR"; font-weight:400; font-display:swap; src:url(assets/fonts/noto-serif-kr/noto-serif-kr-story3.woff2) format("woff2"); }   /* 호수 제목·미러리아 글자만 담은 파일 */
   /* 호수 한 바퀴 (디자인 팀 시안): 색값은 시안 그대로, 밝기는 폰 설정 따름 */
   .lakeT { --t:#121816; --u:#5B6662; --a:#1d6b5c; --bb:#1d6b5c; --bf:#fff; --s1:#E4ECEA; --s2:#F6F2E9; --w1:#DDE9E6; --w2:#F4F6F5; --r1:#A9BEB9; --r2:#86A29C; color:var(--t); }
   @media (prefers-color-scheme: dark) { .lakeT { --t:#EEF2F0; --u:#A9B5B1; --a:#5FC2AB; --bb:#EEF2F0; --bf:#0A1518; --s1:#0A1518; --s2:#1F464A; --w1:#1A3C41; --w2:#081114; --r1:#27505A; --r2:#12272E; } }
@@ -228,7 +228,7 @@
   button.storyLater { width:auto; margin:0 0 6px; padding:5px 12px; background:rgba(12,11,18,.62); border:0; border-radius:999px; color:#FFF6E2; font-size:.75rem; font-weight:400; }
   button.storyTalk { display:block; width:100%; height:100%; min-height:100vh; margin:0; padding:0; border:0; border-radius:0; color:#F6EFE2; font-weight:400; text-align:center; }
   .storyBlur { filter:blur(1.5px) brightness(.8); }
-  .storyBust { position:absolute; left:50%; bottom:calc(128px + env(safe-area-inset-bottom)); width:87vw; max-height:calc(100vh - 140px - env(safe-area-inset-bottom) - env(safe-area-inset-top)); object-fit:contain; object-position:50% 100%; transform:translateX(-50%); display:block; }
+  .storyBust { position:absolute; left:50%; bottom:calc(128px + env(safe-area-inset-bottom)); height:min(56vh, 118vw, calc(100vh - 160px - env(safe-area-inset-bottom) - env(safe-area-inset-top))); width:auto; max-width:none; transform:translateX(-50%); display:block; }   /* 인물 높이 기준 (가로로 넓은 그림은 양옆이 조금 잘릴 수 있음) */
   .storyDlg { position:absolute; left:0; right:0; bottom:0; min-height:170px; padding:52px 24px calc(80px + env(safe-area-inset-bottom)); background:linear-gradient(rgba(12,11,18,0), rgba(12,11,18,.86) 28%, rgba(12,11,18,.95)); font:400 16px/1.7 "Noto Serif KR",serif; white-space:pre-line; }
   .storySm { display:block; font:500 12px "Pretendard Variable",Pretendard,system-ui,sans-serif; color:#CFC6B4; margin-bottom:8px; }
   .storyTag { display:block; font:500 12px "Pretendard Variable",Pretendard,system-ui,sans-serif; letter-spacing:.14em; color:#CFC6B4; margin-top:10px; white-space:normal; }
@@ -246,6 +246,38 @@
   .storyNd.lk .storyTh { filter:grayscale(1) brightness(.42); }
   .storyA { display:block; font:400 16px "Noto Serif KR",serif; } .storyB { display:block; word-break:keep-all; font-size:.75rem; color:#9aa5a1; margin-top:2px; } .storyB.cur { color:#F2C477; }
   .storyNt { margin:14px 0 0; font-size:.75rem; line-height:1.5; color:#9aa5a1; }
+  /* 거울 조각 (디자인 팀 시안) */
+  .storyBlurMore { filter:blur(3px) brightness(.55); }
+  .pieceShade { position:absolute; inset:0; background:linear-gradient(rgba(10,12,20,.55), rgba(10,12,20,.25) 40%, rgba(10,12,20,.85)); }
+  .pieceTitle { font:400 30px/1.25 "Noto Serif KR",serif; color:#FFF6E7; margin-top:6px; }
+  .pieceShard { position:relative; width:220px; height:230px; margin:16px auto 0; } .pieceShard svg { width:100%; height:100%; display:block; }
+  .pieceText { position:relative; margin:16px 0 0; font:400 15px/1.6 "Noto Serif KR",serif; color:#EDE4D3; text-align:center; word-break:keep-all; }
+  .pieceN { margin:0 0 8px; font-size:.75rem; color:#CFC6B4; text-align:center; }
+  button.pieceLater { display:block; margin:8px auto 0; }
+  .decoScreen { min-height:100%; padding:calc(8px + env(safe-area-inset-top)) 0 calc(80px + env(safe-area-inset-bottom)); color:#eef2f0; }
+  .decoScreen .sphead { padding:0 16px; } .bookScreen { background:#14171b; padding-left:16px; padding-right:16px; } .bookScreen .sphead { padding:0; }
+  .decoBox { position:relative; } .decoBox > img { width:100%; height:auto; display:block; }
+  button.decoSlot { position:absolute; width:44px; height:44px; margin:-22px 0 0 -22px; padding:0; border-radius:999px; border:1.5px dashed rgba(255,246,231,.85); background:rgba(255,246,231,.14); }
+  button.decoSlot.pulse { animation:decoPu 1.8s ease-out infinite; } @keyframes decoPu { 0% { box-shadow:0 0 0 0 rgba(255,246,231,.5); } 100% { box-shadow:0 0 0 14px rgba(255,246,231,0); } }
+  @media (prefers-reduced-motion: reduce) { button.decoSlot.pulse { animation:none; } }
+  button.decoItem { position:absolute; width:15%; aspect-ratio:1; margin:0; padding:0; border:0; background:none; transform:translate(-50%, -88%); }
+  .decoItem img { width:100%; height:100%; object-fit:contain; object-position:50% 100%; filter:drop-shadow(0 3px 4px rgba(0,0,0,.35)); }
+  .decoVisit { display:flex; gap:10px; align-items:flex-end; margin:-80px 12px 0; position:relative; }
+  .decoVisit img { width:86px; flex:none; filter:drop-shadow(0 4px 8px rgba(0,0,0,.4)); }
+  .decoSay { flex:1; background:rgba(14,13,20,.9); border-radius:12px; padding:10px 12px; font:400 14px/1.6 "Noto Serif KR",serif; color:#F6EFE2; word-break:keep-all; }
+  .decoSay small { display:block; font-size:.6875rem; font-weight:500; color:#A9A294; margin-top:4px; letter-spacing:.1em; }
+  .decoTray { background:rgba(14,13,20,.94); padding:12px 14px 16px; margin-top:10px; }
+  .decoTray h4 { margin:0 0 8px; font-size:.8125rem; font-weight:500; color:#CFC6B4; }
+  .decoItems { display:flex; flex-wrap:wrap; gap:8px; }
+  button.decoIt { width:64px; height:74px; margin:0; padding:4px 2px; border-radius:12px; background:#24222c; display:flex; flex-direction:column; align-items:center; justify-content:center; font-size:.6875rem; font-weight:400; color:#CFC6B4; gap:2px; border:1.5px solid transparent; }
+  button.decoIt.on { border-color:#F2C477; } .decoIt img { width:40px; height:40px; object-fit:contain; } .decoIt small { font-size:.625rem; color:#8a8f8c; }
+  button.storyLink2, button.bookBtn { display:block; width:auto; margin:12px 16px 0 auto; padding:10px 0; background:none; border:0; color:#CFC6B4; font-size:.8125rem; font-weight:400; }
+  .sphead button.bookBtn { margin:0 0 0 auto; }
+  .bookGrid { display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; margin-top:4px; }
+  .bookCell { aspect-ratio:1; border-radius:12px; background:#1f2329; display:flex; flex-direction:column; align-items:center; justify-content:center; font-size:.75rem; color:#CFC6B4; gap:4px; position:relative; overflow:hidden; }
+  .bookCell img { width:58px; height:58px; object-fit:contain; } .bookCell.no img { filter:brightness(0) opacity(.35); } .bookCell.no { color:#5d625f; }
+  .bookRg { position:absolute; left:6px; top:5px; font-size:.625rem; color:#7d8481; }
+  .bookFoot { margin-top:14px; }
   /* 튜토리얼·비교: 설명·버튼은 탭 막대 바로 위, 풍경은 그 위를 채움 (47.66vw = 수평선~풍경 아래 102/214) */
   #spLake .lakeScreen { min-height:100%; display:flex; flex-direction:column; padding-bottom:calc(58px + env(safe-area-inset-bottom)); }
   #spLake .lakeStage { flex:1; aspect-ratio:auto; min-height:calc(47.66vw + 204px); overflow:hidden; background:var(--s1); }
