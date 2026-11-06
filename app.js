@@ -3142,7 +3142,7 @@ function storyArrive(i) {
 }
 function storyTalk(i) {                                                    // 대화 장면: 화면을 누르면 편지. 답장 칸 없음
   const R = STORY[i];
-  $('spStory').innerHTML = `<button class="storyScreen storyTalk" data-storyopen="${i}" style="background:${R.pn}" aria-label="${R.who}의 말. 누르면 편지를 봐요">${storyImg(R, 'storyBlur')}<img class="storyBust" src="${storyArt(R.talk)}" alt=""><span class="spBack" hidden></span>
+  $('spStory').innerHTML = `<button class="storyScreen storyTalk" data-storyopen="${i}" style="background:${R.pn}" aria-label="${R.who}의 말. 누르면 편지를 봐요">${storyImg(R, 'storyBlur')}<img class="storyBust" src="${storyArt(R.talk)}" alt=""${R.talkX ? ` style="transform:translateX(-${R.talkX}%)"` : ''}><span class="spBack" hidden></span>
     <span class="storyDlg"><span class="storySm">이야기 ${R.ch}</span>${R.say}<span class="storyTag">${R.who}</span><span class="storyHint">화면을 누르면 편지를 봐요</span></span></button>`;
   $('spStory').scrollTop = 0; $('spStory').querySelector('.storyTalk').focus({ preventScroll: true });
 }
@@ -3180,12 +3180,11 @@ function pieceFind(k) {
 function storyDeco(i, visit) {
   const R = STORY[i], deco = store.get('storyDeco', {}), here = deco[i] ?? {}, owned = PIECES.slice(0, piecesOwned());
   const where = k => Object.entries(deco).find(([, sl]) => Object.values(sl).includes(k))?.[0];
-  $('spStory').innerHTML = `<div class="decoScreen" style="background:${R.pn}"><div class="sphead"><button class="spBack" aria-label="뒤로">‹</button><h2 class="storyMapH">미러리아 지도 · ${R.n}</h2></div>
-    <div class="decoBox"><img src="${storyArt(R.art)}" alt="">${R.slots.map(([x, y], s) => here[s] ? `<button class="decoItem" style="left:${x}%;top:${y}%" data-decoout="${i},${s}" aria-label="${PIECES.find(p => p.k === here[s]).n} 빼기"><img src="${pieceArt(here[s])}" alt=""></button>`
+  $('spStory').innerHTML = `<div class="decoScreen" style="background:${R.pn}"><div class="sphead"><button class="spBack" aria-label="뒤로">‹</button><h2 class="storyMapH">${R.n}</h2><button class="bookBtn" data-storyagain="${i}">편지 다시 읽기 ›</button></div>
+    <div class="decoBox" style="--ar:${R.ar}"><img src="${storyArt(R.art)}" alt="">${R.slots.map(([x, y], s) => here[s] ? `<button class="decoItem" style="left:${x}%;top:${y}%" data-decoout="${i},${s}" aria-label="${PIECES.find(p => p.k === here[s]).n} 빼기"><img src="${pieceArt(here[s])}" alt=""></button>`
       : `<button class="decoSlot ${decoSel ? 'pulse' : ''}" style="left:${x}%;top:${y}%" data-decoin="${i},${s}" aria-label="빈자리 ${s + 1}"></button>`).join('')}</div>
-    ${visit ? `<div class="decoVisit"><img src="${storyArt(WHO_ART[visit.who])}" alt=""><div class="decoSay">${visit.say}<small>${visit.who}${josa(visit.who, '이', '가')} 잠깐 들렀어요</small></div></div>` : ''}
-    <div class="decoTray"><h4>${owned.length ? '가진 물건 · 고른 뒤 빈자리를 눌러 놓아요' : '측정하면 물 아래 물건 조각을 찾아요'}</h4><div class="decoItems">${owned.map(p => `<button class="decoIt ${decoSel === p.k ? 'on' : ''}" data-decosel="${p.k}" aria-pressed="${decoSel === p.k}"><img src="${pieceArt(p.k)}" alt="">${p.n}${where(p.k) != null && +where(p.k) !== i ? `<small>${STORY[where(p.k)].n.split(' ')[0]}</small>` : ''}</button>`).join('')}</div></div>
-    <button class="storyLink2" data-storyagain="${i}">편지 다시 읽기 ›</button></div>`;
+    <div class="decoTrayWrap">${visit ? `<div class="decoVisit"><img src="${storyArt(WHO_ART[visit.who])}" alt=""><div class="decoSay">${visit.say}<small>${visit.who}${josa(visit.who, '이', '가')} 잠깐 들렀어요</small></div></div>` : ''}
+    <div class="decoTray"><h4>${owned.length ? '가진 물건 · 고른 뒤 빈자리를 눌러 놓아요' : '측정하면 물 아래 물건 조각을 찾아요'}</h4><div class="decoItems">${owned.map(p => `<button class="decoIt ${decoSel === p.k ? 'on' : ''}" data-decosel="${p.k}" aria-pressed="${decoSel === p.k}"><img src="${pieceArt(p.k)}" alt="">${p.n}${where(p.k) != null && +where(p.k) !== i ? `<small>${STORY[where(p.k)].n.split(' ')[0]}</small>` : ''}</button>`).join('')}</div></div></div></div>`;
   $('spStory').scrollTop = 0;
   if (subOpen !== 'spStory') openSub('spStory');
 }
@@ -3202,7 +3201,7 @@ document.addEventListener('click', e => {
   const q = a => e.target.closest(`[${a}]`); let b;
   if (q('data-piecemap')) { const read = storyRead(), cur = storyCur(read); return read > cur ? storyDeco(cur) : (closeSub(), setTimeout(storyMap, 250)); }
   if (q('data-piecebook')) return pieceBook();
-  if ((b = q('data-decosel'))) { decoSel = decoSel === b.dataset.decosel ? null : b.dataset.decosel; return storyDeco(+$('spStory').querySelector('[data-storyagain]').dataset.storyagain); }
+  if ((b = q('data-decosel'))) { decoSel = decoSel === b.dataset.decosel ? null : b.dataset.decosel; return storyDeco(+$('spStory').querySelector('.decoBox [data-decoin], .decoBox [data-decoout]').dataset[$('spStory').querySelector('.decoBox [data-decoin]') ? 'decoin' : 'decoout'].split(',')[0]); }
   if ((b = q('data-decoout'))) { const [i, s] = b.dataset.decoout.split(',').map(Number), d = store.get('storyDeco', {}); delete d[i]?.[s]; store.set('storyDeco', d); return storyDeco(i); }
   if ((b = q('data-decoin'))) {
     const [i, s] = b.dataset.decoin.split(',').map(Number);

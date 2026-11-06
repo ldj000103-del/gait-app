@@ -254,25 +254,25 @@
   .pieceText { position:relative; margin:16px 0 0; font:400 15px/1.6 "Noto Serif KR",serif; color:#EDE4D3; text-align:center; word-break:keep-all; }
   .pieceN { margin:0 0 8px; font-size:.75rem; color:#CFC6B4; text-align:center; }
   button.pieceLater { display:block; margin:8px auto 0; }
-  .decoScreen { min-height:100%; padding:calc(8px + env(safe-area-inset-top)) 0 calc(80px + env(safe-area-inset-bottom)); color:#eef2f0; }
+  .decoScreen { min-height:100%; padding:calc(8px + env(safe-area-inset-top)) 0 calc(62px + env(safe-area-inset-bottom)); color:#eef2f0; }
   .decoScreen .sphead { padding:0 16px; } .bookScreen { background:#14171b; padding-left:16px; padding-right:16px; } .bookScreen .sphead { padding:0; }
-  .decoBox { position:relative; } .decoBox > img { width:100%; height:auto; display:block; }
+  .decoBox { position:relative; aspect-ratio:var(--ar); height:min(calc(100vw / (var(--ar))), calc(100vh - 262px - env(safe-area-inset-top) - env(safe-area-inset-bottom))); margin:0 auto; } .decoBox > img { width:100%; height:100%; display:block; }   /* 물건 줄이 늘 탭 막대 위에 보이게 낮은 화면은 그림을 줄임 */
   button.decoSlot { position:absolute; width:44px; height:44px; margin:-22px 0 0 -22px; padding:0; border-radius:999px; border:1.5px dashed rgba(255,246,231,.85); background:rgba(255,246,231,.14); }
   button.decoSlot.pulse { animation:decoPu 1.8s ease-out infinite; } @keyframes decoPu { 0% { box-shadow:0 0 0 0 rgba(255,246,231,.5); } 100% { box-shadow:0 0 0 14px rgba(255,246,231,0); } }
   @media (prefers-reduced-motion: reduce) { button.decoSlot.pulse { animation:none; } }
   button.decoItem { position:absolute; width:15%; aspect-ratio:1; margin:0; padding:0; border:0; background:none; transform:translate(-50%, -88%); }
   .decoItem img { width:100%; height:100%; object-fit:contain; object-position:50% 100%; filter:drop-shadow(0 3px 4px rgba(0,0,0,.35)); }
-  .decoVisit { display:flex; gap:10px; align-items:flex-end; margin:-80px 12px 0; position:relative; }
+  .decoTrayWrap { position:relative; } .decoVisit { position:absolute; left:12px; right:12px; bottom:calc(100% + 6px); display:flex; gap:10px; align-items:flex-end; }   /* 말풍선은 물건 줄 바로 위 */
   .decoVisit img { width:86px; flex:none; filter:drop-shadow(0 4px 8px rgba(0,0,0,.4)); }
   .decoSay { flex:1; background:rgba(14,13,20,.9); border-radius:12px; padding:10px 12px; font:400 14px/1.6 "Noto Serif KR",serif; color:#F6EFE2; word-break:keep-all; }
   .decoSay small { display:block; font-size:.6875rem; font-weight:500; color:#A9A294; margin-top:4px; letter-spacing:.1em; }
-  .decoTray { background:rgba(14,13,20,.94); padding:12px 14px 16px; margin-top:10px; }
+  .decoTray { background:rgba(14,13,20,.94); padding:10px 14px 12px; }
   .decoTray h4 { margin:0 0 8px; font-size:.8125rem; font-weight:500; color:#CFC6B4; }
-  .decoItems { display:flex; flex-wrap:wrap; gap:8px; }
-  button.decoIt { width:64px; height:74px; margin:0; padding:4px 2px; border-radius:12px; background:#24222c; display:flex; flex-direction:column; align-items:center; justify-content:center; font-size:.6875rem; font-weight:400; color:#CFC6B4; gap:2px; border:1.5px solid transparent; }
+  .decoItems { display:flex; gap:8px; overflow-x:auto; }   /* 한 줄, 옆으로 밀어 보기 */
+  button.decoIt { flex:none; width:64px; height:74px; margin:0; padding:4px 2px; border-radius:12px; background:#24222c; display:flex; flex-direction:column; align-items:center; justify-content:center; font-size:.6875rem; font-weight:400; color:#CFC6B4; gap:2px; border:1.5px solid transparent; }
   button.decoIt.on { border-color:#F2C477; } .decoIt img { width:40px; height:40px; object-fit:contain; } .decoIt small { font-size:.625rem; color:#8a8f8c; }
   button.storyLink2, button.bookBtn { display:block; width:auto; margin:12px 16px 0 auto; padding:10px 0; background:none; border:0; color:#CFC6B4; font-size:.8125rem; font-weight:400; }
-  .sphead button.bookBtn { margin:0 0 0 auto; }
+  .sphead button.bookBtn { margin:0 0 0 auto; white-space:nowrap; flex:none; }
   .bookGrid { display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; margin-top:4px; }
   .bookCell { aspect-ratio:1; border-radius:12px; background:#1f2329; display:flex; flex-direction:column; align-items:center; justify-content:center; font-size:.75rem; color:#CFC6B4; gap:4px; position:relative; overflow:hidden; }
   .bookCell img { width:58px; height:58px; object-fit:contain; } .bookCell.no img { filter:brightness(0) opacity(.35); } .bookCell.no { color:#5d625f; }
