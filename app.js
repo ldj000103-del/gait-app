@@ -3158,7 +3158,7 @@ function storyLetter(i, again) {                                           // ag
 // ── 거울 조각: 측정 뒤 첫 화면으로 올 때 하나씩 보여 줌. 저장은 '본 조각 수'(pieceSeen)와 놓은 자리(storyDeco)뿐, 전송 안 함 ──
 let pieceDue = false, decoSel = null;
 const josa = (w, a, b) => (w.charCodeAt(w.length - 1) - 0xAC00) % 28 ? a : b;   // 받침 있으면 a (이/가)
-const piecesOwned = () => Math.max(pieceCount(store.get('history', [])), store.get('pieceSeen', 0));   // 기록을 지워도 이미 본 조각은 그대로
+const piecesOwned = () => store.get('pieceSeen', 0);   // 가진 조각 = 발견 화면으로 본 조각. 기록을 지워도 줄지 않음, 기존 사용자도 측정마다 하나씩 (검수팀)
 function pieceMaybe() {
   if (!pieceDue || !store.get('lakeTut', false) || subOpen || !$('pickSheet').hidden || document.body.dataset.tab !== 'home') return;
   pieceDue = false;
