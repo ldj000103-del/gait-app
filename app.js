@@ -1,5 +1,5 @@
 import { analyzeWalk, fastMinutes, withDistance, gpsSpeed, gpsDistance, guessActivity, guessPosition, routeMarks, RUN_CAD, analyzeJog, mixActivity, stairClimb, FLOOR_M, STAIR_STEP_M, chunks, walkRunSegs, elevation, slopeSegs, dropRoute, pruneRoutes, sumTags, lakeDirect, lakeCount, lakePos, lakePick, storyOpen, storyCur, noStat, gpsFastCheck, pieceCount } from './gait.js';
-import { STORY, storyArt, PIECES, WHO_ART, pieceArt, PART2_AT, PART2 } from './story.js';
+import { STORY, storyArt, PIECES, WHO_ART, pieceArt, PART2_AT, PART2, PART3_AT, PART3 } from './story.js';
 import { analyzeSide, analyzeFrontal, extractPose, drawSnapshot, PART_ICON } from './video.js';
 
 const $ = id => document.getElementById(id);
@@ -1035,7 +1035,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v240';
+const APP_VERSION = 'v241';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -2882,7 +2882,7 @@ if (new URLSearchParams(location.search).has('demo')) {
     metroEnd = metroIv ? metroBpm() : 0; metroOff();                     // 측정 끝과 같게 (박자 소리 기록 확인용)
     const hAt = t => act !== 'slope' ? 0 : t < 90 ? t * 0.2 : t < 150 ? 18 : t < 240 ? 18 - (t - 150) * 0.15 : 4.5;   // 오르막 18m · 평지 · 내리막 13.5m
     const noBaro = new URLSearchParams(location.search).has('nobaro'), pr = noBaro || !['walk', 'slope', 'stairs'].includes(act) ? [] : Array.from({ length: (walkS + 6) * 5 }, (_, i) => ({ t: i * 200, hpa: 1013 * (1 - hAt(Math.max(0, i / 5 - 3)) / 44330) ** (1 / 0.1903) + (Math.random() - .5) * .04 }));
-    finish(s, true, g, pr);
+    finish(s, !window.__real, g, pr);
   });
 }
 
@@ -3192,7 +3192,7 @@ function pieceBook() {
   const n = piecesOwned();
   $('spStory').innerHTML = `<div class="decoScreen bookScreen"><div class="sphead"><button class="spBack" aria-label="뒤로">‹</button><h2 class="storyMapH">조각 도감</h2></div>
     <p class="storyMapS">측정할 때마다 정해진 순서로 하나씩 찾아요 · ${n} / ${PIECES.length}</p>
-    ${[[0, '1부'], [9, PART2]].map(([o, h]) => `<h3 class="storyPartH">${h}</h3><div class="bookGrid">${PIECES.slice(o, o + 9).map((p, j) => `<div class="bookCell ${o + j < n ? '' : 'no'}"><span class="bookRg">${p.rg}</span><img src="${pieceArt(p.k)}" alt="">${o + j < n ? p.n : '?'}</div>`).join('')}</div>`).join('')}
+    ${[[0, '1부'], [9, PART2], [18, PART3]].map(([o, h]) => `<h3 class="storyPartH">${h}</h3><div class="bookGrid">${PIECES.slice(o, o + 9).map((p, j) => `<div class="bookCell ${o + j < n ? '' : 'no'}"><span class="bookRg">${p.rg}</span><img src="${pieceArt(p.k)}" alt="">${o + j < n ? p.n : '?'}</div>`).join('')}</div>`).join('')}
     <p class="storyMapS bookFoot">쉬는 날이 있어도 조각은 사라지지 않아요.</p></div>`;
   $('spStory').scrollTop = 0;
   if (subOpen !== 'spStory') openSub('spStory');
@@ -3216,7 +3216,7 @@ function storyMap() {                                                      // �
   const read = storyRead(), open = storyOpen(lakeCount(store.get('history', []))), cur = storyCur(read);
   $('spStoryMap').innerHTML = `<div class="sphead"><button class="spBack" aria-label="뒤로">‹</button><h2 class="storyMapH">미러리아 지도</h2><button class="bookBtn" data-piecebook>조각 도감 ›</button></div><p class="storyMapS">한 바퀴마다 물 아래 땅과 편지 한 통이 드러나요</p>
     ${STORY.map((R, i) => { const done = i < read, unread = i === read && open > read, here = i === cur && !done;   // 아직 안 읽어도 지금 있는 호수는 색과 이름으로
-      return (i === PART2_AT ? `<h3 class="storyPartH">${PART2}</h3>` : '') + `<button class="storyNd ${done || here ? '' : 'lk'}" ${done ? `data-storydeco="${i}"` : unread ? `data-storyunread="${i}"` : 'disabled'}><span class="storyTh"><img src="${storyArt(R.art)}" alt=""></span>
+      return (i === PART2_AT ? `<h3 class="storyPartH">${PART2}</h3>` : i === PART3_AT ? `<h3 class="storyPartH">${PART3}</h3>` : '') + `<button class="storyNd ${done || here ? '' : 'lk'}" ${done ? `data-storydeco="${i}"` : unread ? `data-storyunread="${i}"` : 'disabled'}><span class="storyTh"><img src="${storyArt(R.art)}" alt=""></span>
         <span><span class="storyA">${done || here ? R.n : '아직 비치지 않은 곳'}</span><span class="storyB ${i === cur || unread ? 'cur' : ''}">${done ? (i === cur ? '지금 여기 · 편지 1통' : '편지 1통') : here ? (unread ? '지금 여기 · 읽지 않은 편지 1통' : '지금 여기 · 한 번 걸으면 편지가 드러나요') : unread ? '읽지 않은 편지 1통' : '한 바퀴를 돌면 드러나요'}</span></span></button>`; }).join('')}
     ${read >= STORY.length ? '<p class="storyMapS">다음 이야기를 준비하고 있어요.</p>' : ''}<p class="storyNt">실제 위치와 상관없는 이야기 속 지도예요. 측정 횟수로만 열려요.<br>미러리아와 그곳 사람들은 앱 안의 이야기예요. 편지는 앱이 미리 써 둔 글이에요.<br>이야기 그림은 생성형 AI로 만들었어요.</p>`;
   openSub('spStoryMap');

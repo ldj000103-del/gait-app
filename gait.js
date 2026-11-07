@@ -20,13 +20,13 @@ export const noStat = h => h.orig?.segs || h.warnings?.includes('fastGps');
 export const lakeDirect = h => !h.autoRec && !h.demo && !h.view && h.activity !== 'video' && !h.warnings?.includes('fastGps');
 export const lakeCount = hist => hist.filter(lakeDirect).length;
 // 미러리아: 측정 1번에 1장, 6·12·18·24번에 2~5장, 30~54번에 6~10장. 읽은 편지 수(storyRead)만 저장하고 값·위치와 상관없음
-export const storyOpen = n => n ? Math.min(1 + Math.floor(n / 6), 10) : 0;   // 2부(6~10장)는 30·36·42·48·54번째
+export const storyOpen = n => n ? Math.min(1 + Math.floor(n / 6), 15) : 0;   // 2부(6~10장)는 30~54번째, 3부(11~15장)는 60~84번째
 export const storyCur = read => Math.max(read - 1, 0);                     // 지금 지역 = 마지막으로 읽은 편지의 지역
 // 거울 조각 수: 결과가 나온 직접 측정(호수 칸과 같은 범위)을 날짜별로 세되 하루 최대 3개, 모두 9개 (법률 권고). 저장 없이 기록에서 계산
 export function pieceCount(hist) {
   const byDay = {};
   for (const h of hist) if (lakeDirect(h) && h.cadence != null) { const d = new Date(h.date).toLocaleDateString('sv-SE'); byDay[d] = (byDay[d] ?? 0) + 1; }
-  return Math.min(18, Object.values(byDay).reduce((n, c) => n + Math.min(c, 3), 0));   // 1부 9개 + 2부 9개
+  return Math.min(27, Object.values(byDay).reduce((n, c) => n + Math.min(c, 3), 0));   // 1·2·3부 9개씩
 }
 export const lakePos = n => n ? (n - 1) % 6 + 1 : 0;                       // 지금까지 밝힌 칸 수 (1~6). 6칸을 돌면 다음 측정이 새 바퀴 첫 칸
 // 비교 상대: 같은 활동의 직접 측정. 5~9일 전을 먼저(7일에 가까운 것), 없으면 가장 최근. 첫 걷기는 보통 7% 느려서 연습은 연습끼리 먼저 (Perry 20장). hist는 최신순
