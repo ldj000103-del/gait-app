@@ -2882,7 +2882,7 @@ if (new URLSearchParams(location.search).has('demo')) {
     metroEnd = metroIv ? metroBpm() : 0; metroOff();                     // 측정 끝과 같게 (박자 소리 기록 확인용)
     const hAt = t => act !== 'slope' ? 0 : t < 90 ? t * 0.2 : t < 150 ? 18 : t < 240 ? 18 - (t - 150) * 0.15 : 4.5;   // 오르막 18m · 평지 · 내리막 13.5m
     const noBaro = new URLSearchParams(location.search).has('nobaro'), pr = noBaro || !['walk', 'slope', 'stairs'].includes(act) ? [] : Array.from({ length: (walkS + 6) * 5 }, (_, i) => ({ t: i * 200, hpa: 1013 * (1 - hAt(Math.max(0, i / 5 - 3)) / 44330) ** (1 / 0.1903) + (Math.random() - .5) * .04 }));
-    finish(s, !window.__real, g, pr);
+    finish(s, true, g, pr);
   });
 }
 
