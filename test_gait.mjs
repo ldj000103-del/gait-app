@@ -308,17 +308,18 @@ console.log('모든 점검 통과');
   console.log('호수 한 바퀴 점검 통과');
 }
 { // 미러리아: 측정 횟수로만 열림
-  assert.deepEqual([0, 1, 5, 6, 11, 12, 18, 24, 60, 500].map(storyOpen), [0, 1, 1, 2, 2, 3, 4, 5, 5, 5]);
+  assert.deepEqual([0, 1, 5, 6, 11, 12, 18, 24, 29, 30, 36, 54, 60, 500].map(storyOpen), [0, 1, 1, 2, 2, 3, 4, 5, 5, 6, 7, 10, 10, 10]);
   assert.deepEqual([0, 1, 2, 5].map(storyCur), [0, 0, 1, 4]);
-  assert.equal(STORY.length, 5);
+  assert.equal(STORY.length, 10);
   STORY.forEach(R => { for (const k of ['n', 'ch', 'ln', 'lt', 'hh', 'who', 'say', 'art', 'talk', 'pn', 'sc']) assert.ok(R[k], k); assert.ok(existsSync(`assets/story/${R.art}.webp`)); assert.ok(existsSync(`assets/story/${R.talk}.webp`)); });
-  assert.equal(PIECES.length, 9); PIECES.forEach(p => { assert.ok(existsSync(`assets/story/items/${p.k}.webp`), p.k); assert.ok(WHO_ART[p.who]); });
+  assert.equal(PIECES.length, 18); PIECES.forEach(p => { assert.ok(existsSync(`assets/story/items/${p.k}.webp`), p.k); assert.ok(WHO_ART[p.who]); });
   STORY.forEach(R => assert.equal(R.slots.length, 4));
   const at = (d, more) => ({ date: new Date(2026, 10, d, 9).toISOString(), activity: 'walk', cadence: 100, ...more });
   assert.equal(pieceCount([]), 0);
   assert.equal(pieceCount([at(1), at(1), at(1), at(1)]), 3, '하루 최대 3개');
   assert.equal(pieceCount([at(1), at(2), at(3, { autoRec: true }), at(4, { demo: true }), at(5, { warnings: ['fastGps'] }), at(6, { activity: 'video', view: 'side' }), at(7, { cadence: null })]), 2, '자동·데모·차량·영상·결과 없음 제외');
-  assert.equal(pieceCount(Array.from({ length: 20 }, (_, i) => at(1 + i))), 9, '최대 9');
+  assert.equal(pieceCount(Array.from({ length: 20 }, (_, i) => at(1 + i))), 18, '최대 18 (1부 9 + 2부 9)');
+  assert.equal(pieceCount(Array.from({ length: 25 }, (_, i) => at(1 + i))), 18);
   console.log('미러리아 점검 통과');
 }
 { // GPS 속도가 활동 범위를 넘는 기록 (민원: 차를 탄 채 측정)
