@@ -1,4 +1,4 @@
-import { analyzeWalk, fastMinutes, withDistance, gpsSpeed, gpsDistance, guessActivity, guessPosition, routeMarks, RUN_CAD, analyzeJog, mixActivity, stairClimb, FLOOR_M, STAIR_STEP_M, chunks, walkRunSegs, elevation, slopeSegs, dropRoute, pruneRoutes, sumTags, lakeDirect, lakeCount, lakePos, lakePick, storyOpen, storyCur, noStat, gpsFastCheck, pieceCount } from './gait.js';
+import { analyzeWalk, fastMinutes, withDistance, gpsSpeed, gpsDistance, guessActivity, guessPosition, routeMarks, RUN_CAD, analyzeJog, mixActivity, stairClimb, FLOOR_M, STAIR_STEP_M, chunks, walkRunSegs, elevation, slopeSegs, dropRoute, pruneRoutes, sumTags, lakeDirect, lakeCount, lakePos, lakePick, storyOpen, storyCur, noStat, gpsFastCheck, pieceCount, pieceToday } from './gait.js';
 import { STORY, storyArt, PIECES, WHO_ART, pieceArt, PART2_AT, PART2, PART3_AT, PART3 } from './story.js';
 import { analyzeSide, analyzeFrontal, extractPose, drawSnapshot, PART_ICON } from './video.js';
 
@@ -1035,7 +1035,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v241';
+const APP_VERSION = 'v242';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -3162,8 +3162,11 @@ const piecesOwned = () => store.get('pieceSeen', 0);   // 가진 조각 = 발견
 function pieceMaybe() {
   if (!pieceDue || !store.get('lakeTut', false) || subOpen || !$('pickSheet').hidden || document.body.dataset.tab !== 'home') return;
   pieceDue = false;
-  const seen = store.get('pieceSeen', 0);
-  if (pieceCount(store.get('history', [])) > seen && seen < PIECES.length) { store.set('pieceSeen', seen + 1); pieceFind(seen); }
+  const seen = store.get('pieceSeen', 0), today = new Date().toLocaleDateString('sv-SE'), n = pieceToday(store.get('pieceDay'), today);
+  if (seen >= PIECES.length) return;
+  if (n >= 3) return toast('오늘 조각은 다 찾았어요. 내일 또 찾아요.');   // 오늘 3개를 본 뒤의 측정. 밀린 조각은 다음 날부터 하루 3개씩
+  if (pieceCount(store.get('history', [])) <= seen) return;
+  store.set('pieceDay', { d: today, n: n + 1 }); store.set('pieceSeen', seen + 1); pieceFind(seen);
 }
 function pieceFind(k) {
   const p = PIECES[k], R = STORY[storyCur(storyRead())];

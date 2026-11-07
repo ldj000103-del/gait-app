@@ -28,6 +28,8 @@ export function pieceCount(hist) {
   for (const h of hist) if (lakeDirect(h) && h.cadence != null) { const d = new Date(h.date).toLocaleDateString('sv-SE'); byDay[d] = (byDay[d] ?? 0) + 1; }
   return Math.min(27, Object.values(byDay).reduce((n, c) => n + Math.min(c, 3), 0));   // 1·2·3부 9개씩
 }
+// 오늘 본 조각 수: pieceDay = {d: 휴대폰 날짜, n}. 날짜가 바뀌면 0부터 (하루에 보여 주는 조각 최대 3개, 디자인 팀)
+export const pieceToday = (rec, today) => rec?.d === today ? rec.n : 0;
 export const lakePos = n => n ? (n - 1) % 6 + 1 : 0;                       // 지금까지 밝힌 칸 수 (1~6). 6칸을 돌면 다음 측정이 새 바퀴 첫 칸
 // 비교 상대: 같은 활동의 직접 측정. 5~9일 전을 먼저(7일에 가까운 것), 없으면 가장 최근. 첫 걷기는 보통 7% 느려서 연습은 연습끼리 먼저 (Perry 20장). hist는 최신순
 export function lakePick(hist, act, practice, now) {

@@ -2,7 +2,7 @@
 // 가짜 걷기 신호(앞뒤 3초 서 있기 포함)를 만들어 케이던스를 2% 안으로 맞히는지 확인
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
-import { analyzeWalk, fastMinutes, withDistance, gpsSpeed, gpsDistance, guessActivity, guessPosition, routeMarks, analyzeJog, mixActivity, stairClimb, mergeWalkRun, walkRunSegs, elevation, slopeSegs, chunks, dropRoute, pruneRoutes, sumTags, lakeDirect, lakeCount, lakePos, lakePick, storyOpen, storyCur, noStat, gpsFast, gpsFastCheck, pieceCount } from './gait.js';
+import { analyzeWalk, fastMinutes, withDistance, gpsSpeed, gpsDistance, guessActivity, guessPosition, routeMarks, analyzeJog, mixActivity, stairClimb, mergeWalkRun, walkRunSegs, elevation, slopeSegs, chunks, dropRoute, pruneRoutes, sumTags, lakeDirect, lakeCount, lakePos, lakePick, storyOpen, storyCur, noStat, gpsFast, gpsFastCheck, pieceCount, pieceToday } from './gait.js';
 import { STORY, PIECES, WHO_ART } from './story.js';
 
 function fakeWalk({ cadence, walkS = 20, position, hz = 60, seed = 1, amp = 1, odd = 0.4, sw = 2.0 }) {   // amp: 달리기는 흔들림이 큼
@@ -316,6 +316,7 @@ console.log('모든 점검 통과');
   STORY.forEach(R => assert.equal(R.slots.length, 4));
   const at = (d, more) => ({ date: new Date(2026, 10, d, 9).toISOString(), activity: 'walk', cadence: 100, ...more });
   assert.equal(pieceCount([]), 0);
+  assert.equal(pieceToday({ d: '2026-11-07', n: 3 }, '2026-11-07'), 3); assert.equal(pieceToday({ d: '2026-11-06', n: 3 }, '2026-11-07'), 0, '다음 날은 0부터'); assert.equal(pieceToday(undefined, '2026-11-07'), 0);
   assert.equal(pieceCount([at(1), at(1), at(1), at(1)]), 3, '하루 최대 3개');
   assert.equal(pieceCount([at(1), at(2), at(3, { autoRec: true }), at(4, { demo: true }), at(5, { warnings: ['fastGps'] }), at(6, { activity: 'video', view: 'side' }), at(7, { cadence: null })]), 2, '자동·데모·차량·영상·결과 없음 제외');
   assert.equal(pieceCount(Array.from({ length: 20 }, (_, i) => at(1 + i))), 20);
