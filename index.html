@@ -303,9 +303,10 @@
   /* 호수 카드 B: 종이색은 다크 모드에서도 그대로 (그림 가장자리가 뜨지 않게) */
   #home .lakeB { padding:0; overflow:hidden; background:#F3EEE2; }
   .lakeBTop { position:relative; height:250px; }
-  .lakeEna { position:absolute; left:30%; top:22px; width:70%; height:auto; display:block; }
+  .lakeEna { position:absolute; left:30%; top:36px; width:70%; height:auto; display:block; }   /* 머리가 지도 링크 아래로 (아래는 띠에 조금 가려도 됨) */
+  @media (max-width:340px) { .lakeEna { left:38%; width:62%; } }   /* 320폭: 링크·제목과 머리가 겹치지 않게 (검수팀) */
   .lakeBH { position:absolute; left:18px; top:40px; margin:0; font:400 17px/1.5 "Noto Serif KR",serif; color:#20160f; word-break:keep-all; }
-  .lakeB .storyLink { color:#5B6662; }
+  .lakeB .storyLink { color:#5B6662; text-shadow:0 0 4px #F3EEE2, 0 0 8px #F3EEE2; }
   .lakeAi { position:absolute; left:18px; bottom:8px; font-size:11px; color:#5B6662; }
   .lakeBand { position:relative; height:150px; background:#0A1518; overflow:hidden; }
   .lakeBandImg { position:absolute; inset:-6px; width:calc(100% + 12px); height:calc(100% + 12px); object-fit:cover; opacity:.35; filter:blur(2px); }
