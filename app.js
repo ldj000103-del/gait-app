@@ -1035,7 +1035,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v244';
+const APP_VERSION = 'v245';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -3096,28 +3096,23 @@ function lakeSvg({ vb = '0 40 230 460', pos = 0, ring = true, veil = false, hi =
 }
 const lakeRecName = h => { const a = h.activity ?? 'walk'; return `${md(h.date)} ${a === 'walk' ? '' : `${ACT[a]} `}${h.practice ? '연습 ' : ''}기록`; };
 const lakeGrade = h => { const a = h.activity ?? 'walk'; return a === 'walk' ? cadGradeOf(h) : a !== 'slowrun' && cadGradeOf(h) === 'o' ? 'o' : 'y'; };   // 결과 화면·카드와 같은 등급
-const lakeNorm = () => (({ sex }) => sex === 'm' ? 111 : sex === 'f' ? 117 : 113)(store.get('profile', {}));
 const STORY_D = 'M20 338C80 306 220 306 280 338', STORY_CELLS = [.02, .21, .41, .6, .79, .98];
 const storyTop = (R, h, stop) => `<div class="storyTop" style="height:${h}px;background:linear-gradient(${R.pn}${Math.round(R.sc * 255).toString(16)} ${stop}%, ${R.pn}00)"></div>`;   // 그림 위 제목이 읽히게 지역 색을 깖
 const storyRead = () => store.get('storyRead', 0);                         // 읽은 편지 수. 전송하지 않음, 앱 데이터를 지우면 함께 지워짐
+// 호수 카드 시안 B (디자인 팀, 사용자 선택, 법률 48번 후속): 위는 종이색 바탕에 에나, 아래 띠는 지금 지역 그림 위에 칸·남은 측정·걸어 보기. 값·날짜는 카드에 넣지 않음
+const BAND_D = 'M14 15H286';
 function lakeHtml() {
-  const hist = store.get('history', []), n = lakeCount(hist), last = hist.find(h => lakeDirect(h) && !noStat(h) && h.cadence != null);
-  const today = dayKey(new Date()), np = !hist.some(h => !h.autoRec && (h.activity ?? 'walk') === 'walk' && dayKey(h.date) === today);   // 오늘 다음 걷기가 연습인지
-  const t = lakePos(n) === 2 ? lakePick(hist, 'walk', np, Date.now()) : null;   // '걸어 보기'가 걷기로 가므로 비교 약속도 걷기 기록으로. 다음 측정이 3번째 칸일 때만
-  const walk = last && (last.activity ?? 'walk') === 'walk', c = last && Math.round(last.cadence), norm = lakeNorm();
-  const read = storyRead(), cur = storyCur(read), R = STORY[cur], pos = lakePos(n), next = pos % 6;
-  // 고리 움직임 때문에 풍경까지 매 프레임 다시 그리지 않도록 길은 따로 그림
-  const route = `<path d="${STORY_D}" fill="none" stroke="#FFF6E2" stroke-width="1.6" stroke-dasharray="1 6" stroke-linecap="round"/>
-    ${pos ? `<path class="lakeWalked" d="${STORY_D}" pathLength="1" fill="none" stroke="#FFF6E2" stroke-width="1.8" stroke-linecap="round" stroke-dasharray="${STORY_CELLS[pos - 1]} 1"/>` : ''}
-    ${lakePts(STORY_D, STORY_CELLS).map((p, k) => k === next ? `<circle class="lakePulse" cx="${p.x}" cy="${p.y}" r="7" fill="none" stroke="#FFF6E2"/><circle cx="${p.x}" cy="${p.y}" r="6" fill="rgba(20,14,10,.55)" stroke="#FFF6E2" stroke-width="2"/>`
-      : k < pos ? `<circle cx="${p.x}" cy="${p.y}" r="5" fill="#FFF6E2"/>` : `<circle cx="${p.x}" cy="${p.y}" r="3.5" fill="rgba(20,14,10,.55)" stroke="#FFF6E2"/>`).join('')}`;
-  return `<div class="card lake lakeStory" style="background:${R.pn}"><div class="lakeStage"><img class="storyImg" src="${storyArt(R.art)}" alt="">${storyTop(R, 170, 61)}<svg class="lakeRoute" viewBox="0 292 300 60" aria-hidden="true">${route}</svg>
-      <h2 class="lakeH">${t?.week ? '일주일 전 기록을 같이 볼까요?' : t ? '지난 기록을 같이 볼까요?' : R.hh.replace('\n', '<br>')}</h2>
-      <button class="storyLink" data-storymap>미러리아 지도 ›${storyOpen(n) > read ? '<i aria-label="읽지 않은 편지 있음"></i>' : ''}</button></div>
-    <div class="lakeBody">${last ? `<div class="storyVal"><b>${c}</b><span>걸음/분 · ${lakeRecName(last)}</span></div>` : ''}${t ? `<p>오늘 걸어 재면 ${lakeRecName(t.h)}과 나란히 보여 드려요.</p>` : ''}
-      ${walk ? `<div class="lakeRow"><span>Perry 책 평균</span><b>${norm} · 차이 ${signed(c - norm)}</b></div><div class="lakeRow"><span>측정 정확도</span><b>${GRADE[cadGradeOf(last)][1]}</b></div>` : ''}
-      <button class="lakeBtn" data-lakego>걸어 보기</button><p class="lakeFine lakeNext">${storyOpen(n) >= STORY.length ? '모든 곳을 다 걸었어요' : `측정을 ${n ? 6 - n % 6 : 1}번 더 하면 다음 곳이 보여요`}</p>
-      <p class="lakeFine">쉬어도 칸은 줄지 않아요. 몸이 불편한 날은 걷지 않아도 돼요.</p></div></div>`;   // 칸은 걸음 수가 아니라 측정 횟수로 움직임 (가족 사용자 오해, 법률 46번 후속)
+  const n = lakeCount(store.get('history', [])), read = storyRead(), R = STORY[storyCur(read)], pos = lakePos(n), next = pos % 6;
+  const route = `<path d="${BAND_D}" fill="none" stroke="#FFF6E2" stroke-width="1.6" stroke-dasharray="1 6" stroke-linecap="round"/>
+    ${pos ? `<path class="lakeWalked" d="${BAND_D}" pathLength="1" fill="none" stroke="#FFF6E2" stroke-width="1.8" stroke-linecap="round" stroke-dasharray="${STORY_CELLS[pos - 1]} 1"/>` : ''}
+    ${lakePts(BAND_D, STORY_CELLS).map((p, k) => k === next ? `<circle class="lakePulse" cx="${p.x}" cy="${p.y}" r="7" fill="none" stroke="#FFF6E2"/><circle cx="${p.x}" cy="${p.y}" r="6" fill="#0A1518" stroke="#FFF6E2" stroke-width="2"/>`
+      : k < pos ? `<circle cx="${p.x}" cy="${p.y}" r="5" fill="#FFF6E2"/>` : `<circle cx="${p.x}" cy="${p.y}" r="3.5" fill="#0A1518" stroke="#FFF6E2"/>`).join('')}`;
+  return `<div class="card lake lakeB"><div class="lakeBTop"><img class="lakeEna" src="${storyArt('ena2')}" alt="">
+      <h2 class="lakeBH">${n ? '같은 길을<br>함께<br>걸어요' : '미러리아를<br>같이 걸어<br>볼까요?'}</h2>
+      <button class="storyLink" data-storymap>미러리아 지도 ›${storyOpen(n) > read ? '<i aria-label="읽지 않은 편지 있음"></i>' : ''}</button><span class="lakeAi">그림: 생성형 AI</span></div>
+    <div class="lakeBand"><img class="lakeBandImg" src="${storyArt(R.art)}" alt=""><div class="lakeBandIn"><svg class="lakeDots" viewBox="0 0 300 30" aria-hidden="true">${route}</svg>
+      <p>${storyOpen(n) >= STORY.length ? '모든 곳을 다 걸었어요' : `측정을 ${n ? 6 - n % 6 : 1}번 더 하면 다음 곳이 보여요`}</p><p>쉬어도 칸은 줄지 않아요. 몸이 불편한 날은 걷지 않아도 돼요.</p>
+      <button class="lakeBtn" data-lakego>걸어 보기</button></div></div></div>`;   // 칸은 걸음 수가 아니라 측정 횟수로 움직임 (법률 46번 후속)
 }
 function lakeAnim() {                                                      // 측정 후 첫 화면으로 오면 길이 .7초 동안 이어짐. 저장 없이 이 실행 안에서만
   const n = lakeCount(store.get('history', [])), from = lakeSeen ?? n, el = $('homeTop').querySelector('.lakeWalked'); lakeSeen = n;
