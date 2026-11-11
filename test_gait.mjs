@@ -2,8 +2,8 @@
 // 가짜 걷기 신호(앞뒤 3초 서 있기 포함)를 만들어 케이던스를 2% 안으로 맞히는지 확인
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
-import { analyzeWalk, fastMinutes, withDistance, gpsSpeed, gpsDistance, guessActivity, guessPosition, routeMarks, analyzeJog, mixActivity, stairClimb, mergeWalkRun, walkRunSegs, elevation, slopeSegs, chunks, dropRoute, pruneRoutes, sumTags, lakeDirect, lakeCount, lakePos, lakePick, storyOpen, storyCur, noStat, gpsFast, gpsFastCheck, pieceCount, pieceToday } from './gait.js';
-import { STORY, PIECES, WHO_ART } from './story.js';
+import { analyzeWalk, fastMinutes, withDistance, gpsSpeed, gpsDistance, guessActivity, guessPosition, routeMarks, analyzeJog, mixActivity, stairClimb, mergeWalkRun, walkRunSegs, elevation, slopeSegs, chunks, dropRoute, pruneRoutes, sumTags, lakeDirect, lakeCount, lakePos, lakePick, storyOpen, storyCur, noStat, gpsFast, gpsFastCheck } from './gait.js';
+import { STORY } from './story.js';
 
 function fakeWalk({ cadence, walkS = 20, position, hz = 60, seed = 1, amp = 1, odd = 0.4, sw = 2.0 }) {   // amp: 달리기는 흔들림이 큼
   let r = seed;
@@ -311,16 +311,8 @@ console.log('모든 점검 통과');
   assert.deepEqual([0, 1, 5, 6, 11, 12, 18, 24, 29, 30, 36, 54, 59, 60, 66, 84, 90, 500].map(storyOpen), [0, 1, 1, 2, 2, 3, 4, 5, 5, 6, 7, 10, 10, 11, 12, 15, 15, 15]);
   assert.deepEqual([0, 1, 2, 5].map(storyCur), [0, 0, 1, 4]);
   assert.equal(STORY.length, 15);
-  STORY.forEach(R => { for (const k of ['n', 'ch', 'ln', 'lt', 'hh', 'who', 'say', 'art', 'talk', 'pn', 'sc']) assert.ok(R[k], k); assert.ok(existsSync(`assets/story/${R.art}.webp`)); assert.ok(existsSync(`assets/story/${R.talk}.webp`)); });
-  assert.equal(PIECES.length, 27); assert.equal(new Set(PIECES.map(p => p.k)).size, 27, '조각 파일 이름 겹침 없음'); PIECES.forEach(p => { assert.ok(existsSync(`assets/story/items/${p.k}.webp`), p.k); assert.ok(WHO_ART[p.who]); });
-  STORY.forEach(R => assert.equal(R.slots.length, 4));
-  const at = (d, more) => ({ date: new Date(2026, 10, d, 9).toISOString(), activity: 'walk', cadence: 100, ...more });
-  assert.equal(pieceCount([]), 0);
-  assert.equal(pieceToday({ d: '2026-11-07', n: 3 }, '2026-11-07'), 3); assert.equal(pieceToday({ d: '2026-11-06', n: 3 }, '2026-11-07'), 0, '다음 날은 0부터'); assert.equal(pieceToday(undefined, '2026-11-07'), 0);
-  assert.equal(pieceCount([at(1), at(1), at(1), at(1)]), 3, '하루 최대 3개');
-  assert.equal(pieceCount([at(1), at(2), at(3, { autoRec: true }), at(4, { demo: true }), at(5, { warnings: ['fastGps'] }), at(6, { activity: 'video', view: 'side' }), at(7, { cadence: null })]), 2, '자동·데모·차량·영상·결과 없음 제외');
-  assert.equal(pieceCount(Array.from({ length: 20 }, (_, i) => at(1 + i))), 20);
-  assert.equal(pieceCount(Array.from({ length: 40 }, (_, i) => at(1 + i))), 27, '최대 27 (1·2·3부 9개씩)');
+  STORY.forEach(R => assert.ok(existsSync(`assets/story/${R.art}.webp`) && existsSync(`assets/story/${R.talk}.webp`), R.n));
+  assert.ok(!STORY.some(R => /조각|도감|꾸미/.test(R.lt + R.say + R.ln)), '조각 수집을 말하는 글 없음');
   console.log('미러리아 점검 통과');
 }
 { // GPS 속도가 활동 범위를 넘는 기록 (민원: 차를 탄 채 측정)

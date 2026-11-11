@@ -1,5 +1,5 @@
-import { analyzeWalk, fastMinutes, withDistance, gpsSpeed, gpsDistance, guessActivity, guessPosition, routeMarks, RUN_CAD, analyzeJog, mixActivity, stairClimb, FLOOR_M, STAIR_STEP_M, chunks, walkRunSegs, elevation, slopeSegs, dropRoute, pruneRoutes, sumTags, lakeDirect, lakeCount, lakePos, lakePick, storyOpen, storyCur, noStat, gpsFastCheck, pieceCount, pieceToday } from './gait.js';
-import { STORY, storyArt, PIECES, WHO_ART, pieceArt, PART2_AT, PART2, PART3_AT, PART3 } from './story.js';
+import { analyzeWalk, fastMinutes, withDistance, gpsSpeed, gpsDistance, guessActivity, guessPosition, routeMarks, RUN_CAD, analyzeJog, mixActivity, stairClimb, FLOOR_M, STAIR_STEP_M, chunks, walkRunSegs, elevation, slopeSegs, dropRoute, pruneRoutes, sumTags, lakeDirect, lakeCount, lakePos, lakePick, storyOpen, storyCur, noStat, gpsFastCheck } from './gait.js';
+import { STORY, storyArt, PART2_AT, PART2, PART3_AT, PART3 } from './story.js';
 import { analyzeSide, analyzeFrontal, extractPose, drawSnapshot, PART_ICON } from './video.js';
 
 const $ = id => document.getElementById(id);
@@ -936,7 +936,7 @@ function saveRec(rec, hist, demo, raw) {
   if (pendingEnd) { rec.warnings = [...(rec.warnings ?? []), pendingEnd]; pendingEnd = null; }
   if (metroEnd) rec.metro = metroEnd;                                       // 박자 소리를 켜고 시작해 끝까지 박을 놓치지 않음 (중간에 앱이 다시 열리면 안 남김)
   metroStart = metroEnd = 0;   // 결과·기록·익명 전송에 '자동으로 끝냄'
-  if (lakeDirect({ ...rec, demo })) storyDue = pieceDue = true;                        // 미러리아: 다음에 첫 화면으로 올 때 볼 차례인지 확인
+  if (lakeDirect({ ...rec, demo })) storyDue = true;                        // 미러리아: 다음에 첫 화면으로 올 때 볼 차례인지 확인
   if (demo) rec.demo = true;                                                // 측정 요약값 계산에서 빼려고
   if (raw && !demo && !raw[0]?.mag) rawPut(rec.date, raw.map(p => [Math.round(p.t * 10) / 10, +p.x.toFixed(3), +p.y.toFixed(3), +p.z.toFixed(3)])).catch(() => {});
   hist.unshift(rec);
@@ -1035,7 +1035,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v247';
+const APP_VERSION = 'v248';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -1947,7 +1947,7 @@ function setTab(name) {
   closeAllSub();                                                          // 탭바 '홈'을 눌러도 홈 첫 화면으로
   document.body.dataset.tab = name;
   for (const b of document.querySelectorAll('#tabbar button')) b.setAttribute('aria-selected', b.dataset.go === name);
-  if (name === 'home') { renderHome(); setTimeout(() => { lakeTutMaybe(); storyMaybe(); pieceMaybe(); }, 300); }    // 닫는 판의 history 되돌림이 끝난 뒤
+  if (name === 'home') { renderHome(); setTimeout(() => { lakeTutMaybe(); storyMaybe(); }, 300); }    // 닫는 판의 history 되돌림이 끝난 뒤
 }
 document.querySelector('#tabbar').addEventListener('click', e => {
   const b = e.target.closest('button[data-go]'); if (!b) return;
@@ -3151,71 +3151,11 @@ function storyLetter(i, again) {                                           // ag
   if (subOpen !== 'spStory') openSub('spStory');
   $('spStory').querySelector('.storyGo').focus({ preventScroll: true });
 }
-// ── 거울 조각: 측정 뒤 첫 화면으로 올 때 하나씩 보여 줌. 저장은 '본 조각 수'(pieceSeen)와 놓은 자리(storyDeco)뿐, 전송 안 함 ──
-let pieceDue = false, decoSel = null;
-const josa = (w, a, b) => (w.charCodeAt(w.length - 1) - 0xAC00) % 28 ? a : b;   // 받침 있으면 a (이/가)
-const piecesOwned = () => store.get('pieceSeen', 0);   // 가진 조각 = 발견 화면으로 본 조각. 기록을 지워도 줄지 않음, 기존 사용자도 측정마다 하나씩 (검수팀)
-function pieceMaybe() {
-  if (!pieceDue || !store.get('lakeTut', false) || subOpen || !$('pickSheet').hidden || document.body.dataset.tab !== 'home') return;
-  pieceDue = false;
-  const seen = store.get('pieceSeen', 0), today = new Date().toLocaleDateString('sv-SE'), n = pieceToday(store.get('pieceDay'), today);
-  if (seen >= PIECES.length) return;
-  if (n >= 3) return toast('오늘 조각은 다 찾았어요. 내일 또 찾아요.');   // 오늘 3개를 본 뒤의 측정. 밀린 조각은 다음 날부터 하루 3개씩
-  if (pieceCount(store.get('history', [])) <= seen) return;
-  store.set('pieceDay', { d: today, n: n + 1 }); store.set('pieceSeen', seen + 1); pieceFind(seen);
-}
-function pieceFind(k) {
-  const p = PIECES[k], R = STORY[storyCur(storyRead())];
-  $('spStory').innerHTML = `<div class="storyScreen pieceScreen" style="background:${R.pn}">${storyImg(R, 'storyBlurMore')}<div class="pieceShade"></div><button class="spBack" hidden></button>
-    <div class="storyIn"><div class="storyCh">거울 조각</div><div class="pieceTitle">조각 하나를<br>주웠어요</div></div>
-    <div class="pieceShard"><svg viewBox="0 0 220 230" aria-hidden="true"><defs><clipPath id="pcClip"><path d="M60 6L196 30L214 150L120 224L18 176L8 70Z"/></clipPath><radialGradient id="pcGlow"><stop offset="0" stop-color="#FFF1C4" stop-opacity=".8"/><stop offset="1" stop-color="#FFF1C4" stop-opacity="0"/></radialGradient></defs>
-      <circle cx="110" cy="115" r="120" fill="url(#pcGlow)" opacity=".5"/><g clip-path="url(#pcClip)"><rect width="220" height="230" fill="#1b2a33"/><image href="${pieceArt(p.k)}" x="50" y="40" width="120" height="150" preserveAspectRatio="xMidYMid meet"/></g>
-      <path d="M60 6L196 30L214 150L120 224L18 176L8 70Z" fill="none" stroke="#F6EFE2" stroke-width="2.5"/><path d="M70 20L150 36" stroke="#fff" stroke-width="3" opacity=".6" stroke-linecap="round"/></svg></div>
-    <p class="pieceText">조각 안에 작은 <b>${p.n}</b>${josa(p.n, '이', '가')} 비쳐요.<br>물 아래 누군가의 물건 같아요.</p>
-    <div class="storyBtm"><p class="pieceN">${k + 1} / ${PIECES.length}</p><button class="storyGo" data-piecemap>지도에 놓기</button><button class="storyLater pieceLater" data-lakeclose>나중에</button></div></div>`;
-  openSub('spStory'); $('spStory').querySelector('.storyGo').focus({ preventScroll: true });
-}
-// 지역 꾸미기: 편지를 읽은 지역에만. 아래에서 물건을 고르고 빈자리를 누르면 놓임, 놓인 물건을 누르면 뺌. 한 물건은 한 자리에만
-function storyDeco(i, visit) {
-  const R = STORY[i], deco = store.get('storyDeco', {}), here = deco[i] ?? {}, owned = PIECES.slice(0, piecesOwned());
-  const where = k => Object.entries(deco).find(([, sl]) => Object.values(sl).includes(k))?.[0];
-  $('spStory').innerHTML = `<div class="decoScreen" style="background:${R.pn}"><div class="sphead"><button class="spBack" aria-label="뒤로">‹</button><h2 class="storyMapH">${R.n}</h2><button class="bookBtn" data-storyagain="${i}">편지 다시 읽기 ›</button></div>
-    <div class="decoBox" style="--ar:${R.ar}"><img src="${storyArt(R.art)}" alt="">${R.slots.map(([x, y], s) => here[s] ? `<button class="decoItem" style="left:${x}%;top:${y}%" data-decoout="${i},${s}" aria-label="${PIECES.find(p => p.k === here[s]).n} 빼기"><img src="${pieceArt(here[s])}" alt=""></button>`
-      : `<button class="decoSlot ${decoSel ? 'pulse' : ''}" style="left:${x}%;top:${y}%" data-decoin="${i},${s}" aria-label="빈자리 ${s + 1}"></button>`).join('')}</div>
-    <div class="decoTrayWrap">${visit ? `<div class="decoVisit"><img src="${storyArt(WHO_ART[visit.who])}" alt=""><div class="decoSay">${visit.say}<small>${visit.who}${josa(visit.who, '이', '가')} 잠깐 들렀어요</small></div></div>` : ''}
-    <div class="decoTray"><h4>${owned.length ? '가진 물건 · 고른 뒤 빈자리를 눌러 놓아요' : '측정하면 물 아래 물건 조각을 찾아요'}</h4><div class="decoItems">${owned.map(p => `<button class="decoIt ${decoSel === p.k ? 'on' : ''}" data-decosel="${p.k}" aria-pressed="${decoSel === p.k}"><img src="${pieceArt(p.k)}" alt="">${p.n}${where(p.k) != null && +where(p.k) !== i ? `<small>${STORY[where(p.k)].n.split(' ')[0]}</small>` : ''}</button>`).join('')}</div></div></div></div>`;
-  $('spStory').scrollTop = 0;
-  if (subOpen !== 'spStory') openSub('spStory');
-}
-function pieceBook() {
-  const n = piecesOwned();
-  $('spStory').innerHTML = `<div class="decoScreen bookScreen"><div class="sphead"><button class="spBack" aria-label="뒤로">‹</button><h2 class="storyMapH">조각 도감</h2></div>
-    <p class="storyMapS">측정할 때마다 정해진 순서로 하나씩 찾아요 · ${n} / ${PIECES.length}</p>
-    ${[[0, '1부'], [9, PART2], [18, PART3]].map(([o, h]) => `<h3 class="storyPartH">${h}</h3><div class="bookGrid">${PIECES.slice(o, o + 9).map((p, j) => `<div class="bookCell ${o + j < n ? '' : 'no'}"><span class="bookRg">${p.rg}</span><img src="${pieceArt(p.k)}" alt="">${o + j < n ? p.n : '?'}</div>`).join('')}</div>`).join('')}
-    <p class="storyMapS bookFoot">쉬는 날이 있어도 조각은 사라지지 않아요.</p></div>`;
-  $('spStory').scrollTop = 0;
-  if (subOpen !== 'spStory') openSub('spStory');
-}
-document.addEventListener('click', e => {
-  const q = a => e.target.closest(`[${a}]`); let b;
-  if (q('data-piecemap')) { const read = storyRead(), cur = storyCur(read); return read > cur ? storyDeco(cur) : (closeSub(), setTimeout(storyMap, 250)); }
-  if (q('data-piecebook')) return pieceBook();
-  if ((b = q('data-decosel'))) { decoSel = decoSel === b.dataset.decosel ? null : b.dataset.decosel; return storyDeco(+$('spStory').querySelector('.decoBox [data-decoin], .decoBox [data-decoout]').dataset[$('spStory').querySelector('.decoBox [data-decoin]') ? 'decoin' : 'decoout'].split(',')[0]); }
-  if ((b = q('data-decoout'))) { const [i, s] = b.dataset.decoout.split(',').map(Number), d = store.get('storyDeco', {}); delete d[i]?.[s]; store.set('storyDeco', d); return storyDeco(i); }
-  if ((b = q('data-decoin'))) {
-    const [i, s] = b.dataset.decoin.split(',').map(Number);
-    if (!decoSel) return toast(piecesOwned() ? '아래에서 놓을 물건을 먼저 골라요' : '아직 찾은 조각이 없어요');
-    const d = store.get('storyDeco', {}), k = decoSel;
-    for (const sl of Object.values(d)) for (const x in sl) if (sl[x] === k) delete sl[x];   // 다른 자리에 있던 물건은 옮겨 옴
-    (d[i] ??= {})[s] = k; store.set('storyDeco', d); decoSel = null;
-    const p = PIECES.find(x => x.k === k); return storyDeco(i, { who: p.who, say: p.say });
-  }
-});
 function storyMap() {                                                      // 썸네일은 지도를 열 때만 그림
   const read = storyRead(), open = storyOpen(lakeCount(store.get('history', []))), cur = storyCur(read);
-  $('spStoryMap').innerHTML = `<div class="sphead"><button class="spBack" aria-label="뒤로">‹</button><h2 class="storyMapH">미러리아 지도</h2><button class="bookBtn" data-piecebook>조각 도감 ›</button></div><p class="storyMapS">한 바퀴마다 물 아래 땅과 편지 한 통이 드러나요</p>
+  $('spStoryMap').innerHTML = `<div class="sphead"><button class="spBack" aria-label="뒤로">‹</button><h2 class="storyMapH">미러리아 지도</h2></div><p class="storyMapS">한 바퀴마다 물 아래 땅과 편지 한 통이 드러나요</p>
     ${STORY.map((R, i) => { const done = i < read, unread = i === read && open > read, here = i === cur && !done;   // 아직 안 읽어도 지금 있는 호수는 색과 이름으로
-      return (i === PART2_AT ? `<h3 class="storyPartH">${PART2}</h3>` : i === PART3_AT ? `<h3 class="storyPartH">${PART3}</h3>` : '') + `<button class="storyNd ${done || here ? '' : 'lk'}" ${done ? `data-storydeco="${i}"` : unread ? `data-storyunread="${i}"` : 'disabled'}><span class="storyTh"><img src="${storyArt(R.art)}" alt=""></span>
+      return (i === PART2_AT ? `<h3 class="storyPartH">${PART2}</h3>` : i === PART3_AT ? `<h3 class="storyPartH">${PART3}</h3>` : '') + `<button class="storyNd ${done || here ? '' : 'lk'}" ${done ? `data-storyagain="${i}"` : unread ? `data-storyunread="${i}"` : 'disabled'}><span class="storyTh"><img src="${storyArt(R.art)}" alt=""></span>
         <span><span class="storyA">${done || here ? R.n : '아직 비치지 않은 곳'}</span><span class="storyB ${i === cur || unread ? 'cur' : ''}">${done ? (i === cur ? '지금 여기 · 편지 1통' : '편지 1통') : here ? (unread ? '지금 여기 · 읽지 않은 편지 1통' : '지금 여기 · 한 번 걸으면 편지가 드러나요') : unread ? '읽지 않은 편지 1통' : '한 바퀴를 돌면 드러나요'}</span></span></button>`; }).join('')}
     ${read >= STORY.length ? '<p class="storyMapS">다음 이야기를 준비하고 있어요.</p>' : ''}<p class="storyNt">실제 위치와 상관없는 이야기 속 지도예요. 측정 횟수로만 열려요.<br>미러리아와 그곳 사람들은 앱 안의 이야기예요. 편지는 앱이 미리 써 둔 글이에요.<br>이야기 그림은 생성형 AI로 만들었어요.</p>`;
   openSub('spStoryMap');
@@ -3227,9 +3167,8 @@ document.addEventListener('click', e => {
   if ((b = q('data-storytalk'))) return storyTalk(+b.dataset.storytalk);
   if ((b = q('data-storyopen'))) return storyLetter(+b.dataset.storyopen);
   if ((b = q('data-storyagain'))) return storyLetter(+b.dataset.storyagain, true);
-  if ((b = q('data-storydeco'))) { decoSel = null; return storyDeco(+b.dataset.storydeco); }
   if ((b = q('data-storyunread'))) return storyArrive(+b.dataset.storyunread);
-  if ((b = q('data-storykeep'))) { store.set('storyRead', Math.max(storyRead(), +b.dataset.storykeep + 1)); while (subOpen) closeSub(); renderHome(); setTimeout(pieceMaybe, 350); }   // 도착 → 편지 → 조각 순서
+  if ((b = q('data-storykeep'))) { store.set('storyRead', Math.max(storyRead(), +b.dataset.storykeep + 1)); while (subOpen) closeSub(); renderHome(); }   // 도착 → 대화 → 편지 → 일지
 });
 const LAKE_TUT = [
   ['호수 한 바퀴를<br>같이 걸어 볼까요?', '잴 때마다 길이 한 칸씩 이어져요.', null],
