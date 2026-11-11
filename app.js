@@ -1035,7 +1035,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v243';
+const APP_VERSION = 'v244';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -3116,7 +3116,8 @@ function lakeHtml() {
       <button class="storyLink" data-storymap>미러리아 지도 ›${storyOpen(n) > read ? '<i aria-label="읽지 않은 편지 있음"></i>' : ''}</button></div>
     <div class="lakeBody">${last ? `<div class="storyVal"><b>${c}</b><span>걸음/분 · ${lakeRecName(last)}</span></div>` : ''}${t ? `<p>오늘 걸어 재면 ${lakeRecName(t.h)}과 나란히 보여 드려요.</p>` : ''}
       ${walk ? `<div class="lakeRow"><span>Perry 책 평균</span><b>${norm} · 차이 ${signed(c - norm)}</b></div><div class="lakeRow"><span>측정 정확도</span><b>${GRADE[cadGradeOf(last)][1]}</b></div>` : ''}
-      <button class="lakeBtn" data-lakego>걸어 보기</button><p class="lakeFine">쉬어도 칸은 줄지 않아요. 몸이 불편한 날은 걷지 않아도 돼요.</p></div></div>`;
+      <button class="lakeBtn" data-lakego>걸어 보기</button><p class="lakeFine lakeNext">${storyOpen(n) >= STORY.length ? '모든 곳을 다 걸었어요' : `측정을 ${n ? 6 - n % 6 : 1}번 더 하면 다음 곳이 보여요`}</p>
+      <p class="lakeFine">쉬어도 칸은 줄지 않아요. 몸이 불편한 날은 걷지 않아도 돼요.</p></div></div>`;   // 칸은 걸음 수가 아니라 측정 횟수로 움직임 (가족 사용자 오해, 법률 46번 후속)
 }
 function lakeAnim() {                                                      // 측정 후 첫 화면으로 오면 길이 .7초 동안 이어짐. 저장 없이 이 실행 안에서만
   const n = lakeCount(store.get('history', [])), from = lakeSeen ?? n, el = $('homeTop').querySelector('.lakeWalked'); lakeSeen = n;
