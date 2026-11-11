@@ -1035,7 +1035,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v245';
+const APP_VERSION = 'v246';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -3111,7 +3111,7 @@ function lakeHtml() {
       <h2 class="lakeBH">${n ? '같은 길을<br>함께<br>걸어요' : '미러리아를<br>같이 걸어<br>볼까요?'}</h2>
       <button class="storyLink" data-storymap>미러리아 지도 ›${storyOpen(n) > read ? '<i aria-label="읽지 않은 편지 있음"></i>' : ''}</button><span class="lakeAi">그림: 생성형 AI</span></div>
     <div class="lakeBand"><img class="lakeBandImg" src="${storyArt(R.art)}" alt=""><div class="lakeBandIn"><svg class="lakeDots" viewBox="0 0 300 30" aria-hidden="true">${route}</svg>
-      <p>${storyOpen(n) >= STORY.length ? '모든 곳을 다 걸었어요' : `측정을 ${n ? 6 - n % 6 : 1}번 더 하면 다음 곳이 보여요`}</p><p>쉬어도 칸은 줄지 않아요. 몸이 불편한 날은 걷지 않아도 돼요.</p>
+      <p>${storyOpen(n) > read ? '지도에 읽지 않은 편지가 있어요' : storyOpen(n) >= STORY.length ? '모든 곳을 다 걸었어요' : `측정을 ${n ? 6 - n % 6 : 1}번 더 하면 다음 곳이 보여요`}</p><p>쉬어도 칸은 줄지 않아요. 몸이 불편한 날은 걷지 않아도 돼요.</p>
       <button class="lakeBtn" data-lakego>걸어 보기</button></div></div></div>`;   // 칸은 걸음 수가 아니라 측정 횟수로 움직임 (법률 46번 후속)
 }
 function lakeAnim() {                                                      // 측정 후 첫 화면으로 오면 길이 .7초 동안 이어짐. 저장 없이 이 실행 안에서만
