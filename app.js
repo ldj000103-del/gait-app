@@ -1035,7 +1035,7 @@ function openFeedback() {
 $('fbBtn').addEventListener('click', openFeedback);
 
 // ── 처음 시작할 때 동의 ──
-const APP_VERSION = 'v242';
+const APP_VERSION = 'v243';
 let consent = store.get('consent', null);
 function showConsent() {
   document.body.classList.add('needConsent');
@@ -3281,12 +3281,13 @@ function renderHomeTop() {
   const last = v[0], left = last ? Math.ceil((+last.d + 30 * 864e5 - +today) / 864e5) : null;
   const prev = last && (v.find(x => !sameM(x.d, last.d)) ?? v[1]);
   const pair = prev ? (sameM(prev.d, last.d) ? '최근 두 영상' : `${prev.d.getMonth() + 1}월과 ${last.d.getMonth() + 1}월`) : '';
-  $('homeTop').innerHTML = `${lakeHtml()}<div class="card mirror">
+  $('homeTop').innerHTML = `<div class="card mirror">
       <div id="mirrorFig">${mirrorSvg(mirrorQ || phaseMid(1))}</div>
       <div class="mlabs"><span>페리의 보행 분석 기준</span><span>나</span></div>
       <button data-shoot="" class="mshoot"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="6" width="13" height="12" rx="2.5"/><path d="M15.5 10.5 21 7.5v9l-5.5-3"/></svg>내 걸음 비춰 보기</button>
       <div class="mrows"><button data-shoot="perry"><span class="mn">페리 기준 걸음과 나란히 보기<small>옆모습 영상 → 기준 뼈대 옆에 내 걸음</small></span><span>›</span></button><button data-shoot="shoes"><span class="mn">신발 바꾸기 전·후 비교<small>영상 2개를 찍어 나란히</small></span><span>›</span></button><button data-shoot="run"><span class="mn">달릴 때 무릎 각도 보기<small>천천히 달리는 옆모습 영상</small></span><span>›</span></button></div>
       <div class="mfoot"><span class="sub">혼자 찍기 어렵다면</span><span><a href="#" data-open="vSolo">폰 세우는 법</a> · <a href="#" data-open="vHelper">가족이 찍어 주기</a></span></div></div>
+    ${lakeHtml()}
     <div class="card"><div class="chk"><div class="mdots" aria-label="최근 4개월 영상 점검">${mon.map(m => `<div><i class="${v.some(x => sameM(x.d, m)) ? 'on' : ''}"></i>${m.getMonth() + 1}월</div>`).join('')}</div>
       <div class="chkLeft">${!last ? '첫 점검을 해 보세요' : left > 0 ? `${left}일 남음` : '점검할 때예요'}</div></div>
       <div class="sub" style="margin-top:6px">한 달에 한 번, 옆모습 영상으로 내 걸음을 비춰 봐요${last ? ` · 마지막 ${last.d.getMonth() + 1}월 ${last.d.getDate()}일` : ''}</div>

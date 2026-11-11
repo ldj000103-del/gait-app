@@ -306,7 +306,8 @@
   .lakePulse { transform-box:fill-box; transform-origin:center; animation:lakePulse 1.8s ease-out infinite; stroke-width:1; }
   @keyframes lakePulse { from { transform:scale(1); opacity:.7; } to { transform:scale(2.5); opacity:0; } }
   @media (prefers-reduced-motion: reduce) { .lakePulse { animation:none; opacity:0; } }
-  .mirror .mshoot { background:none; color:var(--accent); border:1px solid var(--accent); display:flex; align-items:center; justify-content:center; gap:8px; }
+  .mirror .mshoot { background:#000; color:#fff; display:flex; align-items:center; justify-content:center; gap:8px; }   /* v156 모양으로 되돌림: 밝은 화면 검정·어두운 화면 흰색, 화면의 진한 버튼은 이것 하나 */
+  @media (prefers-color-scheme: dark) { .mirror .mshoot { background:#fff; color:#000; } }
   .mirror .mshoot svg { width:20px; height:20px; margin:0; color:inherit; flex:none; fill:none; stroke:currentColor; stroke-width:1.75; stroke-linecap:round; stroke-linejoin:round; }
   .mirror .mlabs { display:flex; justify-content:center; gap:28px; font-size:.75rem; color:var(--sub); margin:2px 0 12px; }
   .hchips { display:flex; flex-wrap:wrap; justify-content:center; gap:6px; margin:10px 0 0; }
